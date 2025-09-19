@@ -146,16 +146,17 @@ async def process_pack_name(message: Message, bot: Bot, state: FSMContext, db_op
         
         # Create a minimal sticker object for our operations
         class MinimalSticker:
-            def __init__(self, file_id: str, emoji: str, is_video: bool):
+            def __init__(self, file_id: str, emoji: str, is_video: bool, is_animated: bool = False):
                 self.file_id = file_id
                 self.emoji = emoji
                 self.is_video = is_video
-                self.is_animated = False
+                self.is_animated = is_animated
         
         minimal_sticker = MinimalSticker(
             file_id=data['sticker_file_id'],
             emoji=data.get('sticker_emoji'),
-            is_video=data.get('sticker_is_video', False)
+            is_video=data.get('sticker_is_video', False),
+            is_animated=data.get('sticker_is_animated', False)
         )
         
         # Generate pack details

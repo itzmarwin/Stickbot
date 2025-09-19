@@ -56,10 +56,12 @@ async def download_sticker(bot: Bot, sticker: Sticker) -> Optional[str]:
 
 def get_sticker_file_extension(sticker: Sticker) -> str:
     """Get appropriate file extension for sticker type"""
-    if sticker.is_video:
-        return ".webm"
+    if sticker.is_animated:
+        return ".tgs"  # Animated stickers (Lottie format)
+    elif sticker.is_video:
+        return ".webm"  # Video stickers
     else:
-        return ".webp"  # Static stickers are WebP
+        return ".webp"  # Static stickers
 
 
 def cleanup_temp_file(file_path: str) -> None:
@@ -81,8 +83,10 @@ async def create_input_sticker(sticker_file_path: str, emoji_list: list[str]) ->
     # Create InputFile from file path
     input_file = FSInputFile(sticker_file_path)
     
-    # Determine sticker format
-    if sticker_file_path.endswith('.webm'):
+    # Determine sticker format based on file extension
+    if sticker_file_path.endswith('.tgs'):
+        sticker_format = "animated"
+    elif sticker_file_path.endswith('.webm'):
         sticker_format = "video"
     else:
         sticker_format = "static"

@@ -76,9 +76,10 @@ async def create_input_sticker(sticker_file_path: str, emoji_list: list[str]) ->
     """
     Create InputSticker object for Telegram API
     """
-    # Read sticker file
-    async with aiofiles.open(sticker_file_path, 'rb') as f:
-        sticker_data = await f.read()
+    from aiogram.types import FSInputFile
+    
+    # Create InputFile from file path
+    input_file = FSInputFile(sticker_file_path)
     
     # Determine sticker format
     if sticker_file_path.endswith('.webm'):
@@ -88,7 +89,7 @@ async def create_input_sticker(sticker_file_path: str, emoji_list: list[str]) ->
     
     # Create InputSticker
     input_sticker = InputSticker(
-        sticker=sticker_data,
+        sticker=input_file,
         emoji_list=emoji_list,
         format=sticker_format
     )

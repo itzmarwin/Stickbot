@@ -31,9 +31,9 @@ def generate_pack_link(pack_short_name: str) -> str:
 
 
 def is_sticker_supported(sticker: Sticker) -> bool:
-    """Check if sticker type is supported (static image or video)"""
-    # Check if it's a static sticker (image) or video sticker
-    return not sticker.is_animated  # Animated stickers are not supported
+    """Check if sticker type is supported (static image, video, or animated)"""
+    # Now we support all three types: static, video, and animated
+    return True  # Support all sticker types
 
 
 def extract_sticker_from_message(message: Message) -> Optional[Sticker]:

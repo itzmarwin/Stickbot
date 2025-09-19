@@ -62,7 +62,7 @@ class MongoDB:
     
     async def _create_indexes(self) -> None:
         """Create database indexes for optimization"""
-        if self.users_collection:
+        if self.users_collection is not None:
             # Index on user_id and bot_id combination for faster queries
             await self.users_collection.create_index([
                 ("user_id", 1),
@@ -76,7 +76,7 @@ class MongoDB:
     
     def get_users_collection(self) -> AsyncIOMotorCollection:
         """Get users collection"""
-        if not self.users_collection:
+        if self.users_collection is None:
             raise RuntimeError("Database not connected")
         return self.users_collection
 

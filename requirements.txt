@@ -13,7 +13,7 @@ Pillow==10.4.0
 
 # HTTP Requests (for downloading stickers)
 aiohttp==3.9.5
-aiofiles==23.2.0
+aiofiles==23.2.1
 
 # Utilities
 python-dateutil==2.9.0

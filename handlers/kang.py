@@ -96,6 +96,7 @@ async def kang_command(message: Message, bot: Bot, state: FSMContext, db_operati
                 sticker_file_id=sticker.file_id,
                 sticker_emoji=sticker.emoji,
                 sticker_is_video=sticker.is_video,
+                sticker_is_animated=sticker.is_animated,
                 chat_id=message.chat.id,
                 reply_to_message_id=message.message_id
             )
@@ -137,18 +138,11 @@ async def process_pack_name(message: Message, bot: Bot, state: FSMContext, db_op
         # Get FSM data
         data = await state.get_data()
         
-        # Reconstruct sticker object (simplified)
-        from aiogram.types import Sticker
-        sticker_data = {
-            'file_id': data['sticker_file_id'],
-            'file_unique_id': '',  # We don't store this, but it's not used in our operations
-            'type': 'video' if data['sticker_is_video'] else 'regular',
-            'width': 0,  # Not needed for our operations
-            'height': 0,  # Not needed for our operations
-            'is_animated': False,
-            'is_video': data['sticker_is_video'],
-            'emoji': data.get('sticker_emoji')
-        }
+        # Check if required data exists
+        if 'sticker_file_id' not in data:
+            await message.answer("❌ Session expired. Please try /kang again.")
+            await state.clear()
+            return
         
         # Create a minimal sticker object for our operations
         class MinimalSticker:
@@ -161,7 +155,7 @@ async def process_pack_name(message: Message, bot: Bot, state: FSMContext, db_op
         minimal_sticker = MinimalSticker(
             file_id=data['sticker_file_id'],
             emoji=data.get('sticker_emoji'),
-            is_video=data['sticker_is_video']
+            is_video=data.get('sticker_is_video', False)
         )
         
         # Generate pack details

@@ -1,0 +1,19 @@
+# Telegram Bot Framework
+aiogram==3.10.0
+
+# Database
+motor==3.5.1
+pymongo==4.8.0
+
+# Environment Variables
+python-dotenv==1.0.1
+
+# Image Processing (for future sticker processing)
+Pillow==10.4.0
+
+# HTTP Requests (for downloading stickers)
+aiohttp==3.9.5
+aiofiles==23.2.0
+
+# Utilities
+python-dateutil==2.9.0

@@ -22,12 +22,12 @@ class Settings:
     
     # Bot Constants
     MAX_STICKERS_PER_PACK: int = 120  # Telegram limit
-    SUPPORTED_STICKER_TYPES: tuple = ("photo", "video", "document")  # Static images and videos
+    SUPPORTED_STICKER_TYPES: tuple = ("photo", "video", "document", "animated")  # All sticker types
     
     # Messages
     WELCOME_MESSAGE = (
         "Hey! I'm a Sticker Kang Bot. 🤖\n\n"
-        "Use /kang in a group by replying to a sticker to start creating your own sticker pack!"
+        "Use /kang in a group by replying to any sticker (static, animated, or video) to start creating your own sticker pack!"
     )
     
     KANG_PRIVATE_CHAT_MESSAGE = "⚠️ Please use /kang in a group by replying to a sticker"

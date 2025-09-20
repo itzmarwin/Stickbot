@@ -115,18 +115,21 @@ async def convert_gif_to_webm(gif_file_path: str) -> Optional[str]:
         webm_file_path = temp_file.name
         temp_file.close()
         
-        # FFmpeg command for GIF to WebM conversion (optimized for stickers)
+        # FFmpeg command for GIF to WebM conversion (Telegram video sticker compliant)
         cmd = [
             'ffmpeg',
             '-i', gif_file_path,            # Input GIF file
+            '-vf', 'scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=00000000',  # Resize to 512x512 with padding
+            '-t', '3',                      # Limit duration to 3 seconds
             '-c:v', 'libvpx-vp9',           # VP9 codec for better compression
             '-crf', '30',                   # Quality (higher = smaller file)
-            '-b:v', '0',                    # Variable bitrate
+            '-b:v', '1000k',                # Max bitrate for video stickers
             '-deadline', 'good',            # Quality vs speed tradeoff
-            '-cpu-used', '0',               # CPU usage (0 = best quality)
+            '-cpu-used', '2',               # CPU usage (2 = good balance)
             '-loop', '0',                   # Loop infinitely
             '-an',                          # No audio
             '-pix_fmt', 'yuva420p',         # Pixel format with alpha support
+            '-metadata:s:v:0', 'alpha_mode="1"',  # Enable alpha channel
             '-f', 'webm',                   # Force WebM format
             '-y',                           # Overwrite output file
             webm_file_path                  # Output WebM file

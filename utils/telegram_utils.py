@@ -90,9 +90,35 @@ def format_pack_creation_message(pack_name: str, pack_link: str) -> str:
     )
 
 
+def extract_gif_from_message(message: Message) -> Optional[any]:
+    """Extract GIF from message if it's a reply to GIF"""
+    if not message.reply_to_message:
+        return None
+    
+    reply_message = message.reply_to_message
+    
+    # Check if replied message contains a GIF (animation)
+    if reply_message.animation:
+        return reply_message.animation
+    
+    # Check if it's a document that might be a GIF
+    if reply_message.document and reply_message.document.mime_type == "image/gif":
+        return reply_message.document
+    
+    return None
+
+
 def format_sticker_added_message(pack_name: str, pack_link: str) -> str:
     """Format the sticker added success message"""
     return (
         f"✅ Sticker added to **{pack_name}**\n\n"
+        f"🔗 [View Pack]({pack_link})"
+    )
+
+
+def format_gif_conversion_message(pack_name: str, pack_link: str) -> str:
+    """Format the GIF conversion success message"""
+    return (
+        f"✅ GIF converted to video sticker and added to **{pack_name}**\n\n"
         f"🔗 [View Pack]({pack_link})"
     )

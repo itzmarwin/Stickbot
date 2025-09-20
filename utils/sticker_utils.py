@@ -23,6 +23,48 @@ async def download_sticker(bot: Bot, sticker: Sticker) -> Optional[str]:
         if not file_info.file_path:
             logger.error("Could not get file path for sticker")
             return None
+
+
+async def add_sticker_to_pack(
+    bot: Bot,
+    user_id: int,
+    pack_short_name: str,
+    sticker: Sticker
+) -> bool:
+    """
+    Add sticker to existing pack
+    Returns True if successful, False otherwise
+    """
+    try:
+        # Download the sticker
+        sticker_file_path = await download_sticker(bot, sticker)
+        if not sticker_file_path:
+            return False
+        
+        try:
+            # Get emoji for the sticker
+            emoji_list = get_sticker_emoji(sticker)
+            
+            # Create InputSticker
+            input_sticker = await create_input_sticker(sticker_file_path, emoji_list)
+            
+            # Add sticker to pack
+            await bot.add_sticker_to_set(
+                user_id=user_id,
+                name=pack_short_name,
+                sticker=input_sticker
+            )
+            
+            logger.info(f"Added sticker to pack: {pack_short_name}")
+            return True
+            
+        finally:
+            # Clean up temp file
+            cleanup_temp_file(sticker_file_path)
+    
+    except Exception as e:
+        logger.error(f"Error adding sticker to pack: {e}")
+        return False
         
         # Create temporary file
         file_extension = get_sticker_file_extension(sticker)

@@ -5,7 +5,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from config import settings
 from database import init_database, close_database
 from middlewares import DatabaseMiddleware
-from handlers import start_router, kang_router
+from handlers import start_router, kang_router, stickerid_router, getsticker_router, getvidsticker_router
 
 # Configure logging
 logging.basicConfig(
@@ -41,6 +41,9 @@ async def main():
         # Register routers
         dp.include_router(start_router)
         dp.include_router(kang_router)
+        dp.include_router(stickerid_router)
+        dp.include_router(getsticker_router)
+        dp.include_router(getvidsticker_router)
         
         logger.info("Bot initialized successfully")
         

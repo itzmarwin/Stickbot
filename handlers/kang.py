@@ -7,8 +7,8 @@ from config import settings
 from utils import (
     is_private_chat, is_group_chat, extract_sticker_from_message, extract_gif_from_message,
     is_sticker_supported, validate_pack_name, generate_pack_short_name,
-    generate_pack_link, format_pack_creation_message, format_sticker_added_message,
-    format_gif_conversion_message, create_sticker_pack, add_sticker_to_pack, download_gif,
+    generate_pack_link, format_pack_creation_message_with_button, format_sticker_added_message_with_button,
+    create_sticker_pack, add_sticker_to_pack, download_gif,
     convert_gif_to_webm, cleanup_temp_file
 )
 from middlewares import DatabaseOperations
@@ -84,9 +84,15 @@ async def kang_command(message: Message, bot: Bot, state: FSMContext, db_operati
             )
             
             if success:
+                sticker_emoji = sticker.emoji or "🔥"
+                message_text, keyboard = format_sticker_added_message_with_button(
+                    latest_pack.pack_link,
+                    sticker_emoji
+                )
                 await message.answer(
-                    format_sticker_added_message(latest_pack.pack_name, latest_pack.pack_link),
+                    message_text,
                     reply_to_message_id=message.message_id,
+                    reply_markup=keyboard,
                     parse_mode="Markdown"
                 )
                 logger.info(f"Added sticker to pack {latest_pack.pack_short_name} for user {message.from_user.id}")
@@ -162,7 +168,8 @@ async def process_pack_name(message: Message, bot: Bot, state: FSMContext, db_op
                 return
             
             try:
-                # Generate pack details
+                # Generate pack details - add bot username to pack name
+                pack_name_with_bot = f"{pack_name} by @{settings.BOT_USERNAME}"
                 pack_short_name = generate_pack_short_name(pack_name, message.from_user.id)
                 pack_link = generate_pack_link(pack_short_name)
                 
@@ -170,7 +177,7 @@ async def process_pack_name(message: Message, bot: Bot, state: FSMContext, db_op
                 success = await create_pack_with_converted_sticker(
                     bot=bot,
                     user_id=message.from_user.id,
-                    pack_name=pack_name,
+                    pack_name=pack_name_with_bot,  # Pack title with bot username
                     pack_short_name=pack_short_name,
                     webm_file_path=webm_file_path
                 )
@@ -180,7 +187,7 @@ async def process_pack_name(message: Message, bot: Bot, state: FSMContext, db_op
                     user_data = await db_operations.get_or_create_user_data()
                     
                     new_pack = StickerPack(
-                        pack_name=pack_name,
+                        pack_name=pack_name_with_bot,  # Store with bot username
                         pack_short_name=pack_short_name,
                         pack_link=pack_link,
                         created_at=datetime.now()
@@ -191,16 +198,24 @@ async def process_pack_name(message: Message, bot: Bot, state: FSMContext, db_op
                     
                     # Send success message to original chat
                     try:
+                        message_text, keyboard = format_sticker_added_message_with_button(
+                            pack_link, "🎬"
+                        )
                         await bot.send_message(
                             chat_id=data['chat_id'],
-                            text=format_gif_conversion_message(pack_name, pack_link),
+                            text=message_text,
                             reply_to_message_id=data['reply_to_message_id'],
+                            reply_markup=keyboard,
                             parse_mode="Markdown"
                         )
                     except Exception as e:
                         logger.error(f"Failed to send message to original chat: {e}")
+                        message_text, keyboard = format_sticker_added_message_with_button(
+                            pack_link, "🎬"
+                        )
                         await message.answer(
-                            format_gif_conversion_message(pack_name, pack_link),
+                            message_text,
+                            reply_markup=keyboard,
                             parse_mode="Markdown"
                         )
                     
@@ -233,15 +248,16 @@ async def process_pack_name(message: Message, bot: Bot, state: FSMContext, db_op
             is_animated=data.get('sticker_is_animated', False)
         )
         
-        # Generate pack details
+        # Generate pack details - add bot username to pack name
+        pack_name_with_bot = f"{pack_name} by @{settings.BOT_USERNAME}"
         pack_short_name = generate_pack_short_name(pack_name, message.from_user.id)
         pack_link = generate_pack_link(pack_short_name)
         
-        # Create sticker pack
+        # Create sticker pack with bot username in title
         success = await create_sticker_pack(
             bot=bot,
             user_id=message.from_user.id,
-            pack_name=pack_name,
+            pack_name=pack_name_with_bot,  # Pack title with bot username
             pack_short_name=pack_short_name,
             first_sticker=minimal_sticker
         )
@@ -251,7 +267,7 @@ async def process_pack_name(message: Message, bot: Bot, state: FSMContext, db_op
             user_data = await db_operations.get_or_create_user_data()
             
             new_pack = StickerPack(
-                pack_name=pack_name,
+                pack_name=pack_name_with_bot,  # Store with bot username
                 pack_short_name=pack_short_name,
                 pack_link=pack_link,
                 created_at=datetime.now()
@@ -262,17 +278,27 @@ async def process_pack_name(message: Message, bot: Bot, state: FSMContext, db_op
             
             # Send success message to the original chat
             try:
+                sticker_emoji = minimal_sticker.emoji or "🔥"
+                message_text, keyboard = format_pack_creation_message_with_button(
+                    pack_link, sticker_emoji
+                )
                 await bot.send_message(
                     chat_id=data['chat_id'],
-                    text=format_pack_creation_message(pack_name, pack_link),
+                    text=message_text,
                     reply_to_message_id=data['reply_to_message_id'],
+                    reply_markup=keyboard,
                     parse_mode="Markdown"
                 )
             except Exception as e:
                 logger.error(f"Failed to send message to original chat: {e}")
                 # Send to current chat as fallback
+                sticker_emoji = minimal_sticker.emoji or "🔥"
+                message_text, keyboard = format_pack_creation_message_with_button(
+                    pack_link, sticker_emoji
+                )
                 await message.answer(
-                    format_pack_creation_message(pack_name, pack_link),
+                    message_text,
+                    reply_markup=keyboard,
                     parse_mode="Markdown"
                 )
             
@@ -347,8 +373,13 @@ async def handle_gif_kang(message: Message, bot: Bot, state: FSMContext, db_oper
                     )
                     
                     if success:
+                        message_text, keyboard = format_sticker_added_message_with_button(
+                            latest_pack.pack_link,
+                            "🎬"  # Default emoji for GIF conversions
+                        )
                         await processing_msg.edit_text(
-                            format_gif_conversion_message(latest_pack.pack_name, latest_pack.pack_link),
+                            message_text,
+                            reply_markup=keyboard,
                             parse_mode="Markdown"
                         )
                     else:

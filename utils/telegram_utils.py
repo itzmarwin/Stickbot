@@ -81,15 +81,6 @@ def validate_pack_name(pack_name: str) -> tuple[bool, str]:
     return True, ""
 
 
-def format_pack_creation_message(pack_name: str, pack_link: str) -> str:
-    """Format the pack creation success message"""
-    return (
-        f"✅ Pack created: **{pack_name}**\n\n"
-        f"🔗 [View Pack]({pack_link})\n\n"
-        f"{settings.PACK_CREATED_MESSAGE}"
-    )
-
-
 def extract_gif_from_message(message: Message) -> Optional[any]:
     """Extract GIF from message if it's a reply to GIF"""
     if not message.reply_to_message:
@@ -106,6 +97,52 @@ def extract_gif_from_message(message: Message) -> Optional[any]:
         return reply_message.document
     
     return None
+
+
+# New functions with button support and proper formatting
+def create_pack_link_keyboard(pack_link: str) -> any:
+    """Create simple inline keyboard with pack link button only"""
+    from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🎨 VIEW PACK", url=pack_link)]
+    ])
+    
+    return keyboard
+
+
+def format_pack_creation_message_with_button(pack_link: str, emoji: str = "🔥") -> tuple:
+    """Format pack creation message with simple button - same format as sticker added"""
+    message_text = (
+        f"Your sticker has been added!\n"
+        f"Emoji Is : {emoji}"
+    )
+    
+    keyboard = create_pack_link_keyboard(pack_link)
+    
+    return message_text, keyboard
+
+
+def format_sticker_added_message_with_button(pack_link: str, emoji: str = "🔥") -> tuple:
+    """Format sticker added message with simple button"""
+    message_text = (
+        f"Your sticker has been added!\n"
+        f"Emoji Is : {emoji}"
+    )
+    
+    keyboard = create_pack_link_keyboard(pack_link)
+    
+    return message_text, keyboard
+
+
+# Legacy functions for backward compatibility (if needed)
+def format_pack_creation_message(pack_name: str, pack_link: str) -> str:
+    """Format the pack creation success message"""
+    return (
+        f"✅ Pack created: **{pack_name}**\n\n"
+        f"🔗 [View Pack]({pack_link})\n\n"
+        f"{settings.PACK_CREATED_MESSAGE}"
+    )
 
 
 def format_sticker_added_message(pack_name: str, pack_link: str) -> str:

@@ -6,8 +6,12 @@ from config import settings
 
 def generate_pack_short_name(pack_name: str, user_id: int) -> str:
     """
-    FAST Generate a unique short name for the sticker pack
+    Generate a unique short name for the sticker pack
     Format: cleaned_pack_name_userID_by_botusername
+    Telegram requirements:
+    - 1-64 characters
+    - Can only contain English letters, digits and underscores
+    - Must start with a letter
     """
     # Clean pack name: remove special characters, convert to lowercase
     cleaned_name = re.sub(r'[^a-zA-Z0-9_]', '_', pack_name.lower())
@@ -15,12 +19,38 @@ def generate_pack_short_name(pack_name: str, user_id: int) -> str:
     # Remove multiple underscores and strip
     cleaned_name = re.sub(r'_+', '_', cleaned_name).strip('_')
     
+    # If cleaned name is empty after processing, use default
+    if not cleaned_name:
+        cleaned_name = "stickerpack"
+    
+    # Ensure it starts with a letter (Telegram requirement)
+    if not cleaned_name[0].isalpha():
+        cleaned_name = "pack_" + cleaned_name
+    
     # Limit length to avoid Telegram limits
-    if len(cleaned_name) > 20:
-        cleaned_name = cleaned_name[:20]
+    # Calculate available space: total 64 chars minus fixed parts
+    fixed_part_length = len(str(user_id)) + len(settings.BOT_USERNAME) + 5  # 5 for "_by_"
+    max_cleaned_length = 64 - fixed_part_length
+    
+    if max_cleaned_length < 1:
+        # If fixed part is too long, use minimal cleaned name
+        cleaned_name = "pack"
+    elif len(cleaned_name) > max_cleaned_length:
+        cleaned_name = cleaned_name[:max_cleaned_length]
     
     # Generate unique short name
     short_name = f"{cleaned_name}_{user_id}_by_{settings.BOT_USERNAME}"
+    
+    # Final validation - ensure it meets Telegram requirements
+    if len(short_name) > 64:
+        # Fallback: use hash-based approach
+        import hashlib
+        hash_digest = hashlib.md5(f"{pack_name}_{user_id}".encode()).hexdigest()[:10]
+        short_name = f"pack_{hash_digest}_by_{settings.BOT_USERNAME}"
+    
+    # Ensure it starts with a letter
+    if not short_name[0].isalpha():
+        short_name = "a" + short_name[1:]
     
     return short_name
 
@@ -120,7 +150,7 @@ def format_sticker_success_message(pack_link: str, emoji: str = "🔥") -> tuple
     return message_text, keyboard
 
 
-# Aliases for backward compatibility - use the unified function above
+# Aliases for backward compatibility
 def format_pack_creation_message_with_button(pack_link: str, emoji: str = "🔥") -> tuple:
     """Alias for format_sticker_success_message"""
     return format_sticker_success_message(pack_link, emoji)
@@ -129,29 +159,3 @@ def format_pack_creation_message_with_button(pack_link: str, emoji: str = "🔥"
 def format_sticker_added_message_with_button(pack_link: str, emoji: str = "🔥") -> tuple:
     """Alias for format_sticker_success_message"""
     return format_sticker_success_message(pack_link, emoji)
-
-
-# Remove legacy functions to avoid confusion - they are not used in the optimized code
-# def format_pack_creation_message(pack_name: str, pack_link: str) -> str:
-#     """Legacy function - NOT USED in optimized version"""
-#     return (
-#         f"✅ Pack created: **{pack_name}**\n\n"
-#         f"🔗 [View Pack]({pack_link})\n\n"
-#         f"{settings.PACK_CREATED_MESSAGE}"
-#     )
-
-
-# def format_sticker_added_message(pack_name: str, pack_link: str) -> str:
-#     """Legacy function - NOT USED in optimized version"""
-#     return (
-#         f"✅ Sticker added to **{pack_name}**\n\n"
-#         f"🔗 [View Pack]({pack_link})"
-#     )
-
-
-# def format_gif_conversion_message(pack_name: str, pack_link: str) -> str:
-#     """Legacy function - NOT USED in optimized version"""
-#     return (
-#         f"✅ GIF converted to video sticker and added to **{pack_name}**\n\n"
-#         f"🔗 [View Pack]({pack_link})"
-#     )

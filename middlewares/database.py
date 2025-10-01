@@ -1,7 +1,8 @@
 from typing import Callable, Dict, Any, Awaitable, Optional
 from aiogram import BaseMiddleware
 from aiogram.types import TelegramObject, User
-from database import get_database, UserData
+from database.connection import get_database
+from database.models import UserData
 from datetime import datetime
 import logging
 
@@ -51,11 +52,11 @@ class DatabaseOperations:
         self.db = get_database()
     
     async def get_user_data(self) -> Optional[UserData]:
-        """Get user data from database"""
+        """Get user data from database - FAST version"""
         try:
             collection = self.db.get_users_collection()
             
-            # Find user document
+            # Find user document with timeout
             doc = await collection.find_one({
                 "user_id": self.user_id,
                 "bot_id": self.bot_id
@@ -71,14 +72,14 @@ class DatabaseOperations:
             return None
     
     async def save_user_data(self, user_data: UserData) -> bool:
-        """Save user data to database"""
+        """Save user data to database - FAST version"""
         try:
             collection = self.db.get_users_collection()
             
             # Convert to dict for MongoDB
             doc = user_data.to_dict()
             
-            # Use upsert to insert or update
+            # Use upsert to insert or update - optimized for speed
             result = await collection.replace_one(
                 {
                     "user_id": self.user_id,
@@ -88,7 +89,6 @@ class DatabaseOperations:
                 upsert=True
             )
             
-            logger.info(f"Saved user data for user {self.user_id}")
             return True
             
         except Exception as e:
@@ -104,12 +104,28 @@ class DatabaseOperations:
         )
     
     async def get_or_create_user_data(self) -> UserData:
-        """Get existing user data or create new one"""
+        """Get existing user data or create new one - FAST version"""
         user_data = await self.get_user_data()
         
         if user_data is None:
             user_data = await self.create_user_data()
-            # Save the new user data
-            await self.save_user_data(user_data)
+            # Save the new user data (don't wait for completion for faster response)
+            asyncio.create_task(self.save_user_data(user_data))
         
         return user_data
+    
+    async def save_user_data_async(self, user_data: UserData) -> None:
+        """Save user data asynchronously (non-blocking)"""
+        try:
+            collection = self.db.get_users_collection()
+            doc = user_data.to_dict()
+            
+            await collection.replace_one(
+                {"user_id": self.user_id, "bot_id": self.bot_id},
+                doc,
+                upsert=True
+            )
+        except Exception as e:
+            logger.error(f"Async save error for user {self.user_id}: {e}")
+
+import asyncio

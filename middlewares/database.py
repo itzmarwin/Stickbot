@@ -5,6 +5,7 @@ from database.connection import get_database
 from database.models import UserData
 from datetime import datetime
 import logging
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -52,11 +53,11 @@ class DatabaseOperations:
         self.db = get_database()
     
     async def get_user_data(self) -> Optional[UserData]:
-        """Get user data from database - FAST version"""
+        """Get user data from database without creating if not exists"""
         try:
             collection = self.db.get_users_collection()
             
-            # Find user document with timeout
+            # Find user document
             doc = await collection.find_one({
                 "user_id": self.user_id,
                 "bot_id": self.bot_id
@@ -72,14 +73,14 @@ class DatabaseOperations:
             return None
     
     async def save_user_data(self, user_data: UserData) -> bool:
-        """Save user data to database - FAST version"""
+        """Save user data to database"""
         try:
             collection = self.db.get_users_collection()
             
             # Convert to dict for MongoDB
             doc = user_data.to_dict()
             
-            # Use upsert to insert or update - optimized for speed
+            # Use upsert to insert or update
             result = await collection.replace_one(
                 {
                     "user_id": self.user_id,
@@ -96,21 +97,22 @@ class DatabaseOperations:
             return False
     
     async def create_user_data(self) -> UserData:
-        """Create new user data instance"""
+        """Create new user data instance with started=False"""
         return UserData(
             user_id=self.user_id,
             bot_id=self.bot_id,
-            packs=[]
+            packs=[],
+            started=False  # New users haven't started the bot yet
         )
     
     async def get_or_create_user_data(self) -> UserData:
-        """Get existing user data or create new one - FAST version"""
+        """Get existing user data or create new one"""
         user_data = await self.get_user_data()
         
         if user_data is None:
             user_data = await self.create_user_data()
-            # Save the new user data (don't wait for completion for faster response)
-            asyncio.create_task(self.save_user_data(user_data))
+            # Save the new user data immediately
+            await self.save_user_data(user_data)
         
         return user_data
     
@@ -127,5 +129,3 @@ class DatabaseOperations:
             )
         except Exception as e:
             logger.error(f"Async save error for user {self.user_id}: {e}")
-
-import asyncio

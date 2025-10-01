@@ -16,7 +16,7 @@ start_router = Router()
 async def start_command(message: Message, db_operations: DatabaseOperations):
     """
     Handle /start command - only works in private chat
-    Shows welcome message with instructions
+    Marks user as started and shows welcome message
     """
     
     # Check if command is used in private chat
@@ -26,8 +26,10 @@ async def start_command(message: Message, db_operations: DatabaseOperations):
         return
     
     try:
-        # Initialize user data in database (if not exists)
+        # Get or create user data and mark as started
         user_data = await db_operations.get_or_create_user_data()
+        user_data.mark_started()  # Mark user as started
+        await db_operations.save_user_data(user_data)
         
         # Send welcome message
         await message.answer(
@@ -35,7 +37,7 @@ async def start_command(message: Message, db_operations: DatabaseOperations):
             parse_mode="Markdown"
         )
         
-        logger.info(f"Sent welcome message to user {message.from_user.id}")
+        logger.info(f"User {message.from_user.id} started the bot and was marked as started")
         
     except Exception as e:
         logger.error(f"Error in start command for user {message.from_user.id}: {e}")

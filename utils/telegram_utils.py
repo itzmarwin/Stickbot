@@ -6,7 +6,7 @@ from config import settings
 
 def generate_pack_short_name(pack_name: str, user_id: int) -> str:
     """
-    Generate a unique short name for the sticker pack
+    FAST Generate a unique short name for the sticker pack
     Format: cleaned_pack_name_userID_by_botusername
     """
     # Clean pack name: remove special characters, convert to lowercase
@@ -32,7 +32,6 @@ def generate_pack_link(pack_short_name: str) -> str:
 
 def is_sticker_supported(sticker: Sticker) -> bool:
     """Check if sticker type is supported (static image, video, or animated)"""
-    # Now we support all three types: static, video, and animated
     return True  # Support all sticker types
 
 
@@ -99,7 +98,6 @@ def extract_gif_from_message(message: Message) -> Optional[any]:
     return None
 
 
-# New functions with button support and proper formatting
 def create_pack_link_keyboard(pack_link: str) -> any:
     """Create simple inline keyboard with pack link button only"""
     from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
@@ -111,51 +109,49 @@ def create_pack_link_keyboard(pack_link: str) -> any:
     return keyboard
 
 
-def format_pack_creation_message_with_button(pack_link: str, emoji: str = "🔥") -> tuple:
-    """Format pack creation message with simple button - same format as sticker added"""
-    message_text = (
-        f"Your sticker has been added!\n"
-        f"Emoji Is : {emoji}"
-    )
-    
+def format_sticker_success_message(pack_link: str, emoji: str = "🔥") -> tuple:
+    """
+    UNIFIED success message for both stickers and GIFs
+    Returns: (message_text, keyboard)
+    """
+    message_text = f"Your sticker has been added!\nEmoji Is : {emoji}"
     keyboard = create_pack_link_keyboard(pack_link)
     
     return message_text, keyboard
+
+
+# Aliases for backward compatibility - use the unified function above
+def format_pack_creation_message_with_button(pack_link: str, emoji: str = "🔥") -> tuple:
+    """Alias for format_sticker_success_message"""
+    return format_sticker_success_message(pack_link, emoji)
 
 
 def format_sticker_added_message_with_button(pack_link: str, emoji: str = "🔥") -> tuple:
-    """Format sticker added message with simple button"""
-    message_text = (
-        f"Your sticker has been added!\n"
-        f"Emoji Is : {emoji}"
-    )
-    
-    keyboard = create_pack_link_keyboard(pack_link)
-    
-    return message_text, keyboard
+    """Alias for format_sticker_success_message"""
+    return format_sticker_success_message(pack_link, emoji)
 
 
-# Legacy functions for backward compatibility (if needed)
-def format_pack_creation_message(pack_name: str, pack_link: str) -> str:
-    """Format the pack creation success message"""
-    return (
-        f"✅ Pack created: **{pack_name}**\n\n"
-        f"🔗 [View Pack]({pack_link})\n\n"
-        f"{settings.PACK_CREATED_MESSAGE}"
-    )
+# Remove legacy functions to avoid confusion - they are not used in the optimized code
+# def format_pack_creation_message(pack_name: str, pack_link: str) -> str:
+#     """Legacy function - NOT USED in optimized version"""
+#     return (
+#         f"✅ Pack created: **{pack_name}**\n\n"
+#         f"🔗 [View Pack]({pack_link})\n\n"
+#         f"{settings.PACK_CREATED_MESSAGE}"
+#     )
 
 
-def format_sticker_added_message(pack_name: str, pack_link: str) -> str:
-    """Format the sticker added success message"""
-    return (
-        f"✅ Sticker added to **{pack_name}**\n\n"
-        f"🔗 [View Pack]({pack_link})"
-    )
+# def format_sticker_added_message(pack_name: str, pack_link: str) -> str:
+#     """Legacy function - NOT USED in optimized version"""
+#     return (
+#         f"✅ Sticker added to **{pack_name}**\n\n"
+#         f"🔗 [View Pack]({pack_link})"
+#     )
 
 
-def format_gif_conversion_message(pack_name: str, pack_link: str) -> str:
-    """Format the GIF conversion success message"""
-    return (
-        f"✅ GIF converted to video sticker and added to **{pack_name}**\n\n"
-        f"🔗 [View Pack]({pack_link})"
-    )
+# def format_gif_conversion_message(pack_name: str, pack_link: str) -> str:
+#     """Legacy function - NOT USED in optimized version"""
+#     return (
+#         f"✅ GIF converted to video sticker and added to **{pack_name}**\n\n"
+#         f"🔗 [View Pack]({pack_link})"
+#     )

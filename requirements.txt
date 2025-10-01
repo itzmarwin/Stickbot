@@ -13,13 +13,16 @@ Pillow==10.4.0
 
 # HTTP Requests (for downloading stickers)
 aiohttp==3.9.5
-aiofiles~=23.2.1
+aiofiles==23.2.1
 
 # Utilities
 python-dateutil==2.9.0
 
+# Async utilities for better performance
+asyncio-throttle==1.0.2
+
 # Note: FFmpeg is required for video/GIF conversion features
 # Install FFmpeg separately:
-# Ubuntu/Debian: apt install ffmpeg
-# macOS: brew install ffmpeg
+# Ubuntu/Debian: sudo apt install ffmpeg
+# macOS: brew install ffmpeg  
 # Windows: Download from https://ffmpeg.org/

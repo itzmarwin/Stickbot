@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Settings:
-    """Bot configuration settings"""
+    """Bot configuration settings - OPTIMIZED"""
     
     # Telegram Bot Configuration
     BOT_TOKEN: str = os.getenv("BOT_TOKEN", "")
@@ -22,27 +22,29 @@ class Settings:
     
     # Bot Constants
     MAX_STICKERS_PER_PACK: int = 120  # Telegram limit
-    SUPPORTED_STICKER_TYPES: tuple = ("photo", "video", "document", "animated")  # All sticker types
     
-    # Messages
+    # Performance Settings
+    DOWNLOAD_TIMEOUT: int = 30  # seconds
+    CONVERSION_TIMEOUT: int = 45  # seconds
+    MAX_CONCURRENT_DOWNLOADS: int = 10
+    
+    # Messages - ALL IN ENGLISH
     WELCOME_MESSAGE = (
         "Hey! I'm a Sticker Kang Bot. 🤖\n\n"
-        "Use /kang in a group by replying to any sticker (static, animated, or video) to start creating your own sticker pack!"
+        "Use /kang in a group by replying to any sticker or GIF to add it to your pack!"
     )
     
-    KANG_PRIVATE_CHAT_MESSAGE = "⚠️ Please use /kang in a group by replying to a sticker"
-    
-    PACK_CREATED_MESSAGE = "✅ Pack created! Now reply to any sticker with /kang to add it."
+    KANG_PRIVATE_CHAT_MESSAGE = "⚠️ Please use /kang in a group by replying to a sticker or GIF"
     
     @classmethod
     def validate(cls) -> bool:
         """Validate that all required settings are present"""
         if not cls.BOT_TOKEN:
-            raise ValueError("BOT_TOKEN is required")
+            raise ValueError("BOT_TOKEN is required - check your .env file")
         if not cls.BOT_USERNAME:
-            raise ValueError("BOT_USERNAME is required")
-        if not cls.MONGO_DB_NAME:
-            raise ValueError("MONGO_DB_NAME is required")
+            raise ValueError("BOT_USERNAME is required - check your .env file")
+        
+        # MONGO_DB_NAME has default value, so it's not required
         return True
 
 # Create settings instance

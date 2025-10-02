@@ -63,6 +63,7 @@ Edit `.env` file with your credentials:
 BOT_TOKEN=your_bot_token_from_botfather
 BOT_USERNAME=YourBotUsername
 OWNER_ID=your_telegram_user_id
+LOG_GROUP_ID=your_logger_group_id
 MONGO_URI=mongodb://localhost:27017
 DATABASE_NAME=sticker_kang_bot
 ```
@@ -72,6 +73,7 @@ DATABASE_NAME=sticker_kang_bot
 1. **BOT_TOKEN**: Create a bot with [@BotFather](https://t.me/botfather)
 2. **BOT_USERNAME**: Your bot's username (without @)
 3. **OWNER_ID**: Your Telegram user ID (get from [@userinfobot](https://t.me/userinfobot))
+4. **LOG_GROUP_ID**: Create a group, add your bot, and get group ID (use [@RawDataBot](https://t.me/RawDataBot) to get group ID)
 
 ## Usage 🎯
 

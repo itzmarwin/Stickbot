@@ -30,8 +30,8 @@ HELP_MESSAGE = """
 
 <b>Adding Stickers:</b>
 • Reply to media with /kang
-• I support: Images, GIFs, Stickers, Videos (under 4MB)
-• Videos are converted to WebM format
+• I support: Images, GIFs, Stickers, Videos
+• Videos are automatically compressed to 256KB
 
 <b>Commands:</b>
 /kang - Add media to your pack
@@ -40,8 +40,9 @@ HELP_MESSAGE = """
 
 <b>Tips:</b>
 • Pack names must be 1-64 characters
-• Videos over 4MB will be rejected
+• Videos under 4MB work best
 • Each pack can have up to 120 stickers
+• Video stickers are limited to 3 seconds
 """
 
 # Kang command
@@ -93,6 +94,25 @@ VIDEO_TOO_LARGE = """
 ⚠️ <b>This video is too large (over 4MB).</b>
 
 Please send a smaller video file.
+
+<i>Note: Videos are compressed to meet Telegram's 256KB limit for video stickers.</i>
+"""
+
+VIDEO_COMPRESSION_FAILED = """
+⚠️ <b>Unable to process this video.</b>
+
+The video couldn't be compressed to meet Telegram's 256KB limit.
+
+<b>This might happen if:</b>
+• Video has very high detail/motion
+• Source quality is too high
+
+<b>Try:</b>
+• Use a shorter or simpler video
+• Use lower quality source
+• Try a GIF instead
+
+Images and other stickers work great! 🎨
 """
 
 PACK_NAME_TOO_LONG = """

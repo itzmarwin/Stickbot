@@ -156,6 +156,8 @@ async def process_pack_name(message: Message, state: FSMContext, bot: Bot):
     # Create pack
     processing_msg = await message.answer(PROCESSING_MEDIA)
     
+    temp_files = []
+    
     try:
         # Get file
         file = await bot.get_file(media_file_id)
@@ -165,7 +167,6 @@ async def process_pack_name(message: Message, state: FSMContext, bot: Bot):
         
         # Prepare sticker based on media type
         sticker_file = None
-        temp_files = []
         
         if media_type == "sticker":
             # Direct sticker
@@ -175,6 +176,21 @@ async def process_pack_name(message: Message, state: FSMContext, bot: Bot):
             # Convert photo to WebP
             input_path = os.path.join(temp_dir, f"{user_id}_input.jpg")
             output_path = os.path.join(temp_dir, f"{user_id}_output.webp")
+            temp_files.extend([input_path, output_path])
+            
+            await bot.download_file(file.file_path, input_path)
+            
+            if await convert_image_to_webp(input_path, output_path):
+                with open(output_path, 'rb') as f:
+                    sticker_file = BufferedInputFile(f.read(), filename="sticker.webp")
+                sticker_format = "static"
+            else:
+                raise Exception("Failed to convert image")
+        
+        elif media_type in ["animation", "video"]:
+            # Convert to WebM
+            input_path = os.path.join(temp_dir, f"{user_id}_input.mp4")
+            output_path = os.path.join(temp_dir, f"{user_id}_output.webm")
             temp_files.extend([input_path, output_path])
             
             await bot.download_file(file.file_path, input_path)
@@ -233,9 +249,10 @@ async def process_pack_name(message: Message, state: FSMContext, bot: Bot):
 async def add_sticker_to_pack(bot: Bot, user_id: int, pack_short_name: str, 
                               media, media_type: str) -> bool:
     """Add sticker to existing pack"""
+    temp_files = []
+    
     try:
         temp_dir = create_temp_dir()
-        temp_files = []
         sticker_file = None
         
         if media_type == "sticker":
@@ -299,21 +316,5 @@ async def add_sticker_to_pack(bot: Bot, user_id: int, pack_short_name: str,
         
     except Exception as e:
         logger.error(f"Error adding sticker to pack: {e}")
-        if 'temp_files' in locals():
-            cleanup_temp_files(*temp_files)
-        return False.file_path, input_path)
-            
-            if await convert_image_to_webp(input_path, output_path):
-                with open(output_path, 'rb') as f:
-                    sticker_file = BufferedInputFile(f.read(), filename="sticker.webp")
-                sticker_format = "static"
-            else:
-                raise Exception("Failed to convert image")
-        
-        elif media_type in ["animation", "video"]:
-            # Convert to WebM
-            input_path = os.path.join(temp_dir, f"{user_id}_input.mp4")
-            output_path = os.path.join(temp_dir, f"{user_id}_output.webm")
-            temp_files.extend([input_path, output_path])
-            
-            await bot.download_file(file
+        cleanup_temp_files(*temp_files)
+        return False

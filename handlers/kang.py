@@ -14,7 +14,7 @@ from templates import (
     NEED_TO_START, ASK_PACK_NAME, PACK_CREATED, 
     STICKER_ADDED, NO_MEDIA_REPLY, VIDEO_TOO_LARGE,
     PACK_NAME_TOO_LONG, PACK_NAME_INVALID, PROCESSING_MEDIA,
-    ERROR_OCCURRED
+    ERROR_OCCURRED, VIDEO_COMPRESSION_FAILED
 )
 from utils.fsm_states import KangStates
 from utils.helpers import (
@@ -188,19 +188,25 @@ async def process_pack_name(message: Message, state: FSMContext, bot: Bot):
                 raise Exception("Failed to convert image")
         
         elif media_type in ["animation", "video"]:
-            # Convert to WebM
+            # Convert to WebM with automatic duration adjustment
             input_path = os.path.join(temp_dir, f"{user_id}_input.mp4")
             output_path = os.path.join(temp_dir, f"{user_id}_output.webm")
             temp_files.extend([input_path, output_path])
             
             await bot.download_file(file.file_path, input_path)
             
-            if await convert_video_to_webm(input_path, output_path):
+            conversion_success = await convert_video_to_webm(input_path, output_path)
+            
+            if conversion_success and os.path.exists(output_path):
                 with open(output_path, 'rb') as f:
                     sticker_file = BufferedInputFile(f.read(), filename="sticker.webm")
                 sticker_format = "video"
             else:
-                raise Exception("Failed to convert video")
+                cleanup_temp_files(*temp_files)
+                await processing_msg.delete()
+                await message.answer(VIDEO_COMPRESSION_FAILED)
+                await state.clear()
+                return
         
         if not sticker_file:
             raise Exception("Failed to prepare sticker file")
@@ -286,7 +292,16 @@ async def add_sticker_to_pack(bot: Bot, user_id: int, pack_short_name: str,
             
             await bot.download_file(file.file_path, input_path)
             
-            if await convert_video_to_webm(input_path, output_path):
+            conversion_success = await convert_video_to_webm(input_path, output_path)
+            
+            if conversion_success and os.path.exists(output_path):
+                # Check final file size
+                final_size = os.path.getsize(output_path)
+                if final_size > 256 * 1024:  # 256KB
+                    cleanup_temp_files(*temp_files)
+                    logger.error(f"Compressed video still too large: {final_size} bytes")
+                    return False
+                
                 with open(output_path, 'rb') as f:
                     sticker_file = BufferedInputFile(f.read(), filename="sticker.webm")
                 sticker_format = "video"

@@ -36,18 +36,31 @@ def generate_short_name(pack_name: str, user_id: int) -> str:
     - Must end with "_by_<bot_username>"
     - Can only contain: a-z, 0-9, and underscores
     - Must be 1-64 characters
+    - Must start with a letter or number (not underscore)
     """
-    # For short name, extract only alphanumeric characters
-    # Remove all non-alphanumeric (including fancy Unicode)
-    cleaned = ''.join(c for c in pack_name if c.isalnum()).lower()
+    import unicodedata
     
-    # If nothing left after cleaning, use default
-    if not cleaned:
-        cleaned = "pack"
+    # Normalize Unicode characters and extract ASCII equivalents
+    normalized = unicodedata.normalize('NFKD', pack_name)
+    
+    # Extract only ASCII alphanumeric characters
+    cleaned = ''
+    for char in normalized:
+        if char.isalnum() and ord(char) < 128:  # Only ASCII alphanumeric
+            cleaned += char.lower()
+    
+    # If nothing left after cleaning, use user_id based default
+    if not cleaned or len(cleaned) == 0:
+        # Create a unique but simple name using user_id
+        cleaned = f"pack{str(user_id)[-6:]}"  # Last 6 digits of user_id
+    
+    # Ensure it starts with alphanumeric (not underscore)
+    if cleaned and not cleaned[0].isalnum():
+        cleaned = 'p' + cleaned
     
     # Limit length to avoid Telegram's limits
-    if len(cleaned) > 15:
-        cleaned = cleaned[:15]
+    if len(cleaned) > 20:
+        cleaned = cleaned[:20]
     
     # Get bot username without @ and ensure it's lowercase
     bot_user = BOT_USERNAME.replace('@', '').lower()
@@ -59,8 +72,32 @@ def generate_short_name(pack_name: str, user_id: int) -> str:
     if len(short_name) > 64:
         # Reduce cleaned name length
         max_cleaned_length = 64 - len(f"_{user_id}_by_{bot_user}")
-        cleaned = cleaned[:max_cleaned_length]
-        short_name = f"{cleaned}_{user_id}_by_{bot_user}"
+        if max_cleaned_length > 0:
+            cleaned = cleaned[:max_cleaned_length]
+            short_name = f"{cleaned}_{user_id}_by_{bot_user}"
+        else:
+            # Fallback: use only user_id
+            short_name = f"p{user_id}_by_{bot_user}"
+    
+    # Final validation - ensure only valid characters
+    if not re.match(r'^[a-z0-9_]+
+
+def format_pack_name(user_provided_name: str) -> str:
+    """
+    Format pack name by appending bot username
+    Format: {User Provided Name} ~ @BotUsername
+    
+    Accepts ALL Unicode characters - no filtering!
+    """
+    # Keep the name exactly as user provided (with all Unicode characters)
+    return f"{user_provided_name.strip()} ~ @{BOT_USERNAME}"
+
+def get_file_size_mb(file_size: int) -> float:
+    """Convert bytes to MB"""
+    return file_size / (1024 * 1024)
+, short_name):
+        # If somehow invalid characters got through, use fallback
+        short_name = f"pack{user_id}_by_{bot_user}"
     
     return short_name
 

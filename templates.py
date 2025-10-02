@@ -16,6 +16,12 @@ I can help you add images, GIFs, stickers, and videos to your personal sticker p
 2. Reply to it with /kang
 3. I'll add it to your personal pack!
 
+<b>✨ Special Features:</b>
+• Use any Unicode fonts in pack names
+• Add emojis and special characters
+• Support for 𝐛𝐨𝐥𝐝, 𝕚𝕥𝕒𝕝𝕚𝕔, 𝓬𝓾𝓻𝓼𝓲𝓿𝓮 fonts
+• Full creative freedom!
+
 Let's get started! 🎨
 """
 
@@ -25,24 +31,26 @@ HELP_MESSAGE = """
 <b>Creating Your Pack:</b>
 1. Reply to any image/GIF/sticker/video with /kang
 2. If it's your first time, I'll ask for a pack name
-3. Send your desired pack name (e.g., "My Cool Pack")
+3. Send your desired pack name with any fonts/characters!
+   • Use fancy fonts: 𝐛𝐨𝐥𝐝, 𝕚𝕥𝕒𝕝𝕚𝕔, 𝓬𝓾𝓻𝓼𝓲𝓿𝓮
+   • Add emojis: 🔥 💎 ⚡
+   • Use symbols: [], {}, @, #, *, etc.
 4. Done! Your pack is created
 
 <b>Adding Stickers:</b>
 • Reply to media with /kang
-• I support: Images, GIFs, Stickers, Videos
-• Videos are automatically compressed to 256KB
+• Supported: Images, GIFs, Stickers, Videos
+• Videos auto-trimmed to fit 256KB limit
 
 <b>Commands:</b>
 /kang - Add media to your pack
 /packs - View your pack info
 /help - Show this message
 
-<b>Tips:</b>
-• Pack names must be 1-64 characters
-• Videos under 4MB work best
-• Each pack can have up to 120 stickers
-• Video stickers are limited to 3 seconds
+<b>Pack Names:</b>
+✅ Any Unicode characters allowed
+✅ Maximum 64 characters
+✅ Emojis and special fonts supported
 """
 
 # Kang command
@@ -55,12 +63,16 @@ ASK_PACK_NAME = """
 
 Please send me a name for your pack.
 
-<b>Example:</b> <code>devil pack @itzdevil</code>
+<b>Examples:</b>
+<code>𝐃𝐞𝐯𝐢𝐥'𝐬 𝐏𝐚𝐜𝐤 🔥</code>
+<code>【MyStickers】✨</code>
+<code>Cool Pack [2025]</code>
 
 Your pack name will be formatted as:
 <code>YourName ~ @BotUsername</code>
 
-<i>Note: Pack name must be 1-64 characters</i>
+<i>✨ Use any Unicode fonts, emojis, or special characters!
+📝 Pack name must be 1-64 characters</i>
 """
 
 PACK_CREATED = """
@@ -123,15 +135,12 @@ Try a shorter name.
 """
 
 PACK_NAME_INVALID = """
-⚠️ <b>Invalid pack name!</b>
+⚠️ <b>Pack name is too long!</b>
 
-Pack names can only contain:
-• Letters (a-z, A-Z)
-• Numbers (0-9)
-• Underscores (_)
-• Spaces
+Maximum length is 64 characters.
+Your name has {length} characters.
 
-Please try again with a valid name.
+Please use a shorter name.
 """
 
 PROCESSING_MEDIA = "⏳ Processing your media..."

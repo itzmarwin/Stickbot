@@ -1,424 +1,319 @@
-from aiogram import Router, F, Bot
-from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
-from aiogram.filters import Command
-from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import State, StatesGroup
-from config import settings
-from utils import (
-    is_private_chat, is_group_chat, extract_sticker_from_message, extract_gif_from_message,
-    validate_pack_name, generate_pack_short_name, generate_pack_link, 
-    format_sticker_success_message, create_sticker_pack_fast, 
-    add_sticker_to_pack_fast, download_gif, convert_gif_to_webm_optimized, cleanup_temp_file
-)
-from middlewares import DatabaseOperations
-from database import StickerPack
-from datetime import datetime
-import logging
 import os
+import logging
+from aiogram import Router, F, Bot
+from aiogram.filters import Command
+from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, InputSticker, BufferedInputFile
+from aiogram.fsm.context import FSMContext
+from datetime import datetime
+
+from database import (
+    get_user, get_user_pack, create_sticker_pack, 
+    increment_sticker_count
+)
+from templates import (
+    NEED_TO_START, ASK_PACK_NAME, PACK_CREATED, 
+    STICKER_ADDED, NO_MEDIA_REPLY, VIDEO_TOO_LARGE,
+    PACK_NAME_TOO_LONG, PACK_NAME_INVALID, PROCESSING_MEDIA,
+    ERROR_OCCURRED
+)
+from utils.fsm_states import KangStates
+from utils.helpers import (
+    validate_pack_name, generate_short_name, 
+    format_pack_name, get_file_size_mb
+)
+from utils.converters import (
+    convert_image_to_webp, convert_video_to_webm,
+    cleanup_temp_files, create_temp_dir
+)
+from config import BOT_USERNAME, MAX_VIDEO_SIZE_MB
 
 logger = logging.getLogger(__name__)
+router = Router()
 
-# Create router for kang command
-kang_router = Router()
-
-
-class KangStates(StatesGroup):
-    waiting_for_pack_name = State()
-
-
-@kang_router.message(Command("kang"))
-async def kang_command(message: Message, bot: Bot, state: FSMContext, db_operations: DatabaseOperations):
-    """
-    /kang command - works in groups when replying to sticker/GIF
-    Checks if user started bot first
-    """
+@router.message(Command("kang"))
+async def cmd_kang(message: Message, state: FSMContext, bot: Bot):
+    """Handle /kang command"""
+    user_id = message.from_user.id
     
-    # Check if command is used in private chat
-    if is_private_chat(message):
-        await message.answer("⚠️ Please use /kang in a group by replying to a sticker or GIF")
+    # Check if user has started the bot
+    user = await get_user(user_id)
+    if not user or not user.get("has_started", False):
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(
+                text="Start me",
+                url=f"https://t.me/{BOT_USERNAME}?start=kang"
+            )
+        ]])
+        await message.answer(NEED_TO_START, reply_markup=keyboard)
         return
     
-    # Check if command is used in group
-    if not is_group_chat(message):
-        return
-    
-    # Check if replying to a sticker or GIF
-    sticker = extract_sticker_from_message(message)
-    gif = extract_gif_from_message(message) if not sticker else None
-    
-    if not sticker and not gif:
-        await message.answer(
-            "⚠️ Please reply to a sticker or GIF with /kang to add it to your pack",
-            reply_to_message_id=message.message_id
-        )
-        return
-    
-    try:
-        # Get user data - don't create if not exists
-        user_data = await db_operations.get_user_data()
-        
-        # Check if user has started the bot
-        if not user_data or not user_data.started:
-            # User hasn't started the bot - send start message with button
-            start_url = f"https://t.me/Stickerkangbot?start=start"
-            keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="Start Me", url=start_url)]
-            ])
-            
-            await message.answer(
-                "𝐎𝐨𝐩𝐬! 𝐘𝐨𝐮 𝐧𝐞𝐞𝐝 𝐭𝐨 𝐬𝐭𝐚𝐫𝐭 𝐦𝐞 𝐟𝐢𝐫𝐬𝐭 𝐭𝐨 𝐮𝐬𝐞 𝐭𝐡𝐢𝐬 𝐛𝐨𝐭.",
-                reply_markup=keyboard,
-                reply_to_message_id=message.message_id
-            )
-            return
-        
-        # User has started bot - proceed with kang process
-        if gif:
-            await handle_gif_kang_fast(message, bot, state, db_operations, gif, user_data)
-        else:
-            await handle_sticker_kang_fast(message, bot, state, db_operations, sticker, user_data)
-            
-    except Exception as e:
-        logger.error(f"Error in kang command for user {message.from_user.id}: {e}")
-        await message.answer(
-            "❌ Something went wrong. Please try again later.",
-            reply_to_message_id=message.message_id
-        )
-
-
-async def handle_sticker_kang_fast(message: Message, bot: Bot, state: FSMContext, db_operations: DatabaseOperations, sticker, user_data):
-    """Handle sticker kang for users who have started the bot"""
-    
-    # Check if user has active packs (not full)
-    if user_data.has_active_packs():
-        # Add to latest active pack
-        latest_pack = user_data.get_latest_pack()
-        
-        success = await add_sticker_to_pack_fast(
-            bot=bot,
-            user_id=message.from_user.id,
-            pack_short_name=latest_pack.pack_short_name,
-            sticker=sticker
-        )
-        
-        if success:
-            # Update sticker count in pack
-            latest_pack.sticker_count += 1
-            await db_operations.save_user_data(user_data)
-            
-            sticker_emoji = sticker.emoji or "🔥"
-            message_text, keyboard = format_sticker_success_message(
-                latest_pack.pack_link,
-                sticker_emoji
-            )
-            await message.answer(
-                message_text,
-                reply_to_message_id=message.message_id,
-                reply_markup=keyboard
-            )
-            
-            # Check if pack is now full
-            if latest_pack.is_full():
-                await message.answer(
-                    "📦 Your sticker pack is now full! The next sticker will create a new pack.",
-                    reply_to_message_id=message.message_id
-                )
-        else:
-            await message.answer(
-                "❌ Failed to add sticker to pack. Please try again.",
-                reply_to_message_id=message.message_id
-            )
-    
-    else:
-        # No active packs or all packs are full - ask for new pack name
-        await state.set_state(KangStates.waiting_for_pack_name)
-        
-        await state.update_data(
-            user_id=message.from_user.id,
-            sticker_file_id=sticker.file_id,
-            sticker_emoji=sticker.emoji,
-            sticker_is_video=sticker.is_video,
-            sticker_is_animated=sticker.is_animated,
-            chat_id=message.chat.id,
-            reply_to_message_id=message.message_id,
-            is_gif_conversion=False
-        )
-        
-        await message.answer(
-            "🆕 You don't have any active sticker packs!\n\n"
-            "Please reply to this message with a name for your new sticker pack:",
-            reply_to_message_id=message.message_id
-        )
-
-
-async def handle_gif_kang_fast(message: Message, bot: Bot, state: FSMContext, db_operations: DatabaseOperations, gif_object, user_data):
-    """Handle GIF kang for users who have started the bot"""
-    
-    processing_msg = await message.answer(
-        "🔄 Processing...",
-        reply_to_message_id=message.message_id
-    )
-    
-    gif_file_path = await download_gif(bot, gif_object)
-    if not gif_file_path:
-        await processing_msg.edit_text("❌ Failed to download GIF. Please try again.")
-        return
-    
-    try:
-        webm_file_path = await convert_gif_to_webm_optimized(gif_file_path)
-        if not webm_file_path:
-            await processing_msg.edit_text("❌ Failed to convert GIF. Please try again.")
-            return
-        
-        try:
-            # Check if user has active packs
-            if user_data.has_active_packs():
-                latest_pack = user_data.get_latest_pack()
-                
-                success = await add_converted_sticker_to_pack_fast(
-                    bot=bot,
-                    user_id=message.from_user.id,
-                    pack_short_name=latest_pack.pack_short_name,
-                    webm_file_path=webm_file_path
-                )
-                
-                if success:
-                    # Update sticker count
-                    latest_pack.sticker_count += 1
-                    await db_operations.save_user_data(user_data)
-                    
-                    message_text, keyboard = format_sticker_success_message(
-                        latest_pack.pack_link, "🎬"
-                    )
-                    await processing_msg.edit_text(message_text, reply_markup=keyboard)
-                    
-                    if latest_pack.is_full():
-                        await message.answer(
-                            "📦 Your sticker pack is now full! The next sticker will create a new pack.",
-                            reply_to_message_id=message.message_id
-                        )
-                else:
-                    await processing_msg.edit_text("❌ Failed to add converted GIF to pack.")
-            
-            else:
-                # No active packs - ask for pack name
-                await state.set_state(KangStates.waiting_for_pack_name)
-                
-                await state.update_data(
-                    user_id=message.from_user.id,
-                    is_gif_conversion=True,
-                    webm_file_path=webm_file_path,
-                    chat_id=message.chat.id,
-                    reply_to_message_id=message.message_id
-                )
-                
-                await processing_msg.edit_text(
-                    "🆕 You don't have any active sticker packs!\n\n"
-                    "Please reply to this message with a name for your new sticker pack:"
-                )
-        
-        finally:
-            if not await state.get_data() or not (await state.get_data()).get('webm_file_path'):
-                cleanup_temp_file(webm_file_path)
-    
-    finally:
-        cleanup_temp_file(gif_file_path)
-
-
-@kang_router.message(KangStates.waiting_for_pack_name)
-async def process_pack_name_fast(message: Message, bot: Bot, state: FSMContext, db_operations: DatabaseOperations):
-    """Process pack name from user reply"""
-    
-    # Check if this is a reply to bot's message
+    # Check if replying to a message with media
     if not message.reply_to_message:
-        await message.answer("❌ Please reply to my message with the pack name.")
+        await message.answer(NO_MEDIA_REPLY)
         return
     
-    # Only accept text messages for pack name
-    if not message.text:
-        await message.answer("❌ Please send a text message with your pack name.")
+    replied_msg = message.reply_to_message
+    
+    # Get media from replied message
+    media = None
+    media_type = None
+    
+    if replied_msg.photo:
+        media = replied_msg.photo[-1]  # Get highest quality
+        media_type = "photo"
+    elif replied_msg.sticker:
+        media = replied_msg.sticker
+        media_type = "sticker"
+    elif replied_msg.animation:
+        media = replied_msg.animation
+        media_type = "animation"
+    elif replied_msg.video:
+        media = replied_msg.video
+        media_type = "video"
+    
+    if not media:
+        await message.answer(NO_MEDIA_REPLY)
         return
     
-    pack_name = message.text.strip()
-    
-    # Validate pack name
-    is_valid, error_message = validate_pack_name(pack_name)
-    if not is_valid:
-        await message.answer(f"❌ {error_message}\n\nPlease send a valid pack name:")
-        return
-    
-    try:
-        data = await state.get_data()
-        
-        if not data.get('user_id'):
-            await message.answer("❌ Session expired. Please try /kang again.")
-            await state.clear()
+    # Check video size
+    if media_type == "video":
+        file_size_mb = get_file_size_mb(media.file_size)
+        if file_size_mb > MAX_VIDEO_SIZE_MB:
+            await message.answer(VIDEO_TOO_LARGE)
             return
-        
-        if data.get('is_gif_conversion'):
-            await handle_gif_pack_creation_fast(message, bot, state, db_operations, pack_name, data)
-        else:
-            await handle_sticker_pack_creation_fast(message, bot, state, db_operations, pack_name, data)
-            
-    except Exception as e:
-        logger.error(f"Error creating pack for user {message.from_user.id}: {e}")
-        await message.answer("❌ Failed to create sticker pack. Please try again.")
-    finally:
-        await state.clear()
-
-
-async def handle_gif_pack_creation_fast(message: Message, bot: Bot, state: FSMContext, db_operations: DatabaseOperations, pack_name: str, data: dict):
-    """Create new pack with GIF"""
-    webm_file_path = data.get('webm_file_path')
-    user_id = data.get('user_id')
     
-    if not webm_file_path or not user_id:
-        await message.answer("❌ Data lost. Please try /kang again.")
+    # Check if user has a pack
+    pack = await get_user_pack(user_id)
+    
+    if not pack:
+        # Ask for pack name
+        await state.set_state(KangStates.waiting_for_pack_name)
+        await state.update_data(media=media.file_id, media_type=media_type)
+        await message.answer(ASK_PACK_NAME.format(bot_username=BOT_USERNAME))
         return
     
+    # Add sticker to existing pack
+    processing_msg = await message.answer(PROCESSING_MEDIA)
+    
     try:
-        pack_name_with_bot = f"{pack_name} by @{settings.BOT_USERNAME}"
-        pack_short_name = generate_pack_short_name(pack_name, user_id)
-        pack_link = generate_pack_link(pack_short_name)
-        
-        success = await create_pack_with_converted_sticker_fast(
+        success = await add_sticker_to_pack(
             bot=bot,
             user_id=user_id,
-            pack_name=pack_name_with_bot,
-            pack_short_name=pack_short_name,
-            webm_file_path=webm_file_path
+            pack_short_name=pack["short_name"],
+            media=media,
+            media_type=media_type
         )
+        
+        await processing_msg.delete()
         
         if success:
-            user_data = await db_operations.get_user_data()
-            new_pack = StickerPack(
-                pack_name=pack_name_with_bot,
-                pack_short_name=pack_short_name,
-                pack_link=pack_link,
-                created_at=datetime.now(),
-                sticker_count=1
-            )
-            user_data.add_pack(new_pack)
-            await db_operations.save_user_data(user_data)
-            
-            message_text, keyboard = format_sticker_success_message(pack_link, "🎬")
-            await bot.send_message(
-                chat_id=data['chat_id'],
-                text=message_text,
-                reply_to_message_id=data['reply_to_message_id'],
-                reply_markup=keyboard
+            await increment_sticker_count(user_id)
+            await message.answer(
+                STICKER_ADDED.format(pack_link=pack["pack_link"])
             )
         else:
-            await message.answer("❌ Failed to create sticker pack.")
-    
+            await message.answer(ERROR_OCCURRED)
     except Exception as e:
-        logger.error(f"Error in GIF pack creation: {e}")
-        await message.answer("❌ Failed to create sticker pack.")
-    finally:
-        if webm_file_path and os.path.exists(webm_file_path):
-            cleanup_temp_file(webm_file_path)
+        logger.error(f"Error adding sticker: {e}")
+        await processing_msg.delete()
+        await message.answer(ERROR_OCCURRED)
 
-
-async def handle_sticker_pack_creation_fast(message: Message, bot: Bot, state: FSMContext, db_operations: DatabaseOperations, pack_name: str, data: dict):
-    """Create new pack with sticker"""
-    user_id = data.get('user_id')
+@router.message(KangStates.waiting_for_pack_name)
+async def process_pack_name(message: Message, state: FSMContext, bot: Bot):
+    """Process pack name input"""
+    pack_name = message.text
     
-    if not user_id:
-        await message.answer("❌ User data lost. Please try /kang again.")
+    # Validate pack name
+    is_valid, error = validate_pack_name(pack_name)
+    
+    if not is_valid:
+        if error == "pack_name_too_long":
+            await message.answer(PACK_NAME_TOO_LONG)
+        elif error == "pack_name_invalid":
+            await message.answer(PACK_NAME_INVALID)
+        else:
+            await message.answer(ERROR_OCCURRED)
         return
     
-    class MinimalSticker:
-        def __init__(self, file_id: str, emoji: str, is_video: bool, is_animated: bool = False):
-            self.file_id = file_id
-            self.emoji = emoji
-            self.is_video = is_video
-            self.is_animated = is_animated
+    # Get stored media info
+    data = await state.get_data()
+    media_file_id = data.get("media")
+    media_type = data.get("media_type")
     
-    minimal_sticker = MinimalSticker(
-        file_id=data['sticker_file_id'],
-        emoji=data.get('sticker_emoji'),
-        is_video=data.get('sticker_is_video', False),
-        is_animated=data.get('sticker_is_animated', False)
-    )
+    if not media_file_id:
+        await message.answer(ERROR_OCCURRED)
+        await state.clear()
+        return
     
-    pack_name_with_bot = f"{pack_name} by @{settings.BOT_USERNAME}"
-    pack_short_name = generate_pack_short_name(pack_name, user_id)
-    pack_link = generate_pack_link(pack_short_name)
+    user_id = message.from_user.id
     
-    success = await create_sticker_pack_fast(
-        bot=bot,
-        user_id=user_id,
-        pack_name=pack_name_with_bot,
-        pack_short_name=pack_short_name,
-        sticker=minimal_sticker
-    )
+    # Format pack name
+    formatted_pack_name = format_pack_name(pack_name)
     
-    if success:
-        user_data = await db_operations.get_user_data()
-        new_pack = StickerPack(
-            pack_name=pack_name_with_bot,
-            pack_short_name=pack_short_name,
-            pack_link=pack_link,
-            created_at=datetime.now(),
-            sticker_count=1
-        )
-        user_data.add_pack(new_pack)
-        await db_operations.save_user_data(user_data)
-        
-        sticker_emoji = minimal_sticker.emoji or "🔥"
-        message_text, keyboard = format_sticker_success_message(pack_link, sticker_emoji)
-        await bot.send_message(
-            chat_id=data['chat_id'],
-            text=message_text,
-            reply_to_message_id=data['reply_to_message_id'],
-            reply_markup=keyboard
-        )
-    else:
-        await message.answer("❌ Failed to create sticker pack.")
-
-
-async def add_converted_sticker_to_pack_fast(bot: Bot, user_id: int, pack_short_name: str, webm_file_path: str) -> bool:
-    """Add converted GIF to existing pack"""
+    # Generate short name
+    short_name = generate_short_name(pack_name, user_id)
+    
+    # Create pack
+    processing_msg = await message.answer(PROCESSING_MEDIA)
+    
     try:
-        from aiogram.types import FSInputFile, InputSticker
+        # Get file
+        file = await bot.get_file(media_file_id)
         
-        input_file = FSInputFile(webm_file_path)
-        input_sticker = InputSticker(
-            sticker=input_file,
-            emoji_list=["🎬"],
-            format="video"
+        # Create temporary directory
+        temp_dir = create_temp_dir()
+        
+        # Prepare sticker based on media type
+        sticker_file = None
+        temp_files = []
+        
+        if media_type == "sticker":
+            # Direct sticker
+            sticker_file = media_file_id
+            sticker_format = "static"
+        elif media_type == "photo":
+            # Convert photo to WebP
+            input_path = os.path.join(temp_dir, f"{user_id}_input.jpg")
+            output_path = os.path.join(temp_dir, f"{user_id}_output.webp")
+            temp_files.extend([input_path, output_path])
+            
+            await bot.download_file(file.file_path, input_path)
+            
+            if await convert_video_to_webm(input_path, output_path):
+                with open(output_path, 'rb') as f:
+                    sticker_file = BufferedInputFile(f.read(), filename="sticker.webm")
+                sticker_format = "video"
+            else:
+                raise Exception("Failed to convert video")
+        
+        if not sticker_file:
+            raise Exception("Failed to prepare sticker file")
+        
+        # Create sticker pack
+        sticker = InputSticker(
+            sticker=sticker_file,
+            emoji_list=["🎨"],
+            format=sticker_format
+        )
+        
+        await bot.create_new_sticker_set(
+            user_id=user_id,
+            name=short_name,
+            title=formatted_pack_name,
+            stickers=[sticker]
+        )
+        
+        # Save to database
+        pack_link = f"https://t.me/addstickers/{short_name}"
+        await create_sticker_pack(
+            user_id=user_id,
+            pack_name=formatted_pack_name,
+            short_name=short_name
+        )
+        
+        # Clean up temp files
+        cleanup_temp_files(*temp_files)
+        
+        await processing_msg.delete()
+        await message.answer(
+            PACK_CREATED.format(
+                pack_name=formatted_pack_name,
+                pack_link=pack_link
+            )
+        )
+        await state.clear()
+        
+    except Exception as e:
+        logger.error(f"Error creating pack: {e}")
+        cleanup_temp_files(*temp_files)
+        await processing_msg.delete()
+        await message.answer(ERROR_OCCURRED)
+        await state.clear()
+
+async def add_sticker_to_pack(bot: Bot, user_id: int, pack_short_name: str, 
+                              media, media_type: str) -> bool:
+    """Add sticker to existing pack"""
+    try:
+        temp_dir = create_temp_dir()
+        temp_files = []
+        sticker_file = None
+        
+        if media_type == "sticker":
+            # Direct sticker
+            sticker_file = media.file_id
+            sticker_format = "static" if not media.is_video else "video"
+        
+        elif media_type == "photo":
+            # Convert photo
+            file = await bot.get_file(media.file_id)
+            input_path = os.path.join(temp_dir, f"{user_id}_add_input.jpg")
+            output_path = os.path.join(temp_dir, f"{user_id}_add_output.webp")
+            temp_files.extend([input_path, output_path])
+            
+            await bot.download_file(file.file_path, input_path)
+            
+            if await convert_image_to_webp(input_path, output_path):
+                with open(output_path, 'rb') as f:
+                    sticker_file = BufferedInputFile(f.read(), filename="sticker.webp")
+                sticker_format = "static"
+            else:
+                cleanup_temp_files(*temp_files)
+                return False
+        
+        elif media_type in ["animation", "video"]:
+            # Convert video/GIF
+            file = await bot.get_file(media.file_id)
+            input_path = os.path.join(temp_dir, f"{user_id}_add_input.mp4")
+            output_path = os.path.join(temp_dir, f"{user_id}_add_output.webm")
+            temp_files.extend([input_path, output_path])
+            
+            await bot.download_file(file.file_path, input_path)
+            
+            if await convert_video_to_webm(input_path, output_path):
+                with open(output_path, 'rb') as f:
+                    sticker_file = BufferedInputFile(f.read(), filename="sticker.webm")
+                sticker_format = "video"
+            else:
+                cleanup_temp_files(*temp_files)
+                return False
+        
+        if not sticker_file:
+            cleanup_temp_files(*temp_files)
+            return False
+        
+        # Add to pack
+        sticker = InputSticker(
+            sticker=sticker_file,
+            emoji_list=["🎨"],
+            format=sticker_format
         )
         
         await bot.add_sticker_to_set(
             user_id=user_id,
             name=pack_short_name,
-            sticker=input_sticker
-        )
-        return True
-    except Exception as e:
-        logger.error(f"Error adding converted sticker: {e}")
-        return False
-
-
-async def create_pack_with_converted_sticker_fast(bot: Bot, user_id: int, pack_name: str, pack_short_name: str, webm_file_path: str) -> bool:
-    """Create new pack with converted GIF"""
-    try:
-        from aiogram.types import FSInputFile, InputSticker
-        
-        input_file = FSInputFile(webm_file_path)
-        input_sticker = InputSticker(
-            sticker=input_file,
-            emoji_list=["🎬"],
-            format="video"
+            sticker=sticker
         )
         
-        await bot.create_new_sticker_set(
-            user_id=user_id,
-            name=pack_short_name,
-            title=pack_name,
-            stickers=[input_sticker]
-        )
+        cleanup_temp_files(*temp_files)
         return True
+        
     except Exception as e:
-        logger.error(f"Error creating pack with converted sticker: {e}")
-        return False
+        logger.error(f"Error adding sticker to pack: {e}")
+        if 'temp_files' in locals():
+            cleanup_temp_files(*temp_files)
+        return False.file_path, input_path)
+            
+            if await convert_image_to_webp(input_path, output_path):
+                with open(output_path, 'rb') as f:
+                    sticker_file = BufferedInputFile(f.read(), filename="sticker.webp")
+                sticker_format = "static"
+            else:
+                raise Exception("Failed to convert image")
+        
+        elif media_type in ["animation", "video"]:
+            # Convert to WebM
+            input_path = os.path.join(temp_dir, f"{user_id}_input.mp4")
+            output_path = os.path.join(temp_dir, f"{user_id}_output.webm")
+            temp_files.extend([input_path, output_path])
+            
+            await bot.download_file(file

@@ -1,28 +1,5 @@
-# Telegram Bot Framework
-aiogram==3.10.0
-
-# Database
-motor==3.5.1
-pymongo==4.8.0
-
-# Environment Variables
+aiogram==3.13.1
+motor==3.6.0
 python-dotenv==1.0.1
-
-# Image Processing (for sticker processing and PNG conversion)
 Pillow==10.4.0
-
-# HTTP Requests (for downloading stickers)
-aiohttp==3.9.5
-aiofiles==23.2.1
-
-# Utilities
-python-dateutil==2.9.0
-
-# Async utilities for better performance
-asyncio-throttle==1.0.2
-
-# Note: FFmpeg is required for video/GIF conversion features
-# Install FFmpeg separately:
-# Ubuntu/Debian: sudo apt install ffmpeg
-# macOS: brew install ffmpeg  
-# Windows: Download from https://ffmpeg.org/
+aiofiles==24.1.0

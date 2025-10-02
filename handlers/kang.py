@@ -123,14 +123,15 @@ async def process_pack_name(message: Message, state: FSMContext, bot: Bot):
     """Process pack name input"""
     pack_name = message.text
     
-    # Validate pack name
+    # Validate pack name (only checks length now, accepts all Unicode)
     is_valid, error = validate_pack_name(pack_name)
     
     if not is_valid:
         if error == "pack_name_too_long":
-            await message.answer(PACK_NAME_TOO_LONG)
-        elif error == "pack_name_invalid":
-            await message.answer(PACK_NAME_INVALID)
+            from templates import PACK_NAME_INVALID
+            await message.answer(
+                PACK_NAME_INVALID.format(length=len(pack_name.strip()))
+            )
         else:
             await message.answer(ERROR_OCCURRED)
         return
@@ -284,7 +285,7 @@ async def add_sticker_to_pack(bot: Bot, user_id: int, pack_short_name: str,
                 return False
         
         elif media_type in ["animation", "video"]:
-            # Convert video/GIF
+            # Convert video/GIF with automatic duration adjustment
             file = await bot.get_file(media.file_id)
             input_path = os.path.join(temp_dir, f"{user_id}_add_input.mp4")
             output_path = os.path.join(temp_dir, f"{user_id}_add_output.webm")
@@ -295,13 +296,6 @@ async def add_sticker_to_pack(bot: Bot, user_id: int, pack_short_name: str,
             conversion_success = await convert_video_to_webm(input_path, output_path)
             
             if conversion_success and os.path.exists(output_path):
-                # Check final file size
-                final_size = os.path.getsize(output_path)
-                if final_size > 256 * 1024:  # 256KB
-                    cleanup_temp_files(*temp_files)
-                    logger.error(f"Compressed video still too large: {final_size} bytes")
-                    return False
-                
                 with open(output_path, 'rb') as f:
                     sticker_file = BufferedInputFile(f.read(), filename="sticker.webm")
                 sticker_format = "video"

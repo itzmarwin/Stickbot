@@ -7,6 +7,7 @@ load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 BOT_USERNAME = os.getenv("BOT_USERNAME")
 OWNER_ID = int(os.getenv("OWNER_ID", "0"))
+LOG_GROUP_ID = int(os.getenv("LOG_GROUP_ID", "0"))  # Logger group ID
 
 # Database configuration
 MONGO_URI = os.getenv("MONGO_URI")

@@ -1,48 +1,54 @@
 from aiogram import Router, F
-from aiogram.types import Message
 from aiogram.filters import Command
-from config import settings
-from utils import is_private_chat
-from middlewares import DatabaseOperations
-import logging
+from aiogram.types import Message
+from aiogram.fsm.context import FSMContext
 
-logger = logging.getLogger(__name__)
+from database import get_user, create_user, update_user_started
+from templates import START_MESSAGE, HELP_MESSAGE
+from config import OWNER_ID, BOT_USERNAME
+from datetime import datetime
 
-# Create router for start command
-start_router = Router()
+router = Router()
 
-
-@start_router.message(Command("start"))
-async def start_command(message: Message, db_operations: DatabaseOperations):
-    """
-    Handle /start command - only works in private chat
-    Marks user as started and shows welcome message
-    """
+@router.message(Command("start"))
+async def cmd_start(message: Message, state: FSMContext):
+    """Handle /start command"""
+    user = message.from_user
     
-    # Check if command is used in private chat
-    if not is_private_chat(message):
-        # Silently ignore /start in groups to avoid spam
-        logger.info(f"User {message.from_user.id} tried to use /start in group {message.chat.id}")
-        return
+    # Clear any existing FSM state
+    await state.clear()
     
-    try:
-        # Get or create user data and mark as started
-        user_data = await db_operations.get_or_create_user_data()
-        user_data.mark_started()  # Mark user as started
-        await db_operations.save_user_data(user_data)
-        
-        # Send welcome message
-        await message.answer(
-            text=settings.WELCOME_MESSAGE,
-            parse_mode="Markdown"
+    # Check if user exists
+    user_data = await get_user(user.id)
+    
+    if not user_data:
+        # Create new user
+        await create_user(
+            user_id=user.id,
+            username=user.username,
+            first_name=user.first_name
         )
         
-        logger.info(f"User {message.from_user.id} started the bot and was marked as started")
-        
-    except Exception as e:
-        logger.error(f"Error in start command for user {message.from_user.id}: {e}")
-        
-        # Send generic error message
-        await message.answer(
-            "Sorry, something went wrong. Please try again later."
-        )
+        # Send log to owner if this is a new user
+        if OWNER_ID and user.id != OWNER_ID:
+            try:
+                from templates import NEW_USER_LOG
+                log_msg = NEW_USER_LOG.format(
+                    user_id=user.id,
+                    username=user.username or "None",
+                    first_name=user.first_name or "Unknown",
+                    time=datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+                )
+                await message.bot.send_message(OWNER_ID, log_msg)
+            except:
+                pass
+    else:
+        # Update has_started status
+        await update_user_started(user.id)
+    
+    await message.answer(START_MESSAGE)
+
+@router.message(Command("help"))
+async def cmd_help(message: Message):
+    """Handle /help command"""
+    await message.answer(HELP_MESSAGE)

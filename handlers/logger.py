@@ -4,7 +4,7 @@ from aiogram.filters import ChatMemberUpdatedFilter, IS_MEMBER, IS_NOT_MEMBER
 from datetime import datetime
 import logging
 
-from config import OWNER_ID
+from config import LOG_GROUP_ID
 from templates import BOT_ADDED_TO_GROUP, BOT_REMOVED_FROM_GROUP
 
 logger = logging.getLogger(__name__)
@@ -17,7 +17,7 @@ router = Router()
 )
 async def bot_added_to_chat(event: ChatMemberUpdated):
     """Handle when bot is added to a group"""
-    if not OWNER_ID:
+    if not LOG_GROUP_ID:
         return
     
     try:
@@ -33,7 +33,7 @@ async def bot_added_to_chat(event: ChatMemberUpdated):
                 time=datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
             )
             
-            await event.bot.send_message(OWNER_ID, log_msg)
+            await event.bot.send_message(LOG_GROUP_ID, log_msg)
     except Exception as e:
         logger.error(f"Error logging bot addition: {e}")
 
@@ -44,7 +44,7 @@ async def bot_added_to_chat(event: ChatMemberUpdated):
 )
 async def bot_removed_from_chat(event: ChatMemberUpdated):
     """Handle when bot is removed from a group"""
-    if not OWNER_ID:
+    if not LOG_GROUP_ID:
         return
     
     try:
@@ -58,6 +58,6 @@ async def bot_removed_from_chat(event: ChatMemberUpdated):
                 time=datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
             )
             
-            await event.bot.send_message(OWNER_ID, log_msg)
+            await event.bot.send_message(LOG_GROUP_ID, log_msg)
     except Exception as e:
         logger.error(f"Error logging bot removal: {e}")

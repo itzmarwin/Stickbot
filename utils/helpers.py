@@ -6,18 +6,21 @@ def validate_pack_name(name: str) -> Tuple[bool, str]:
     """
     Validate sticker pack name
     Returns: (is_valid, error_message)
+    
+    Accepts ALL Unicode characters including:
+    - Fancy fonts (𝐟𝐨𝐫, 𝕞𝕠𝕣𝕖, etc.)
+    - Special characters ([], {}, @, #, $, %, &, *, etc.)
+    - Emojis (🎨, 😊, etc.)
+    - Any Unicode text
     """
     if not name or len(name.strip()) == 0:
         return False, "Pack name cannot be empty"
     
     name = name.strip()
     
+    # Only check length, accept ALL characters
     if len(name) > MAX_PACK_NAME_LENGTH:
         return False, "pack_name_too_long"
-    
-    # Allow letters, numbers, spaces, underscores, @, and common punctuation
-    if not re.match(r'^[a-zA-Z0-9\s_@.!-]+$', name):
-        return False, "pack_name_invalid"
     
     return True, ""
 
@@ -26,15 +29,19 @@ def generate_short_name(pack_name: str, user_id: int) -> str:
     Generate unique short name for sticker pack
     Format: {cleaned_pack_name}_{user_id}_by_{bot_username}
     
-    Telegram Requirements:
+    Note: Short name MUST follow Telegram's rules (only a-z, 0-9, underscore)
+    But pack TITLE can have any Unicode characters
+    
+    Telegram Requirements for short name:
     - Must end with "_by_<bot_username>"
     - Can only contain: a-z, 0-9, and underscores
     - Must be 1-64 characters
     """
-    # Clean pack name for short name (only lowercase letters and numbers)
-    cleaned = re.sub(r'[^a-zA-Z0-9]', '', pack_name.lower())
+    # For short name, extract only alphanumeric characters
+    # Remove all non-alphanumeric (including fancy Unicode)
+    cleaned = ''.join(c for c in pack_name if c.isalnum()).lower()
     
-    # If empty after cleaning, use default
+    # If nothing left after cleaning, use default
     if not cleaned:
         cleaned = "pack"
     
@@ -61,7 +68,10 @@ def format_pack_name(user_provided_name: str) -> str:
     """
     Format pack name by appending bot username
     Format: {User Provided Name} ~ @BotUsername
+    
+    Accepts ALL Unicode characters - no filtering!
     """
+    # Keep the name exactly as user provided (with all Unicode characters)
     return f"{user_provided_name.strip()} ~ @{BOT_USERNAME}"
 
 def get_file_size_mb(file_size: int) -> float:

@@ -30,7 +30,7 @@ HELP_MESSAGE = """
 
 <b>Adding Stickers:</b>
 • Reply to media with /kang
-• I support: Images, GIFs, Stickers, Videos (<4MB)
+• I support: Images, GIFs, Stickers, Videos (under 4MB)
 • Videos are converted to WebM format
 
 <b>Commands:</b>
@@ -57,7 +57,7 @@ Please send me a name for your pack.
 <b>Example:</b> <code>devil pack @itzdevil</code>
 
 Your pack name will be formatted as:
-<code>{your_name} ~ @{bot_username}</code>
+<code>YourName ~ @BotUsername</code>
 
 <i>Note: Pack name must be 1-64 characters</i>
 """

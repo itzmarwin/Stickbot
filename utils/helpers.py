@@ -25,21 +25,35 @@ def generate_short_name(pack_name: str, user_id: int) -> str:
     """
     Generate unique short name for sticker pack
     Format: {cleaned_pack_name}_{user_id}_by_{bot_username}
+    
+    Telegram Requirements:
+    - Must end with "_by_<bot_username>"
+    - Can only contain: a-z, 0-9, and underscores
+    - Must be 1-64 characters
     """
-    # Clean pack name for short name (remove special chars, replace spaces with underscore)
-    cleaned = re.sub(r'[^a-zA-Z0-9]', '_', pack_name.lower())
-    # Remove consecutive underscores
-    cleaned = re.sub(r'_+', '_', cleaned)
-    # Remove leading/trailing underscores
-    cleaned = cleaned.strip('_')
+    # Clean pack name for short name (only lowercase letters and numbers)
+    cleaned = re.sub(r'[^a-zA-Z0-9]', '', pack_name.lower())
+    
+    # If empty after cleaning, use default
+    if not cleaned:
+        cleaned = "pack"
     
     # Limit length to avoid Telegram's limits
-    if len(cleaned) > 20:
-        cleaned = cleaned[:20]
+    if len(cleaned) > 15:
+        cleaned = cleaned[:15]
     
-    bot_user = BOT_USERNAME.replace('@', '').replace('bot', '').replace('Bot', '')
+    # Get bot username without @ and ensure it's lowercase
+    bot_user = BOT_USERNAME.replace('@', '').lower()
     
+    # Telegram requires the exact format: name_by_botusername
     short_name = f"{cleaned}_{user_id}_by_{bot_user}"
+    
+    # Ensure total length is under 64 characters
+    if len(short_name) > 64:
+        # Reduce cleaned name length
+        max_cleaned_length = 64 - len(f"_{user_id}_by_{bot_user}")
+        cleaned = cleaned[:max_cleaned_length]
+        short_name = f"{cleaned}_{user_id}_by_{bot_user}"
     
     return short_name
 

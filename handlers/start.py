@@ -5,7 +5,7 @@ from aiogram.fsm.context import FSMContext
 
 from database import get_user, create_user, update_user_started
 from templates import START_MESSAGE, HELP_MESSAGE
-from config import OWNER_ID, BOT_USERNAME
+from config import LOG_GROUP_ID, BOT_USERNAME
 from datetime import datetime
 
 router = Router()
@@ -29,8 +29,8 @@ async def cmd_start(message: Message, state: FSMContext):
             first_name=user.first_name
         )
         
-        # Send log to owner if this is a new user
-        if OWNER_ID and user.id != OWNER_ID:
+        # Send log to logger group if this is a new user
+        if LOG_GROUP_ID:
             try:
                 from templates import NEW_USER_LOG
                 log_msg = NEW_USER_LOG.format(
@@ -39,8 +39,8 @@ async def cmd_start(message: Message, state: FSMContext):
                     first_name=user.first_name or "Unknown",
                     time=datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
                 )
-                await message.bot.send_message(OWNER_ID, log_msg)
-            except:
+                await message.bot.send_message(LOG_GROUP_ID, log_msg)
+            except Exception as e:
                 pass
     else:
         # Update has_started status

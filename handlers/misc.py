@@ -6,7 +6,7 @@ from aiogram.types import Message
 from aiogram.filters import Command
 
 from database import get_total_users_count, get_total_packs_count
-from config import OWNER_ID
+from config import is_owner
 
 router = Router()
 
@@ -15,7 +15,11 @@ bot_start_time = time.time()
 
 @router.message(Command("ping"))
 async def cmd_ping(message: Message):
-    """Handle /ping command - show bot status and system info"""
+    """Handle /ping command - show bot status and system info (owner only)"""
+    # Check if user is owner
+    if not is_owner(message.from_user.id):
+        return
+    
     # Calculate response time
     start_time = time.time()
     
@@ -61,7 +65,7 @@ async def cmd_ping(message: Message):
 @router.message(Command("stats"))
 async def cmd_stats(message: Message):
     """Handle /stats command - show bot statistics (owner only)"""
-    if message.from_user.id != OWNER_ID:
+    if not is_owner(message.from_user.id):
         return
     
     total_users = await get_total_users_count()

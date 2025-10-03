@@ -76,18 +76,15 @@ Your pack name will be formatted as:
 """
 
 PACK_CREATED = """
-✅ <b>Pack created successfully!</b>
+✅ <b>New pack grabbed successfully!</b>
 
-<b>Pack Name:</b> {pack_name}
-<b>Link:</b> {pack_link}
+<b>Pack:</b> {pack_name}
 
 Your first sticker has been added! 🎉
 """
 
 STICKER_ADDED = """
-✅ <b>Added to your pack!</b>
-
-<a href="{pack_link}">View Your Pack</a>
+✅ <b>Sticker grabbed successfully!</b>
 """
 
 NO_MEDIA_REPLY = """
@@ -143,7 +140,7 @@ Your name has {length} characters.
 Please use a shorter name.
 """
 
-PROCESSING_MEDIA = "⏳ Processing your media..."
+PROCESSING_MEDIA = "⌛ Grabbing your sticker, hold on..."
 
 ERROR_OCCURRED = """
 ❌ <b>An error occurred</b>

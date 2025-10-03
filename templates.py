@@ -8,6 +8,7 @@ I can help you add images, GIFs, stickers, and videos to your personal sticker p
 
 <b>Commands:</b>
 /kang - Add a sticker to your pack
+/q - Quote a message as sticker
 /packs - View your sticker pack
 /help - Get help
 
@@ -20,6 +21,7 @@ I can help you add images, GIFs, stickers, and videos to your personal sticker p
 • Use any Unicode fonts in pack names
 • Add emojis and special characters
 • Support for 𝐛𝐨𝐥𝐝, 𝕚𝕥𝕒𝕝𝕚𝕔, 𝓬𝓾𝓻𝓼𝓲𝓿𝓮 fonts
+• Quote messages as stickers
 • Full creative freedom!
 
 Let's get started! 🎨
@@ -42,8 +44,15 @@ HELP_MESSAGE = """
 • Supported: Images, GIFs, Stickers, Videos
 • Videos auto-trimmed to fit 256KB limit
 
+<b>Quote Stickers:</b>
+• Reply to any message with /q
+• Creates a Telegram-style quote sticker
+• Shows user's avatar, name, and message
+• Perfect for memes and highlights!
+
 <b>Commands:</b>
 /kang - Add media to your pack
+/q - Quote a message as sticker
 /packs - View your pack info
 /help - Show this message
 

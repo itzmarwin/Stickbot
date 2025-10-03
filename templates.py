@@ -140,7 +140,7 @@ Your name has {length} characters.
 Please use a shorter name.
 """
 
-PROCESSING_MEDIA = "⌛ Grabbing your sticker, hold on..."
+PROCESSING_MEDIA = "⌛ <b>Grabbing your sticker, hold on...</b>"
 
 ERROR_OCCURRED = """
 ❌ <b>An error occurred</b>

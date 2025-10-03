@@ -35,13 +35,14 @@ class QuotlyAPI:
         "phone_number": "phone_number",
     }
     
-    async def format_message(self, message: Message, bot: Bot) -> Optional[Dict]:
+    async def format_message(self, message: Message, bot: Bot, replied_to: Message = None) -> Optional[Dict]:
         """
         Format aiogram Message to lyo.su API format
         
         Args:
             message: Aiogram Message object
             bot: Bot instance
+            replied_to: Message being replied to (for reply context)
             
         Returns:
             Dictionary in API format or None
@@ -83,6 +84,18 @@ class QuotlyAPI:
                         
                         entities.append(entity_dict)
             
+            # Handle reply context
+            reply_message = {}
+            if replied_to:
+                reply_user = replied_to.from_user
+                reply_text = replied_to.text or replied_to.caption or ""
+                
+                reply_message = {
+                    "name": reply_user.first_name or "Deleted Account",
+                    "text": reply_text,
+                    "chatId": replied_to.chat.id
+                }
+            
             # Build message dict
             message_dict = {
                 "entities": entities,
@@ -99,7 +112,7 @@ class QuotlyAPI:
                     "type": "private" if message.chat.type == "private" else "group"
                 },
                 "text": text,
-                "replyMessage": {}
+                "replyMessage": reply_message
             }
             
             # Add media if available (photo)

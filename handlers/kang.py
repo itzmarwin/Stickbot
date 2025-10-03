@@ -89,11 +89,11 @@ async def cmd_kang(message: Message, state: FSMContext, bot: Bot):
         # Ask for pack name
         await state.set_state(KangStates.waiting_for_pack_name)
         await state.update_data(media=media.file_id, media_type=media_type)
-        await message.answer(ASK_PACK_NAME)
+        await message.reply(ASK_PACK_NAME)
         return
     
     # Add sticker to existing pack
-    processing_msg = await message.answer(PROCESSING_MEDIA)
+    processing_msg = await message.reply(PROCESSING_MEDIA)
     
     try:
         success = await add_sticker_to_pack(
@@ -103,8 +103,6 @@ async def cmd_kang(message: Message, state: FSMContext, bot: Bot):
             media=media,
             media_type=media_type
         )
-        
-        await processing_msg.delete()
         
         if success:
             await increment_sticker_count(user_id)
@@ -117,13 +115,12 @@ async def cmd_kang(message: Message, state: FSMContext, bot: Bot):
                 )
             ]])
             
-            await message.answer(STICKER_ADDED, reply_markup=keyboard)
+            await processing_msg.edit_text(STICKER_ADDED, reply_markup=keyboard)
         else:
-            await message.answer(ERROR_OCCURRED)
+            await processing_msg.edit_text(ERROR_OCCURRED)
     except Exception as e:
         logger.error(f"Error adding sticker: {e}")
-        await processing_msg.delete()
-        await message.answer(ERROR_OCCURRED)
+        await processing_msg.edit_text(ERROR_OCCURRED)
 
 @router.message(KangStates.waiting_for_pack_name)
 async def process_pack_name(message: Message, state: FSMContext, bot: Bot):
@@ -168,7 +165,7 @@ async def process_pack_name(message: Message, state: FSMContext, bot: Bot):
     logger.info(f"Generated short name: {short_name}")
     
     # Create pack
-    processing_msg = await message.answer(PROCESSING_MEDIA)
+    processing_msg = await message.reply(PROCESSING_MEDIA)
     
     temp_files = []
     
@@ -217,8 +214,7 @@ async def process_pack_name(message: Message, state: FSMContext, bot: Bot):
                 sticker_format = "video"
             else:
                 cleanup_temp_files(*temp_files)
-                await processing_msg.delete()
-                await message.answer(VIDEO_COMPRESSION_FAILED)
+                await processing_msg.edit_text(VIDEO_COMPRESSION_FAILED)
                 await state.clear()
                 return
         
@@ -250,20 +246,24 @@ async def process_pack_name(message: Message, state: FSMContext, bot: Bot):
         # Clean up temp files
         cleanup_temp_files(*temp_files)
         
-        await processing_msg.delete()
-        await message.answer(
-            PACK_CREATED.format(
-                pack_name=formatted_pack_name,
-                pack_link=pack_link
+        # Create button for pack link
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(
+                text="View Pack",
+                url=pack_link
             )
+        ]])
+        
+        await processing_msg.edit_text(
+            PACK_CREATED.format(pack_name=formatted_pack_name),
+            reply_markup=keyboard
         )
         await state.clear()
         
     except Exception as e:
         logger.error(f"Error creating pack: {e}")
         cleanup_temp_files(*temp_files)
-        await processing_msg.delete()
-        await message.answer(ERROR_OCCURRED)
+        await processing_msg.edit_text(ERROR_OCCURRED)
         await state.clear()
 
 async def add_sticker_to_pack(bot: Bot, user_id: int, pack_short_name: str, 

@@ -6,7 +6,7 @@ from aiogram.enums import ParseMode
 
 from config import BOT_TOKEN
 from database import init_db
-from handlers import start, kang, packs, misc, logger
+from handlers import start, kang, packs, misc, logger, quotly
 
 # Configure logging
 logging.basicConfig(
@@ -27,6 +27,7 @@ async def main():
     
     # Register routers
     dp.include_router(start.router)
+    dp.include_router(quotly.router)
     dp.include_router(kang.router)
     dp.include_router(packs.router)
     dp.include_router(logger.router)

@@ -6,7 +6,10 @@ load_dotenv()
 # Bot configuration
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 BOT_USERNAME = os.getenv("BOT_USERNAME")
-OWNER_ID = int(os.getenv("OWNER_ID", "0"))
+
+# Multiple owner IDs (comma-separated in .env)
+OWNER_IDS = [int(x) for x in os.getenv("OWNER_IDS", "").split(",") if x.strip().isdigit()]
+
 LOG_GROUP_ID = int(os.getenv("LOG_GROUP_ID", "0"))  # Logger group ID
 
 # Database configuration

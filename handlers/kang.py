@@ -108,9 +108,16 @@ async def cmd_kang(message: Message, state: FSMContext, bot: Bot):
         
         if success:
             await increment_sticker_count(user_id)
-            await message.answer(
-                STICKER_ADDED.format(pack_link=pack["pack_link"])
-            )
+            
+            # Create button for pack link
+            keyboard = InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(
+                    text="View Pack",
+                    url=pack["pack_link"]
+                )
+            ]])
+            
+            await message.answer(STICKER_ADDED, reply_markup=keyboard)
         else:
             await message.answer(ERROR_OCCURRED)
     except Exception as e:
@@ -153,6 +160,12 @@ async def process_pack_name(message: Message, state: FSMContext, bot: Bot):
     
     # Generate short name
     short_name = generate_short_name(pack_name, user_id)
+    
+    # Log for debugging
+    logger.info(f"Creating pack for user {user_id}")
+    logger.info(f"User provided name: {pack_name}")
+    logger.info(f"Formatted pack name: {formatted_pack_name}")
+    logger.info(f"Generated short name: {short_name}")
     
     # Create pack
     processing_msg = await message.answer(PROCESSING_MEDIA)

@@ -45,14 +45,18 @@ HELP_MESSAGE = """
 • Videos auto-trimmed to fit 256KB limit
 
 <b>Quote Stickers:</b>
-• Reply to any message with /q
-• Creates a Telegram-style quote sticker
-• Shows user's avatar, name, and message
-• Perfect for memes and highlights!
+• <code>/q</code> - Quote a message
+• <code>/q red</code> - Quote with red background
+• <code>/q 3</code> - Quote 3 messages
+• <code>/q 5 blue</code> - Quote 5 messages with blue bg
+
+<b>Available Colors:</b>
+red, blue, green, purple, pink, orange, yellow, cyan, black, white
+or use hex colors like #ff0000
 
 <b>Commands:</b>
 /kang - Add media to your pack
-/q - Quote a message as sticker
+/q - Quote messages as stickers
 /packs - View your pack info
 /help - Show this message
 

@@ -41,7 +41,7 @@ async def convert_video_to_webm(input_path: str, output_path: str) -> bool:
     Convert video/GIF to WebM format for video stickers
     Automatically adjusts duration to fit 256KB limit
     Requirements:
-    - 512x512 resolution
+    - 512x512 resolution (fills entire sticker, no black borders)
     - VP9 codec
     - Max 256KB file size (will auto-cut duration to fit)
     """
@@ -55,20 +55,22 @@ async def convert_video_to_webm(input_path: str, output_path: str) -> bool:
             temp_output = output_path + f".temp_{duration}.webm"
             
             # Calculate appropriate bitrate based on duration
-            # Rough formula: (256KB * 8 bits) / duration / 1024 = bitrate in kbps
-            target_bitrate = int((max_size * 8) / duration / 1024 * 0.8)  # 0.8 for safety margin
-            target_bitrate = max(100, min(target_bitrate, 500))  # Clamp between 100-500k
+            target_bitrate = int((max_size * 8) / duration / 1024 * 0.8)
+            target_bitrate = max(100, min(target_bitrate, 500))
             
+            # IMPORTANT: Use crop and scale to fill entire 512x512 without black borders
+            # This crops the video to square aspect ratio first, then scales to 512x512
             cmd = [
                 'ffmpeg',
                 '-i', input_path,
-                '-t', str(duration),  # Limit duration
-                '-vf', 'scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2',
+                '-t', str(duration),
+                # Crop to square aspect ratio then scale to fill 512x512
+                '-vf', 'crop=min(iw\\,ih):min(iw\\,ih),scale=512:512,setsar=1',
                 '-c:v', 'libvpx-vp9',
                 '-b:v', f'{target_bitrate}k',
                 '-crf', '40',
                 '-pix_fmt', 'yuva420p',
-                '-an',  # No audio
+                '-an',
                 '-deadline', 'good',
                 '-cpu-used', '4',
                 '-row-mt', '1',
@@ -112,17 +114,17 @@ async def convert_video_to_webm(input_path: str, output_path: str) -> bool:
                     os.remove(temp_output)
                 continue
         
-        # If all durations failed, try one last aggressive compression with 0.5s
+        # If all durations failed, try one last aggressive compression
         logger.info("Attempting final aggressive compression...")
         
         cmd_final = [
             'ffmpeg',
             '-i', input_path,
             '-t', '0.5',
-            '-vf', 'scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2',
+            '-vf', 'crop=min(iw\\,ih):min(iw\\,ih),scale=512:512,setsar=1',
             '-c:v', 'libvpx-vp9',
             '-b:v', '150k',
-            '-crf', '50',  # Very high CRF for maximum compression
+            '-crf', '50',
             '-pix_fmt', 'yuva420p',
             '-an',
             '-deadline', 'good',

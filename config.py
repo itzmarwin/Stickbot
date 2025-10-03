@@ -17,3 +17,9 @@ DATABASE_NAME = os.getenv("DATABASE_NAME", "sticker_kang_bot")
 MAX_PACK_NAME_LENGTH = 64
 MAX_STICKERS_PER_PACK = 120
 MAX_VIDEO_SIZE_MB = 4
+
+# config.py
+OWNER_IDS = [123456789, 987654321, 555555555]
+
+def is_owner(user_id: int) -> bool:
+    return user_id in OWNER_IDS

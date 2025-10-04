@@ -6,22 +6,7 @@ NEED_TO_START = """
 𝐎𝐨𝐩𝐬! 𝐘𝐨𝐮 𝐧𝐞𝐞𝐝 𝐭𝐨 𝐬𝐭𝐚𝐫𝐭 𝐦𝐞 𝐟𝐢𝐫𝐬𝐭 𝐭𝐨 𝐮𝐬𝐞 𝐭𝐡𝐢𝐬 𝐛𝐨𝐭.
 """
 
-ASK_PACK_NAME = """
-<b>🎨 Let's create your sticker pack!</b>
-
-Please send me a name for your pack.
-
-<b>Examples:</b>
-<code>𝐃𝐞𝐯𝐢𝐥'𝐬 𝐏𝐚𝐜𝐤 🔥</code>
-<code>【MyStickers】✨</code>
-<code>Cool Pack [2025]</code>
-
-Your pack name will be formatted as:
-<code>YourName ~ @BotUsername</code>
-
-<i>✨ Use any Unicode fonts, emojis, or special characters!
-📝 Pack name must be 1-64 characters</i>
-"""
+ASK_PACK_NAME = "nigga pack name do"
 
 PACK_CREATED = """
 ✅ <b>New pack grabbed successfully!</b>
@@ -36,15 +21,7 @@ STICKER_ADDED = """
 """
 
 NO_MEDIA_REPLY = """
-⚠️ <b>Please reply to a media message</b>
-
-You need to reply to:
-• Image
-• GIF
-• Sticker
-• Video (under 4MB)
-
-Then use /kang to add it to your pack.
+⚠️ <b>Nigga...Please reply to a media message</b>
 """
 
 VIDEO_TOO_LARGE = """

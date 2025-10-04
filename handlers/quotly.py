@@ -1,11 +1,9 @@
 import os
 import base64
 import logging
-from random import choice
 from aiogram import Router, F, Bot
 from aiogram.filters import Command
 from aiogram.types import Message, BufferedInputFile
-from aiogram.utils.markdown import html_decoration as hd
 
 from utils.quotly_api import QuotlyAPI
 
@@ -15,7 +13,7 @@ router = Router()
 # Default dark theme
 DEFAULT_BG = "#1b1429"
 
-# Available background colors (for named colors)
+# Available background colors
 COLOR_MAP = {
     "red": "#d63031",
     "blue": "#74b9ff", 
@@ -57,93 +55,48 @@ async def cmd_quote(message: Message, bot: Bot):
         return
     
     # Parse command arguments
-    args = message.text.split(maxsplit=1)[1] if len(message.text.split()) > 1 else None
+    cmd_text = message.text or ""
+    args = cmd_text.split(maxsplit=1)[1] if len(cmd_text.split()) > 1 else ""
     
-    bg_color = DEFAULT_BG  # Default dark theme
-    quote_count = 1
-    include_reply = False  # NEW: Flag for including reply chain
+    bg_color = DEFAULT_BG
+    include_reply = False
     
     # Parse arguments
     if args:
-        parts = args.split(maxsplit=1)
+        parts = args.lower().split()
         
         # Check for 'r' or 'reply' flag
-        if parts[0].lower() in ['r', 'reply']:
+        if 'r' in parts or 'reply' in parts:
             include_reply = True
-            # Check for additional args after 'r'
-            if len(parts) > 1:
-                remaining = parts[1].split(maxsplit=1)
-                # Check if next arg is a number
-                if remaining[0].isdigit():
-                    quote_count = int(remaining[0])
-                    if quote_count > 10:
-                        quote_count = 10
-                    if quote_count < 1:
-                        quote_count = 1
-                    # Check for color
-                    if len(remaining) > 1:
-                        color_arg = remaining[1].lower()
-                        if color_arg in COLOR_MAP:
-                            bg_color = COLOR_MAP[color_arg]
-                        elif color_arg.startswith("#"):
-                            bg_color = color_arg
-                # Check if it's a color
-                elif remaining[0].lower() in COLOR_MAP:
-                    bg_color = COLOR_MAP[remaining[0].lower()]
-                elif remaining[0].startswith("#"):
-                    bg_color = remaining[0]
+            # Remove 'r' or 'reply' from parts for color parsing
+            parts = [p for p in parts if p not in ['r', 'reply']]
         
-        # Check if first arg is a number (multiple consecutive quotes)
-        elif parts[0].isdigit():
-            quote_count = int(parts[0])
-            if quote_count > 10:
-                quote_count = 10
-            if quote_count < 1:
-                quote_count = 1
-            
-            # Check for color in second part
-            if len(parts) > 1:
-                color_arg = parts[1].lower()
-                if color_arg in COLOR_MAP:
-                    bg_color = COLOR_MAP[color_arg]
-                elif color_arg.startswith("#"):
-                    bg_color = color_arg
-        
-        # Check for color name only
-        elif parts[0].lower() in COLOR_MAP:
-            bg_color = COLOR_MAP[parts[0].lower()]
-        
-        # Check if it's a hex color
-        elif parts[0].startswith("#"):
-            bg_color = parts[0]
+        # Check for color
+        if parts:
+            if parts[0] in COLOR_MAP:
+                bg_color = COLOR_MAP[parts[0]]
+            elif parts[0].startswith("#"):
+                bg_color = parts[0]
     
     # Send processing message
     processing = await message.reply("⏳ <b>Creating quote sticker...</b>")
     
     try:
-        messages_to_quote = []
+        # Get reply context if needed
+        replied_to_msg = None
+        if include_reply and reply_msg.reply_to_message:
+            replied_to_msg = reply_msg.reply_to_message
+            logger.info(f"Including reply context from message: {replied_to_msg.text[:50] if replied_to_msg.text else 'no text'}")
         
-        # For now, only support single message (multiple message fetch needs database)
-        messages_to_quote = [reply_msg]
+        # Format message for API
+        formatted_msg = await quotly.format_message(reply_msg, bot, replied_to_msg)
         
-        # Format messages for API
-        formatted_messages = []
-        for msg in messages_to_quote:
-            # Determine if we should include reply context
-            replied_to_msg = None
-            if include_reply and msg.reply_to_message:
-                replied_to_msg = msg.reply_to_message
-            
-            formatted_msg = await quotly.format_message(msg, bot, replied_to_msg)
-            if formatted_msg:
-                formatted_messages.append(formatted_msg)
-        
-        if not formatted_messages:
-            raise Exception("No valid messages to quote")
+        if not formatted_msg:
+            raise Exception("Failed to format message")
         
         # Create quote using API
         sticker_data = await quotly.create_quote(
-            messages=formatted_messages,
+            messages=[formatted_msg],
             bg_color=bg_color
         )
         
@@ -162,8 +115,8 @@ async def cmd_quote(message: Message, bot: Bot):
         await processing.delete()
         
     except Exception as e:
-        logger.error(f"Error creating quote: {e}")
+        logger.error(f"Error creating quote: {e}", exc_info=True)
         await processing.edit_text(
             "❌ <b>Failed to create quote sticker!</b>\n\n"
-            "Please try again later."
+            f"Error: {str(e)}"
         )

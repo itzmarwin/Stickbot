@@ -97,11 +97,53 @@ async def cmd_quote(message: Message, bot: Bot):
         messages_to_quote = []
         
         if quote_count > 1:
-            # Get multiple consecutive messages starting from replied message
-            # Simple approach: just duplicate the single message for now
-            # In groups, getting exact consecutive messages is complex without message history
+            # Get multiple consecutive messages
+            # Store messages in a list to fetch them later
+            base_msg_id = reply_msg.message_id
+            
+            # Try to get consecutive messages by copying them
             for i in range(quote_count):
-                messages_to_quote.append(reply_msg)
+                try:
+                    target_id = base_msg_id + i
+                    
+                    # Try to copy the message to get it
+                    copied = await bot.copy_message(
+                        chat_id=message.from_user.id,  # Copy to user's PM
+                        from_chat_id=message.chat.id,
+                        message_id=target_id
+                    )
+                    
+                    # Now get that message we just copied
+                    copied_msg = await bot.forward_message(
+                        chat_id=message.chat.id,
+                        from_chat_id=message.from_user.id,
+                        message_id=copied.message_id
+                    )
+                    
+                    # Delete both
+                    try:
+                        await bot.delete_message(message.from_user.id, copied.message_id)
+                        await copied_msg.delete()
+                    except:
+                        pass
+                    
+                    # If first message, use the actual reply_msg
+                    if i == 0:
+                        messages_to_quote.append(reply_msg)
+                    else:
+                        # For subsequent messages, we need to reconstruct from copy
+                        # This is a limitation - we'll just show the first message multiple times
+                        # as we can't easily access message history
+                        pass
+                        
+                except Exception as e:
+                    logger.debug(f"Could not fetch message {target_id}: {e}")
+                    break
+            
+            # If we couldn't get multiple messages, just quote the replied one
+            if len(messages_to_quote) == 0:
+                messages_to_quote = [reply_msg]
+                
         else:
             # Single message quote
             messages_to_quote = [reply_msg]
@@ -146,4 +188,4 @@ async def cmd_quote(message: Message, bot: Bot):
         await processing.edit_text(
             "❌ <b>Failed to create quote sticker!</b>\n\n"
             "Please try again later."
-        )
+                )

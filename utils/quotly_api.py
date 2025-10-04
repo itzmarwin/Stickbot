@@ -53,8 +53,13 @@ class QuotlyAPI:
             # Get user info
             user_id = user.id
             first_name = user.first_name or "Deleted Account"
-            last_name = user.last_name
+            last_name = user.last_name or ""
             username = user.username
+            
+            # Create display name (first_name + last_name if available)
+            display_name = first_name
+            if last_name:
+                display_name = f"{first_name} {last_name}"
             
             # Get message text
             text = message.text or message.caption or ""
@@ -72,32 +77,41 @@ class QuotlyAPI:
                         }
                         
                         # Add URL for text links
-                        if entity_type == "text_link" and entity.url:
+                        if entity_type == "text_link" and hasattr(entity, 'url'):
                             entity_dict["url"] = entity.url
                         
                         # Add user for text mentions
-                        if entity_type == "text_mention" and entity.user:
+                        if entity_type == "text_mention" and hasattr(entity, 'user'):
                             entity_dict["user"] = {
                                 "id": entity.user.id,
-                                "first_name": entity.user.first_name
+                                "first_name": entity.user.first_name or "User"
                             }
                         
                         entities.append(entity_dict)
             
-            # Handle reply context - CRITICAL FIX
+            # Handle reply context - FIXED FOR LYOSU API
             reply_message = {}
             if replied_to:
                 reply_user = replied_to.from_user
                 reply_text = replied_to.text or replied_to.caption or ""
                 
-                # Format reply message properly for lyo.su API
+                # Get reply user display name
+                reply_display_name = "Deleted Account"
+                if reply_user:
+                    reply_first_name = reply_user.first_name or "Deleted Account"
+                    reply_last_name = reply_user.last_name or ""
+                    reply_display_name = reply_first_name
+                    if reply_last_name:
+                        reply_display_name = f"{reply_first_name} {reply_last_name}"
+                
+                # Format reply message exactly as lyo.su API expects
                 reply_message = {
-                    "name": reply_user.first_name or "Deleted Account",
+                    "name": reply_display_name,
                     "text": reply_text,
                     "chatId": replied_to.chat.id
                 }
                 
-                logger.info(f"Reply context added: name={reply_message['name']}, text={reply_text[:30]}")
+                logger.info(f"Reply context added: {reply_display_name} - {reply_text[:30]}...")
             
             # Build message dict
             message_dict = {
@@ -110,8 +124,8 @@ class QuotlyAPI:
                     "last_name": last_name,
                     "username": username,
                     "language_code": user.language_code or "en",
-                    "title": first_name,
-                    "name": first_name,
+                    "title": display_name,  # Use display name for title
+                    "name": display_name,   # Use display name for name
                     "type": "private" if message.chat.type == "private" else "group"
                 },
                 "text": text,
@@ -170,6 +184,8 @@ class QuotlyAPI:
                 "messages": messages
             }
             
+            logger.info(f"Sending request to lyo.su API with {len(messages)} messages")
+            
             # Make API request
             async with aiohttp.ClientSession() as session:
                 async with session.post(
@@ -192,11 +208,12 @@ class QuotlyAPI:
                     image_base64 = result["result"]["image"]
                     image_bytes = base64.b64decode(image_base64)
                     
+                    logger.info("Successfully generated quote sticker")
                     return image_bytes
         
         except aiohttp.ClientError as e:
             logger.error(f"Network error: {e}")
             return None
         except Exception as e:
-            logger.error(f"Error creating quote: {e}")
+            logger.error(f"Error creating quote: {e}", exc_info=True)
             return None

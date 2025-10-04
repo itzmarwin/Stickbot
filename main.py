@@ -10,8 +10,8 @@ from config import BOT_TOKEN, TELEGRAM_API_ID, TELEGRAM_API_HASH
 from database import init_db
 from handlers import start, kang, packs, misc, logger
 from telethon_quotly import setup_telethon_handlers
-from pyrogram_handlers.afk import setup_afk_handlers
 from pyrogram_handlers.gban import setup_gban_handlers
+from pyrogram_handlers.afk import setup_afk_handlers
 
 # Configure logging
 logging.basicConfig(

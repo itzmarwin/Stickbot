@@ -86,17 +86,22 @@ async def cmd_quote(message: Message, bot: Bot):
     processing = await message.reply("⏳ <b>Creating quote sticker...</b>")
     
     try:
-        # Get reply context if needed
+        # Get reply context if needed - FIXED LOGIC
         replied_to_msg = None
         
         if include_reply:
-            if reply_msg.reply_to_message:
+            # Check if the message we're replying to is itself a reply
+            if hasattr(reply_msg, 'reply_to_message') and reply_msg.reply_to_message:
                 replied_to_msg = reply_msg.reply_to_message
-                logger.info(f"Quote with reply: {replied_to_msg.text[:50] if replied_to_msg.text else 'media message'}")
+                logger.info(f"Found reply context: {replied_to_msg.text[:50] if replied_to_msg.text else 'media message'}")
             else:
                 await processing.edit_text(
-                    "⚠️ <b>This message is not a reply!</b>\n\n"
-                    "Use <code>/q r</code> only on messages that are replies to other messages."
+                    "⚠️ <b>This message is not a reply to another message!</b>\n\n"
+                    "Use <code>/q r</code> only on messages that are <b>replies to other messages</b>.\n\n"
+                    "Example:\n"
+                    "1. User A: Hello\n"
+                    "2. You: Hii there (reply to Hello)\n"  
+                    "3. You: /q r (reply to 'Hii there')"
                 )
                 return
         

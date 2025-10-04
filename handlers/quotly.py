@@ -61,13 +61,40 @@ async def cmd_quote(message: Message, bot: Bot):
     
     bg_color = DEFAULT_BG  # Default dark theme
     quote_count = 1
+    include_reply = False  # NEW: Flag for including reply chain
     
     # Parse arguments
     if args:
         parts = args.split(maxsplit=1)
         
+        # Check for 'r' or 'reply' flag
+        if parts[0].lower() in ['r', 'reply']:
+            include_reply = True
+            # Check for additional args after 'r'
+            if len(parts) > 1:
+                remaining = parts[1].split(maxsplit=1)
+                # Check if next arg is a number
+                if remaining[0].isdigit():
+                    quote_count = int(remaining[0])
+                    if quote_count > 10:
+                        quote_count = 10
+                    if quote_count < 1:
+                        quote_count = 1
+                    # Check for color
+                    if len(remaining) > 1:
+                        color_arg = remaining[1].lower()
+                        if color_arg in COLOR_MAP:
+                            bg_color = COLOR_MAP[color_arg]
+                        elif color_arg.startswith("#"):
+                            bg_color = color_arg
+                # Check if it's a color
+                elif remaining[0].lower() in COLOR_MAP:
+                    bg_color = COLOR_MAP[remaining[0].lower()]
+                elif remaining[0].startswith("#"):
+                    bg_color = remaining[0]
+        
         # Check if first arg is a number (multiple consecutive quotes)
-        if parts[0].isdigit():
+        elif parts[0].isdigit():
             quote_count = int(parts[0])
             if quote_count > 10:
                 quote_count = 10
@@ -96,64 +123,15 @@ async def cmd_quote(message: Message, bot: Bot):
     try:
         messages_to_quote = []
         
-        if quote_count > 1:
-            # Get multiple consecutive messages
-            # Store messages in a list to fetch them later
-            base_msg_id = reply_msg.message_id
-            
-            # Try to get consecutive messages by copying them
-            for i in range(quote_count):
-                try:
-                    target_id = base_msg_id + i
-                    
-                    # Try to copy the message to get it
-                    copied = await bot.copy_message(
-                        chat_id=message.from_user.id,  # Copy to user's PM
-                        from_chat_id=message.chat.id,
-                        message_id=target_id
-                    )
-                    
-                    # Now get that message we just copied
-                    copied_msg = await bot.forward_message(
-                        chat_id=message.chat.id,
-                        from_chat_id=message.from_user.id,
-                        message_id=copied.message_id
-                    )
-                    
-                    # Delete both
-                    try:
-                        await bot.delete_message(message.from_user.id, copied.message_id)
-                        await copied_msg.delete()
-                    except:
-                        pass
-                    
-                    # If first message, use the actual reply_msg
-                    if i == 0:
-                        messages_to_quote.append(reply_msg)
-                    else:
-                        # For subsequent messages, we need to reconstruct from copy
-                        # This is a limitation - we'll just show the first message multiple times
-                        # as we can't easily access message history
-                        pass
-                        
-                except Exception as e:
-                    logger.debug(f"Could not fetch message {target_id}: {e}")
-                    break
-            
-            # If we couldn't get multiple messages, just quote the replied one
-            if len(messages_to_quote) == 0:
-                messages_to_quote = [reply_msg]
-                
-        else:
-            # Single message quote
-            messages_to_quote = [reply_msg]
+        # For now, only support single message (multiple message fetch needs database)
+        messages_to_quote = [reply_msg]
         
         # Format messages for API
         formatted_messages = []
         for msg in messages_to_quote:
-            # Check if this message is a reply
+            # Determine if we should include reply context
             replied_to_msg = None
-            if msg.reply_to_message:
+            if include_reply and msg.reply_to_message:
                 replied_to_msg = msg.reply_to_message
             
             formatted_msg = await quotly.format_message(msg, bot, replied_to_msg)
@@ -188,4 +166,4 @@ async def cmd_quote(message: Message, bot: Bot):
         await processing.edit_text(
             "❌ <b>Failed to create quote sticker!</b>\n\n"
             "Please try again later."
-                )
+        )

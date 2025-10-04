@@ -40,7 +40,10 @@ async def cmd_quote(message: Message, bot: Bot):
     if not message.reply_to_message:
         await message.reply(
             "⚠️ <b>Please reply to a message to quote it!</b>\n\n"
-            "Usage: Reply to any message and send /q"
+            "Usage:\n"
+            "• <code>/q</code> - Quote message\n"
+            "• <code>/q r</code> - Quote with reply context\n"
+            "• <code>/q blue</code> - Colored quote"
         )
         return
     
@@ -73,10 +76,11 @@ async def cmd_quote(message: Message, bot: Bot):
         
         # Check for color
         if parts:
-            if parts[0] in COLOR_MAP:
-                bg_color = COLOR_MAP[parts[0]]
-            elif parts[0].startswith("#"):
-                bg_color = parts[0]
+            color_arg = parts[0]
+            if color_arg in COLOR_MAP:
+                bg_color = COLOR_MAP[color_arg]
+            elif color_arg.startswith("#") and len(color_arg) == 7:
+                bg_color = color_arg
     
     # Send processing message
     processing = await message.reply("⏳ <b>Creating quote sticker...</b>")
@@ -85,21 +89,14 @@ async def cmd_quote(message: Message, bot: Bot):
         # Get reply context if needed
         replied_to_msg = None
         
-        # Debug: Check if message is a reply
-        if reply_msg.reply_to_message:
-            logger.info(f"Message IS a reply to: {reply_msg.reply_to_message.text[:50] if reply_msg.reply_to_message.text else 'no text'}")
-        else:
-            logger.info("Message is NOT a reply to anything")
-        
         if include_reply:
             if reply_msg.reply_to_message:
                 replied_to_msg = reply_msg.reply_to_message
-                logger.info(f"[/q r] Including reply context: {replied_to_msg.text[:50] if replied_to_msg.text else replied_to_msg.caption[:50] if replied_to_msg.caption else 'no text'}")
+                logger.info(f"Quote with reply: {replied_to_msg.text[:50] if replied_to_msg.text else 'media message'}")
             else:
-                logger.warning("[/q r] User requested reply context but message is not a reply!")
                 await processing.edit_text(
                     "⚠️ <b>This message is not a reply!</b>\n\n"
-                    "Use /q r only on messages that are replies to other messages."
+                    "Use <code>/q r</code> only on messages that are replies to other messages."
                 )
                 return
         
@@ -107,10 +104,7 @@ async def cmd_quote(message: Message, bot: Bot):
         formatted_msg = await quotly.format_message(reply_msg, bot, replied_to_msg)
         
         if not formatted_msg:
-            raise Exception("Failed to format message")
-        
-        # Debug: Log the payload
-        logger.info(f"Formatted message payload: replyMessage={formatted_msg.get('replyMessage')}")
+            raise Exception("Failed to format message for API")
         
         # Create quote using API
         sticker_data = await quotly.create_quote(
@@ -119,7 +113,7 @@ async def cmd_quote(message: Message, bot: Bot):
         )
         
         if not sticker_data:
-            raise Exception("Failed to generate quote sticker")
+            raise Exception("API failed to generate sticker")
         
         # Send as sticker
         sticker_file = BufferedInputFile(sticker_data, filename="quote.webp")
@@ -134,7 +128,11 @@ async def cmd_quote(message: Message, bot: Bot):
         
     except Exception as e:
         logger.error(f"Error creating quote: {e}", exc_info=True)
+        error_msg = str(e)
+        if "API" in error_msg:
+            error_msg = "Quote service is temporarily unavailable. Please try again later."
+        
         await processing.edit_text(
-            "❌ <b>Failed to create quote sticker!</b>\n\n"
-            f"Error: {str(e)}"
+            f"❌ <b>Failed to create quote sticker!</b>\n\n"
+            f"<code>{error_msg}</code>"
         )

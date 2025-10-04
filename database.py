@@ -22,6 +22,7 @@ async def init_db():
         await db.users.create_index("user_id", unique=True)
         await db.sticker_packs.create_index("user_id")
         await db.sticker_packs.create_index("short_name", unique=True)
+        await db.afk.create_index("user.id", unique=True)  # AFK index add karein
         
         logger.info("Database initialized successfully")
     except Exception as e:
@@ -103,6 +104,31 @@ async def increment_sticker_count(user_id: int) -> bool:
     except Exception as e:
         logger.error(f"Error incrementing sticker count: {e}")
         return False
+
+# AFK operations
+async def get_afk_user(user_id: int) -> Optional[Dict[str, Any]]:
+    """Get AFK data for a user"""
+    return await db.afk.find_one({"user.id": user_id})
+
+async def set_afk_user(user_id: int, first_name: str, reason: str, since: datetime):
+    """Set AFK data for a user"""
+    afk_data = {
+        "user": {
+            "id": user_id,
+            "first_name": first_name,
+        },
+        "reason": reason,
+        "since": since
+    }
+    await db.afk.update_one(
+        {"user.id": user_id},
+        {"$set": afk_data},
+        upsert=True
+    )
+
+async def remove_afk_user(user_id: int):
+    """Remove AFK data for a user"""
+    await db.afk.delete_one({"user.id": user_id})
 
 async def get_all_users() -> list:
     """Get all users"""

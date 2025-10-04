@@ -6,7 +6,7 @@ from pyrogram.types import Message
 from pyrogram.enums import ChatMemberStatus, ChatType
 
 from config import is_owner, BOT_USERNAME, LOG_GROUP_ID
-from database import db  # Import db directly
+from database import db
 
 logger = logging.getLogger(__name__)
 
@@ -151,9 +151,10 @@ async def setup_gban_handlers(client: Client):
     
     logger.info("🔧 Setting up GBan handlers...")
     
-    @client.on_message(filters.command("gban") & filters.group)
+    # GBan command - allow both private and group chats
+    @client.on_message(filters.command("gban"))
     async def gban_command(client: Client, message: Message):
-        logger.info(f"📨 GBan command received from {message.from_user.id}")
+        logger.info(f"📨 GBan command received from {message.from_user.id} in {message.chat.type}")
         
         # Check if user is owner
         if not is_owner(message.from_user.id):
@@ -260,9 +261,10 @@ User will be automatically banned from any new groups where I'm added as admin.
         else:
             await processing_msg.edit_text("❌ Failed to execute global ban. Check logs for details.")
 
-    @client.on_message(filters.command("ungban") & filters.group)
+    # Ungban command - allow both private and group chats
+    @client.on_message(filters.command("ungban"))
     async def ungban_command(client: Client, message: Message):
-        logger.info(f"📨 Ungban command received from {message.from_user.id}")
+        logger.info(f"📨 Ungban command received from {message.from_user.id} in {message.chat.type}")
         
         # Check if user is owner
         if not is_owner(message.from_user.id):
@@ -318,9 +320,10 @@ User will be automatically banned from any new groups where I'm added as admin.
             logger.error(f"❌ Error in ungban: {e}")
             await processing_msg.edit_text("❌ Failed to remove global ban.")
 
-    @client.on_message(filters.command("gbanlist") & filters.group)
+    # Gbanlist command - allow both private and group chats
+    @client.on_message(filters.command("gbanlist"))
     async def gbanlist_command(client: Client, message: Message):
-        logger.info(f"📨 Gbanlist command received from {message.from_user.id}")
+        logger.info(f"📨 Gbanlist command received from {message.from_user.id} in {message.chat.type}")
         
         # Check if user is owner
         if not is_owner(message.from_user.id):
@@ -365,7 +368,7 @@ User will be automatically banned from any new groups where I'm added as admin.
             logger.error(f"❌ Error in gbanlist: {e}")
             await message.reply("❌ Error fetching GBan list.")
 
-    # Auto-ban handler for new group members
+    # Auto-ban handler for new group members - ONLY groups
     @client.on_message(filters.new_chat_members & filters.group)
     async def auto_ban_gbanned_users(client: Client, message: Message):
         try:

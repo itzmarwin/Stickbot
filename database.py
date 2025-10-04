@@ -1,6 +1,6 @@
 from motor.motor_asyncio import AsyncIOMotorClient
 from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 import logging
 
 from config import MONGO_URI, DATABASE_NAME
@@ -22,7 +22,8 @@ async def init_db():
         await db.users.create_index("user_id", unique=True)
         await db.sticker_packs.create_index("user_id")
         await db.sticker_packs.create_index("short_name", unique=True)
-        await db.afk.create_index("user.id", unique=True)  # AFK index add karein
+        await db.afk.create_index("user.id", unique=True)  # AFK index
+        await db.gbans.create_index("user_id", unique=True)  # GBan index add karein
         
         logger.info("Database initialized successfully")
     except Exception as e:
@@ -130,6 +131,62 @@ async def remove_afk_user(user_id: int):
     """Remove AFK data for a user"""
     await db.afk.delete_one({"user.id": user_id})
 
+# GBan operations
+async def get_gban_user(user_id: int) -> Optional[Dict[str, Any]]:
+    """Get GBan data for a user"""
+    return await db.gbans.find_one({"user_id": user_id})
+
+async def set_gban_user(user_id: int, reason: str, banned_by: int, 
+                       packs_deleted: int = 0, groups_banned: int = 0) -> bool:
+    """Set GBan data for a user"""
+    try:
+        gban_data = {
+            "user_id": user_id,
+            "reason": reason,
+            "banned_by": banned_by,
+            "packs_deleted": packs_deleted,
+            "groups_banned": groups_banned,
+            "banned_at": datetime.utcnow()
+        }
+        await db.gbans.update_one(
+            {"user_id": user_id},
+            {"$set": gban_data},
+            upsert=True
+        )
+        return True
+    except Exception as e:
+        logger.error(f"Error setting GBan for user {user_id}: {e}")
+        return False
+
+async def update_gban_stats(user_id: int, packs_deleted: int = None, groups_banned: int = None):
+    """Update GBan statistics"""
+    update_data = {}
+    if packs_deleted is not None:
+        update_data["packs_deleted"] = packs_deleted
+    if groups_banned is not None:
+        update_data["groups_banned"] = groups_banned
+    
+    if update_data:
+        await db.gbans.update_one(
+            {"user_id": user_id},
+            {"$set": update_data}
+        )
+
+async def remove_gban_user(user_id: int):
+    """Remove GBan data for a user"""
+    await db.gbans.delete_one({"user_id": user_id})
+
+async def get_all_gbanned_users() -> List[Dict[str, Any]]:
+    """Get all globally banned users"""
+    cursor = db.gbans.find({})
+    return await cursor.to_list(length=None)
+
+async def is_user_gbanned(user_id: int) -> bool:
+    """Check if user is globally banned"""
+    gban_data = await db.gbans.find_one({"user_id": user_id})
+    return gban_data is not None
+
+# Statistics operations
 async def get_all_users() -> list:
     """Get all users"""
     cursor = db.users.find({})
@@ -142,3 +199,7 @@ async def get_total_users_count() -> int:
 async def get_total_packs_count() -> int:
     """Get total packs count"""
     return await db.sticker_packs.count_documents({})
+
+async def get_gbanned_users_count() -> int:
+    """Get total GBanned users count"""
+    return await db.gbans.count_documents({})

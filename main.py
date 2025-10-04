@@ -9,6 +9,7 @@ from config import BOT_TOKEN, TELEGRAM_API_ID, TELEGRAM_API_HASH
 from database import init_db
 from handlers import start, kang, packs, misc, logger
 from telethon_quotly import setup_telethon_handlers
+from pyrogram_afk import start_pyrogram, stop_pyrogram
 
 # Configure logging
 logging.basicConfig(
@@ -41,27 +42,33 @@ async def main():
         TELEGRAM_API_HASH
     )
     
-    # Start both clients
-    logging.info("Starting both Aiogram and Telethon clients...")
+    # Start all three clients
+    logging.info("Starting Aiogram, Telethon and Pyrogram clients...")
     
     # Start Telethon client
     await telethon_client.start(bot_token=BOT_TOKEN)
-    
-    # Setup Telethon handlers
     await setup_telethon_handlers(telethon_client)
-    
     logging.info("Telethon client started for /q command")
+    
+    # Start Pyrogram client for AFK
+    await start_pyrogram()
+    logging.info("Pyrogram client started for /afk command")
+    
     logging.info("Aiogram bot started for all other commands")
     
-    # Run both clients
+    # Run all clients
     try:
         # Start Aiogram polling
         await dp.start_polling(aiogram_bot)
+    except KeyboardInterrupt:
+        logging.info("Bot stopped by user")
     except Exception as e:
         logging.error(f"Error in main: {e}")
     finally:
-        # Disconnect Telethon client
+        # Disconnect all clients
         await telethon_client.disconnect()
+        await stop_pyrogram()
+        logging.info("All clients disconnected")
 
 if __name__ == "__main__":
     asyncio.run(main())

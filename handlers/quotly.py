@@ -32,6 +32,26 @@ COLOR_MAP = {
 
 quotly = QuotlyAPI()
 
+async def get_reply_chain(bot: Bot, chat_id: int, message_id: int) -> tuple:
+    """
+    Manually fetch reply chain since aiogram has limitations
+    Returns: (current_message, replied_to_message)
+    """
+    try:
+        # Get current message
+        current_msg = await bot.get_message(chat_id, message_id)
+        
+        # Check if current message is a reply
+        if current_msg.reply_to_message:
+            replied_to_id = current_msg.reply_to_message.message_id
+            replied_to_msg = await bot.get_message(chat_id, replied_to_id)
+            return current_msg, replied_to_msg
+        
+        return current_msg, None
+    except Exception as e:
+        logger.error(f"Error fetching reply chain: {e}")
+        return None, None
+
 @router.message(Command("q", "quote"))
 async def cmd_quote(message: Message, bot: Bot):
     """Handle /q command - create quote sticker using lyo.su API"""
@@ -86,22 +106,25 @@ async def cmd_quote(message: Message, bot: Bot):
     processing = await message.reply("⏳ <b>Creating quote sticker...</b>")
     
     try:
-        # Get reply context if needed - FIXED LOGIC
+        # Get reply context if needed - FIXED WITH MANUAL FETCH
         replied_to_msg = None
         
         if include_reply:
-            # Check if the message we're replying to is itself a reply
-            if hasattr(reply_msg, 'reply_to_message') and reply_msg.reply_to_message:
-                replied_to_msg = reply_msg.reply_to_message
-                logger.info(f"Found reply context: {replied_to_msg.text[:50] if replied_to_msg.text else 'media message'}")
+            # Manually fetch the reply chain
+            current_msg, original_reply_msg = await get_reply_chain(
+                bot, message.chat.id, reply_msg.message_id
+            )
+            
+            if original_reply_msg:
+                replied_to_msg = original_reply_msg
+                logger.info(f"Found reply chain: {original_reply_msg.text[:50] if original_reply_msg.text else 'media message'}")
             else:
                 await processing.edit_text(
-                    "⚠️ <b>This message is not a reply to another message!</b>\n\n"
-                    "Use <code>/q r</code> only on messages that are <b>replies to other messages</b>.\n\n"
-                    "Example:\n"
-                    "1. User A: Hello\n"
-                    "2. You: Hii there (reply to Hello)\n"  
-                    "3. You: /q r (reply to 'Hii there')"
+                    "⚠️ <b>Could not find reply chain!</b>\n\n"
+                    "Make sure:\n"
+                    "• The message you're quoting is actually a reply\n"
+                    "• I have access to the original message\n"
+                    "• The messages are in the same chat"
                 )
                 return
         

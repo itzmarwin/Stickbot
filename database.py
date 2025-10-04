@@ -22,10 +22,11 @@ async def init_db():
         await db.users.create_index("user_id", unique=True)
         await db.sticker_packs.create_index("user_id")
         await db.sticker_packs.create_index("short_name", unique=True)
-        await db.afk.create_index("user.id", unique=True)  # AFK index
-        await db.gbans.create_index("user_id", unique=True)  # GBan index add karein
+        await db.afk.create_index("user.id", unique=True)
+        await db.gbans.create_index("user_id", unique=True)
         
         logger.info("Database initialized successfully")
+        return db  # Return db instance
     except Exception as e:
         logger.error(f"Database initialization error: {e}")
         raise
@@ -36,6 +37,12 @@ async def close_db():
     if client:
         client.close()
 
+# Get database instance
+def get_db():
+    """Get database instance"""
+    return db
+
+# ... (rest of your existing database operations remain the same)
 # User operations
 async def get_user(user_id: int) -> Optional[Dict[str, Any]]:
     """Get user from database"""

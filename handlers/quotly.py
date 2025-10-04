@@ -84,15 +84,33 @@ async def cmd_quote(message: Message, bot: Bot):
     try:
         # Get reply context if needed
         replied_to_msg = None
-        if include_reply and reply_msg.reply_to_message:
-            replied_to_msg = reply_msg.reply_to_message
-            logger.info(f"Including reply context from message: {replied_to_msg.text[:50] if replied_to_msg.text else 'no text'}")
+        
+        # Debug: Check if message is a reply
+        if reply_msg.reply_to_message:
+            logger.info(f"Message IS a reply to: {reply_msg.reply_to_message.text[:50] if reply_msg.reply_to_message.text else 'no text'}")
+        else:
+            logger.info("Message is NOT a reply to anything")
+        
+        if include_reply:
+            if reply_msg.reply_to_message:
+                replied_to_msg = reply_msg.reply_to_message
+                logger.info(f"[/q r] Including reply context: {replied_to_msg.text[:50] if replied_to_msg.text else replied_to_msg.caption[:50] if replied_to_msg.caption else 'no text'}")
+            else:
+                logger.warning("[/q r] User requested reply context but message is not a reply!")
+                await processing.edit_text(
+                    "⚠️ <b>This message is not a reply!</b>\n\n"
+                    "Use /q r only on messages that are replies to other messages."
+                )
+                return
         
         # Format message for API
         formatted_msg = await quotly.format_message(reply_msg, bot, replied_to_msg)
         
         if not formatted_msg:
             raise Exception("Failed to format message")
+        
+        # Debug: Log the payload
+        logger.info(f"Formatted message payload: replyMessage={formatted_msg.get('replyMessage')}")
         
         # Create quote using API
         sticker_data = await quotly.create_quote(

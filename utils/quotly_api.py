@@ -84,17 +84,20 @@ class QuotlyAPI:
                         
                         entities.append(entity_dict)
             
-            # Handle reply context
+            # Handle reply context - CRITICAL FIX
             reply_message = {}
             if replied_to:
                 reply_user = replied_to.from_user
                 reply_text = replied_to.text or replied_to.caption or ""
                 
+                # Format reply message properly for lyo.su API
                 reply_message = {
                     "name": reply_user.first_name or "Deleted Account",
                     "text": reply_text,
                     "chatId": replied_to.chat.id
                 }
+                
+                logger.info(f"Reply context added: name={reply_message['name']}, text={reply_text[:30]}")
             
             # Build message dict
             message_dict = {
@@ -112,7 +115,7 @@ class QuotlyAPI:
                     "type": "private" if message.chat.type == "private" else "group"
                 },
                 "text": text,
-                "replyMessage": reply_message
+                "replyMessage": reply_message  # This will be empty dict if no reply
             }
             
             # Add media if available (photo)
@@ -131,7 +134,7 @@ class QuotlyAPI:
             return message_dict
             
         except Exception as e:
-            logger.error(f"Error formatting message: {e}")
+            logger.error(f"Error formatting message: {e}", exc_info=True)
             return None
     
     async def create_quote(

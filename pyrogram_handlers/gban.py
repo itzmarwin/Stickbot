@@ -6,7 +6,7 @@ from pyrogram.types import Message
 from pyrogram.enums import ChatMemberStatus, ChatType
 
 from config import is_owner, BOT_USERNAME, LOG_GROUP_ID
-from database import db
+from database import get_db  # Use get_db function
 
 logger = logging.getLogger(__name__)
 
@@ -15,10 +15,16 @@ gban_cache = {}
 
 async def gban_user(client: Client, user_id: int, reason: str, banned_by: int):
     """
-    Global ban a user across all groups where bot is admin
+    Global ban a user - delete packs and add to GBan list
     """
     try:
         logger.info(f"🚀 Starting GBan process for user {user_id}")
+        
+        # Get database instance
+        db = get_db()
+        if db is None:
+            logger.error("❌ Database not initialized in GBan")
+            return None
         
         # Store GBan info
         gban_data = {
@@ -27,7 +33,7 @@ async def gban_user(client: Client, user_id: int, reason: str, banned_by: int):
             "banned_by": banned_by,
             "banned_at": datetime.utcnow(),
             "packs_deleted": 0,
-            "groups_banned": 0
+            "groups_banned": 0  # We can't scan groups as bot
         }
         
         # Step 1: Delete all user's sticker packs
@@ -36,11 +42,10 @@ async def gban_user(client: Client, user_id: int, reason: str, banned_by: int):
         gban_data["packs_deleted"] = packs_deleted
         logger.info(f"✅ Deleted {packs_deleted} packs")
         
-        # Step 2: Ban from all groups where bot is admin
-        logger.info(f"🔨 Banning user {user_id} from groups")
-        groups_banned = await ban_from_groups(client, user_id)
-        gban_data["groups_banned"] = groups_banned
-        logger.info(f"✅ Banned from {groups_banned} groups")
+        # Step 2: We CANNOT ban from existing groups (bot restriction)
+        # Bots cannot use get_dialogs() method
+        # We rely on auto-ban feature for future group joins
+        logger.info("⏭️ Skipping group banning (bot restriction)")
         
         # Save to database
         await db.gbans.update_one(
@@ -64,6 +69,11 @@ async def delete_user_packs(user_id: int) -> int:
     Delete all sticker packs created by user
     """
     try:
+        db = get_db()
+        if db is None:
+            logger.error("❌ Database not initialized in delete_user_packs")
+            return 0
+
         # Get all packs by user
         packs_cursor = db.sticker_packs.find({"user_id": user_id})
         packs = await packs_cursor.to_list(length=None)
@@ -80,54 +90,6 @@ async def delete_user_packs(user_id: int) -> int:
         logger.error(f"❌ Error deleting user packs: {e}")
         return 0
 
-async def ban_from_groups(client: Client, user_id: int) -> int:
-    """
-    Ban user from all groups where bot has admin rights
-    """
-    try:
-        banned_count = 0
-        total_chats = 0
-        
-        logger.info("🔍 Scanning groups for banning...")
-        
-        async for dialog in client.get_dialogs():
-            try:
-                if dialog.chat.type in [ChatType.GROUP, ChatType.SUPERGROUP]:
-                    total_chats += 1
-                    
-                    # Check if bot is admin and has ban rights
-                    bot_member = await dialog.chat.get_member(client.me.id)
-                    
-                    can_ban = (bot_member.status in [ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER] and
-                              bot_member.privileges and bot_member.privileges.can_restrict_members)
-                    
-                    if can_ban:
-                        # Try to ban user
-                        try:
-                            await client.ban_chat_member(dialog.chat.id, user_id)
-                            banned_count += 1
-                            logger.info(f"✅ Banned {user_id} from {dialog.chat.title}")
-                            
-                            # Small delay to avoid flood
-                            await asyncio.sleep(0.3)
-                            
-                        except Exception as ban_error:
-                            logger.debug(f"⚠️ Could not ban in {dialog.chat.title}: {ban_error}")
-                            continue
-                    else:
-                        logger.debug(f"⏭️ No ban rights in {dialog.chat.title}")
-                            
-            except Exception as e:
-                logger.debug(f"⚠️ Error processing chat {getattr(dialog.chat, 'title', 'Unknown')}: {e}")
-                continue
-                
-        logger.info(f"📊 Banned from {banned_count}/{total_chats} groups")
-        return banned_count
-        
-    except Exception as e:
-        logger.error(f"❌ Error in ban_from_groups: {e}")
-        return 0
-
 async def is_user_gbanned(user_id: int) -> bool:
     """Check if user is globally banned"""
     try:
@@ -135,6 +97,11 @@ async def is_user_gbanned(user_id: int) -> bool:
         if user_id in gban_cache:
             return True
         
+        db = get_db()
+        if db is None:
+            logger.error("❌ Database not initialized in is_user_gbanned")
+            return False
+
         # Check database
         gban_data = await db.gbans.find_one({"user_id": user_id})
         if gban_data:
@@ -234,10 +201,12 @@ async def setup_gban_handlers(client: Client):
 
 **Actions Taken:**
 • Deleted {gban_result['packs_deleted']} sticker packs
-• Banned from {gban_result['groups_banned']} groups
 • Added to global ban list
 
-User will be automatically banned from any new groups where I'm added as admin.
+**Auto-Ban Feature:**
+User will be automatically banned from any groups where I'm admin when they join.
+
+**Note:** Bots cannot ban from existing groups due to Telegram restrictions.
 """
             
             await processing_msg.edit_text(report_msg)
@@ -251,7 +220,6 @@ User will be automatically banned from any new groups where I'm added as admin.
 **Banned by:** {message.from_user.mention} (`{message.from_user.id}`)
 **Reason:** {reason}
 **Packs deleted:** {gban_result['packs_deleted']}
-**Groups banned:** {gban_result['groups_banned']}
 **Time:** {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}
 """
                 try:
@@ -297,6 +265,11 @@ User will be automatically banned from any new groups where I'm added as admin.
         processing_msg = await message.reply(f"🔄 Removing global ban for user ID: {user_id}...")
         
         try:
+            db = get_db()
+            if db is None:
+                await processing_msg.edit_text("❌ Database not initialized.")
+                return
+
             # Remove from database
             await db.gbans.delete_one({"user_id": user_id})
             # Remove from cache
@@ -332,6 +305,11 @@ User will be automatically banned from any new groups where I'm added as admin.
         
         # Get all gbanned users
         try:
+            db = get_db()
+            if db is None:
+                await message.reply("❌ Database not initialized.")
+                return
+
             gbanned_users = []
             async for gban in db.gbans.find():
                 gbanned_users.append(gban)
@@ -353,8 +331,7 @@ User will be automatically banned from any new groups where I'm added as admin.
                 list_text += f"{i}. {user_info}\n"
                 list_text += f"   **Reason:** {gban.get('reason', 'No reason')}\n"
                 list_text += f"   **Banned on:** {gban['banned_at'].strftime('%Y-%m-%d')}\n"
-                list_text += f"   **Packs deleted:** {gban.get('packs_deleted', 0)}\n"
-                list_text += f"   **Groups banned:** {gban.get('groups_banned', 0)}\n\n"
+                list_text += f"   **Packs deleted:** {gban.get('packs_deleted', 0)}\n\n"
             
             # Split if too long
             if len(list_text) > 4000:

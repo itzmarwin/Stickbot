@@ -6,7 +6,7 @@ from pyrogram.types import Message
 from pyrogram.enums import ChatMemberStatus, ChatType
 
 from config import is_owner, BOT_USERNAME, LOG_GROUP_ID
-from database import get_user_pack, db
+from database import db  # Import db directly
 
 logger = logging.getLogger(__name__)
 
@@ -130,17 +130,21 @@ async def ban_from_groups(client: Client, user_id: int) -> int:
 
 async def is_user_gbanned(user_id: int) -> bool:
     """Check if user is globally banned"""
-    # Check cache first
-    if user_id in gban_cache:
-        return True
-    
-    # Check database
-    gban_data = await db.gbans.find_one({"user_id": user_id})
-    if gban_data:
-        gban_cache[user_id] = gban_data
-        return True
-    
-    return False
+    try:
+        # Check cache first
+        if user_id in gban_cache:
+            return True
+        
+        # Check database
+        gban_data = await db.gbans.find_one({"user_id": user_id})
+        if gban_data:
+            gban_cache[user_id] = gban_data
+            return True
+        
+        return False
+    except Exception as e:
+        logger.error(f"❌ Error in is_user_gbanned: {e}")
+        return False
 
 async def setup_gban_handlers(client: Client):
     """Setup GBan command handlers"""
@@ -324,37 +328,42 @@ User will be automatically banned from any new groups where I'm added as admin.
             return
         
         # Get all gbanned users
-        gbanned_users = []
-        async for gban in db.gbans.find():
-            gbanned_users.append(gban)
-        
-        if not gbanned_users:
-            await message.reply("📝 No users are currently globally banned.")
-            return
-        
-        # Format list
-        list_text = "🚫 **Globally Banned Users:**\n\n"
-        
-        for i, gban in enumerate(gbanned_users, 1):
-            try:
-                user = await client.get_users(gban["user_id"])
-                user_info = f"{user.mention} (`{user.id}`)"
-            except:
-                user_info = f"`{gban['user_id']}`"
+        try:
+            gbanned_users = []
+            async for gban in db.gbans.find():
+                gbanned_users.append(gban)
             
-            list_text += f"{i}. {user_info}\n"
-            list_text += f"   **Reason:** {gban.get('reason', 'No reason')}\n"
-            list_text += f"   **Banned on:** {gban['banned_at'].strftime('%Y-%m-%d')}\n"
-            list_text += f"   **Packs deleted:** {gban.get('packs_deleted', 0)}\n"
-            list_text += f"   **Groups banned:** {gban.get('groups_banned', 0)}\n\n"
-        
-        # Split if too long
-        if len(list_text) > 4000:
-            parts = [list_text[i:i+4000] for i in range(0, len(list_text), 4000)]
-            for part in parts:
-                await message.reply(part)
-        else:
-            await message.reply(list_text)
+            if not gbanned_users:
+                await message.reply("📝 No users are currently globally banned.")
+                return
+            
+            # Format list
+            list_text = "🚫 **Globally Banned Users:**\n\n"
+            
+            for i, gban in enumerate(gbanned_users, 1):
+                try:
+                    user = await client.get_users(gban["user_id"])
+                    user_info = f"{user.mention} (`{user.id}`)"
+                except:
+                    user_info = f"`{gban['user_id']}`"
+                
+                list_text += f"{i}. {user_info}\n"
+                list_text += f"   **Reason:** {gban.get('reason', 'No reason')}\n"
+                list_text += f"   **Banned on:** {gban['banned_at'].strftime('%Y-%m-%d')}\n"
+                list_text += f"   **Packs deleted:** {gban.get('packs_deleted', 0)}\n"
+                list_text += f"   **Groups banned:** {gban.get('groups_banned', 0)}\n\n"
+            
+            # Split if too long
+            if len(list_text) > 4000:
+                parts = [list_text[i:i+4000] for i in range(0, len(list_text), 4000)]
+                for part in parts:
+                    await message.reply(part)
+            else:
+                await message.reply(list_text)
+                
+        except Exception as e:
+            logger.error(f"❌ Error in gbanlist: {e}")
+            await message.reply("❌ Error fetching GBan list.")
 
     # Auto-ban handler for new group members
     @client.on_message(filters.new_chat_members & filters.group)

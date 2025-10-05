@@ -24,7 +24,6 @@ async def init_db():
         await db.sticker_packs.create_index("short_name", unique=True)
         await db.afk.create_index("user.id", unique=True)
         await db.gbans.create_index("user_id", unique=True)
-        await db.served_chats.create_index("chat_id", unique=True)  # Add served_chats index
         
         logger.info("Database initialized successfully")
         return db  # Return db instance
@@ -43,6 +42,7 @@ def get_db():
     """Get database instance"""
     return db
 
+# ... (rest of your existing database operations remain the same)
 # User operations
 async def get_user(user_id: int) -> Optional[Dict[str, Any]]:
     """Get user from database"""
@@ -138,97 +138,7 @@ async def remove_afk_user(user_id: int):
     """Remove AFK data for a user"""
     await db.afk.delete_one({"user.id": user_id})
 
-# ==================== SERVED CHATS OPERATIONS ====================
-async def add_served_chat(chat_id: int, chat_title: str = ""):
-    """Add chat to served chats list"""
-    try:
-        chat_data = {
-            "chat_id": chat_id,
-            "chat_title": chat_title,
-            "added_at": datetime.utcnow()
-        }
-        await db.served_chats.update_one(
-            {"chat_id": chat_id},
-            {"$set": chat_data},
-            upsert=True
-        )
-        return True
-    except Exception as e:
-        logger.error(f"Error adding served chat: {e}")
-        return False
-
-async def remove_served_chat(chat_id: int):
-    """Remove chat from served chats list"""
-    try:
-        await db.served_chats.delete_one({"chat_id": chat_id})
-        return True
-    except Exception as e:
-        logger.error(f"Error removing served chat: {e}")
-        return False
-
-async def get_served_chats():
-    """Get all served chats"""
-    try:
-        cursor = db.served_chats.find({})
-        return await cursor.to_list(length=None)
-    except Exception as e:
-        logger.error(f"Error getting served chats: {e}")
-        return []
-
-async def get_served_chats_count() -> int:
-    """Get total served chats count"""
-    try:
-        return await db.served_chats.count_documents({})
-    except Exception as e:
-        logger.error(f"Error counting served chats: {e}")
-        return 0
-
-# ==================== NEW GBAN OPERATIONS (PROVIDED CODE STYLE) ====================
-async def add_banned_user(user_id: int, reason: str = ""):
-    """Add user to banned list (provided code style)"""
-    try:
-        banned_data = {
-            "user_id": user_id,
-            "reason": reason,
-            "banned_at": datetime.utcnow()
-        }
-        await db.gbans.update_one(
-            {"user_id": user_id},
-            {"$set": banned_data},
-            upsert=True
-        )
-        return True
-    except Exception as e:
-        logger.error(f"Error adding banned user: {e}")
-        return False
-
-async def remove_banned_user(user_id: int):
-    """Remove user from banned list (provided code style)"""
-    try:
-        await db.gbans.delete_one({"user_id": user_id})
-        return True
-    except Exception as e:
-        logger.error(f"Error removing banned user: {e}")
-        return False
-
-async def get_banned_count() -> int:
-    """Get total banned users count (provided code style)"""
-    try:
-        return await db.gbans.count_documents({})
-    except Exception as e:
-        logger.error(f"Error getting banned count: {e}")
-        return 0
-
-async def get_banned_users():
-    """Get all banned users (provided code style)"""
-    try:
-        cursor = db.gbans.find({})
-        return await cursor.to_list(length=None)
-    except Exception as e:
-        logger.error(f"Error getting banned users: {e}")
-        return []
-
-# ==================== EXISTING GBAN OPERATIONS (KEEP FOR COMPATIBILITY) ====================
+# GBan operations
 async def get_gban_user(user_id: int) -> Optional[Dict[str, Any]]:
     """Get GBan data for a user"""
     return await db.gbans.find_one({"user_id": user_id})
@@ -269,12 +179,21 @@ async def update_gban_stats(user_id: int, packs_deleted: int = None, groups_bann
             {"$set": update_data}
         )
 
+async def remove_gban_user(user_id: int):
+    """Remove GBan data for a user"""
+    await db.gbans.delete_one({"user_id": user_id})
+
+async def get_all_gbanned_users() -> List[Dict[str, Any]]:
+    """Get all globally banned users"""
+    cursor = db.gbans.find({})
+    return await cursor.to_list(length=None)
+
 async def is_user_gbanned(user_id: int) -> bool:
     """Check if user is globally banned"""
     gban_data = await db.gbans.find_one({"user_id": user_id})
     return gban_data is not None
 
-# ==================== STATISTICS OPERATIONS ====================
+# Statistics operations
 async def get_all_users() -> list:
     """Get all users"""
     cursor = db.users.find({})

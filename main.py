@@ -24,23 +24,6 @@ pyro_client = None
 telethon_client = None
 aiogram_bot = None
 
-async def test_gban_directly(client: Client):
-    """Test GBan functionality directly"""
-    try:
-        # Test command manually
-        from pyrogram.types import Message
-        from pyrogram.handlers import MessageHandler
-        from pyrogram import filters
-        
-        @client.on_message(filters.command("testgban"))
-        async def test_gban(client: Client, message: Message):
-            logging.info("🎯 TEST GBAN COMMAND RECEIVED!")
-            await message.reply("🤖 Test GBAN command working!")
-            
-        logging.info("✅ Test GBan handler added")
-    except Exception as e:
-        logging.error(f"❌ Test GBan error: {e}")
-
 async def setup_pyrogram():
     """Setup and start Pyrogram client"""
     global pyro_client
@@ -59,9 +42,6 @@ async def setup_pyrogram():
         # Get bot info to verify connection
         me = await pyro_client.get_me()
         logging.info(f"🤖 Pyrogram logged in as: @{me.username} (ID: {me.id})")
-        
-        # Add test handler first
-        await test_gban_directly(pyro_client)
         
         # Setup all Pyrogram handlers
         await setup_afk_handlers(pyro_client)

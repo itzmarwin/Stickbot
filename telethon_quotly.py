@@ -135,7 +135,7 @@ class QuotlyTelethon:
             event = [event]
         
         url = self._API
-        bg = bg or "#1b1429"
+        bg = bg or "#2a1f3d"
         
         content = {
             "type": "quote",
@@ -232,7 +232,7 @@ async def setup_telethon_handlers(client):
             match = choice(list(COLOR_MAP.values()))
 
         # Handle color mapping
-        bg_color = "#1b1429"
+        bg_color = "#2a1f3d"
         if match and match in COLOR_MAP:
             bg_color = COLOR_MAP[match]
         elif match and match.startswith("#"):

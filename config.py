@@ -25,5 +25,8 @@ MAX_PACK_NAME_LENGTH = 64
 MAX_STICKERS_PER_PACK = 120
 MAX_VIDEO_SIZE_MB = 4
 
+# GBan system configuration
+BANNED_USERS = set()  # In-memory cache for banned users
+
 def is_owner(user_id: int) -> bool:
     return user_id in OWNER_IDS

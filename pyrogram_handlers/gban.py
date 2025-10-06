@@ -58,12 +58,11 @@ async def extract_user(client: Client, message: Message):
 async def setup_gban_handlers(client: Client):
     """Setup GBan command handlers"""
     
-    # GBan command
+    # GBan command - works in both private and groups
     @client.on_message(filters.command(["gban", "globalban"]))
     async def global_ban(client: Client, message: Message):
         # Check if user is owner
         if not is_owner(message.from_user.id):
-            await message.reply("❌ This command is only for bot owners.")
             return
         
         user = await extract_user(client, message)
@@ -122,10 +121,7 @@ async def setup_gban_handlers(client: Client):
             try:
                 await client.ban_chat_member(chat_id, user.id)
                 number_of_chats += 1
-                
-                # Small delay to avoid flood
                 await asyncio.sleep(0.5)
-                
             except FloodWait as fw:
                 await asyncio.sleep(fw.value + 1)
                 try:
@@ -133,7 +129,6 @@ async def setup_gban_handlers(client: Client):
                     number_of_chats += 1
                 except Exception:
                     failed_chats += 1
-                    
             except Exception:
                 failed_chats += 1
                 continue
@@ -151,8 +146,6 @@ async def setup_gban_handlers(client: Client):
 **Packs Deleted:** {packs_deleted}
 **Groups Banned From:** {number_of_chats}
 **Failed Bans:** {failed_chats}
-
-**Auto-Ban Feature:** User will be automatically banned from any groups where I'm admin when they join.
 """
         
         await message.reply_text(success_msg)
@@ -175,12 +168,11 @@ async def setup_gban_handlers(client: Client):
             except Exception:
                 pass
 
-    # Ungban command
+    # Ungban command - works in both private and groups
     @client.on_message(filters.command("ungban"))
     async def global_unban(client: Client, message: Message):
         # Check if user is owner
         if not is_owner(message.from_user.id):
-            await message.reply("❌ This command is only for bot owners.")
             return
         
         user = await extract_user(client, message)
@@ -222,10 +214,7 @@ async def setup_gban_handlers(client: Client):
             try:
                 await client.unban_chat_member(chat_id, user.id)
                 number_of_chats += 1
-                
-                # Small delay to avoid flood
                 await asyncio.sleep(0.5)
-                
             except FloodWait as fw:
                 await asyncio.sleep(fw.value + 1)
                 try:
@@ -233,7 +222,6 @@ async def setup_gban_handlers(client: Client):
                     number_of_chats += 1
                 except Exception:
                     failed_chats += 1
-                    
             except Exception:
                 failed_chats += 1
                 continue
@@ -267,17 +255,17 @@ async def setup_gban_handlers(client: Client):
             except Exception:
                 pass
 
-    # Gbanlist command
+    # Gbanlist command - works in both private and groups
     @client.on_message(filters.command(["gbannedusers", "gbanlist"]))
     async def gbanned_list(client: Client, message: Message):
         # Check if user is owner
         if not is_owner(message.from_user.id):
-            await message.reply("❌ This command is only for bot owners.")
             return
         
         counts = await get_banned_count()
         if counts == 0:
-            return await message.reply("📝 **No users are currently globally banned.**")
+            await message.reply("📝 **No users are currently globally banned.**")
+            return
         
         mystic = await message.reply("🔄 **Fetching globally banned users...**")
         

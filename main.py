@@ -37,23 +37,15 @@ async def setup_pyrogram():
         )
         
         await pyro_client.start()
-        logging.info("✅ Pyrogram client started successfully")
-        
-        # Get bot info to verify connection
-        me = await pyro_client.get_me()
-        logging.info(f"🤖 Pyrogram logged in as: @{me.username} (ID: {me.id})")
         
         # Setup all Pyrogram handlers
         await setup_afk_handlers(pyro_client)
-        logging.info("✅ AFK handlers setup complete")
-        
         await setup_gban_handlers(pyro_client)
-        logging.info("✅ GBan handlers setup complete")
         
         return pyro_client
         
     except Exception as e:
-        logging.error(f"❌ Error starting Pyrogram client: {e}")
+        logging.error(f"Error starting Pyrogram client: {e}")
         raise
 
 async def stop_pyrogram():
@@ -61,13 +53,11 @@ async def stop_pyrogram():
     global pyro_client
     if pyro_client:
         await pyro_client.stop()
-        logging.info("✅ Pyrogram client stopped")
 
 async def main():
     try:
         # Initialize database
         await init_db()
-        logging.info("✅ Database initialized")
         
         # Initialize Aiogram bot and dispatcher
         global aiogram_bot
@@ -81,7 +71,7 @@ async def main():
         dp.include_router(start.router)
         dp.include_router(kang.router)
         dp.include_router(packs.router)
-        dp.include_router(logger.router)  # This handles group tracking
+        dp.include_router(logger.router)
         dp.include_router(misc.router)
         
         # Initialize Telethon client for /q command
@@ -92,47 +82,31 @@ async def main():
             TELEGRAM_API_HASH
         )
         
-        # Start all three clients
-        logging.info("🚀 Starting Aiogram, Telethon and Pyrogram clients...")
-        
         # Start Telethon client
         await telethon_client.start(bot_token=BOT_TOKEN)
         await setup_telethon_handlers(telethon_client)
-        logging.info("✅ Telethon client started for /q command")
         
         # Start Pyrogram client
         await setup_pyrogram()
-        logging.info("✅ Pyrogram client started for /afk and /gban commands")
         
-        # Test bot info
+        # Get bot info
         bot_info = await aiogram_bot.get_me()
-        logging.info(f"🤖 Aiogram bot: @{bot_info.username} (ID: {bot_info.id})")
-        
-        # Load existing served chats count
-        from database import get_served_chats_count
-        served_chats_count = await get_served_chats_count()
-        logging.info(f"📊 Currently tracking {served_chats_count} served chats")
-        
-        logging.info("🎉 All clients started successfully!")
-        logging.info("🔥 New GBan System: Active with pack deletion & group banning!")
+        logging.info(f"Bot started: @{bot_info.username}")
         
         # Run all clients
         await dp.start_polling(aiogram_bot)
         
     except KeyboardInterrupt:
-        logging.info("🛑 Bot stopped by user")
+        logging.info("Bot stopped by user")
     except Exception as e:
-        logging.error(f"💥 Error in main: {e}")
+        logging.error(f"Error in main: {e}")
     finally:
         # Disconnect all clients
-        logging.info("🔌 Disconnecting all clients...")
         if telethon_client:
             await telethon_client.disconnect()
-            logging.info("✅ Telethon client disconnected")
         await stop_pyrogram()
         if aiogram_bot:
             await aiogram_bot.session.close()
-        logging.info("🎯 All clients disconnected")
 
 if __name__ == "__main__":
     asyncio.run(main())

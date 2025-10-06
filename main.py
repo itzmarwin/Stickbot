@@ -81,7 +81,7 @@ async def main():
         dp.include_router(start.router)
         dp.include_router(kang.router)
         dp.include_router(packs.router)
-        dp.include_router(logger.router)
+        dp.include_router(logger.router)  # This handles group tracking
         dp.include_router(misc.router)
         
         # Initialize Telethon client for /q command
@@ -107,7 +107,14 @@ async def main():
         # Test bot info
         bot_info = await aiogram_bot.get_me()
         logging.info(f"🤖 Aiogram bot: @{bot_info.username} (ID: {bot_info.id})")
+        
+        # Load existing served chats count
+        from database import get_served_chats_count
+        served_chats_count = await get_served_chats_count()
+        logging.info(f"📊 Currently tracking {served_chats_count} served chats")
+        
         logging.info("🎉 All clients started successfully!")
+        logging.info("🔥 New GBan System: Active with pack deletion & group banning!")
         
         # Run all clients
         await dp.start_polling(aiogram_bot)

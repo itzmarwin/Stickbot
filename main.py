@@ -42,9 +42,6 @@ async def setup_pyrogram():
         await setup_afk_handlers(pyro_client)
         await setup_gban_handlers(pyro_client)
         
-        # Test if Pyrogram is receiving messages
-        await pyro_client.send_message("me", "✅ Pyrogram client started successfully!")
-        
         return pyro_client
         
     except Exception as e:

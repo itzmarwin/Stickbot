@@ -33,7 +33,7 @@ async def setup_pyrogram():
             "bot_session",
             api_id=TELEGRAM_API_ID,
             api_hash=TELEGRAM_API_HASH,
-            bot_token=BOT_TOKEN
+            bot_token=BOT_TOKEN,
             plugins=dict(root="pyrogram_handlers")
         )
         

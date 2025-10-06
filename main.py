@@ -33,8 +33,7 @@ async def setup_pyrogram():
             "bot_session",
             api_id=TELEGRAM_API_ID,
             api_hash=TELEGRAM_API_HASH,
-            bot_token=BOT_TOKEN,
-            plugins=dict(root="pyrogram_handlers")
+            bot_token=BOT_TOKEN
         )
         
         await pyro_client.start()
@@ -42,6 +41,9 @@ async def setup_pyrogram():
         # Setup all Pyrogram handlers
         await setup_afk_handlers(pyro_client)
         await setup_gban_handlers(pyro_client)
+        
+        # Test if Pyrogram is receiving messages
+        await pyro_client.send_message("me", "✅ Pyrogram client started successfully!")
         
         return pyro_client
         

@@ -34,26 +34,35 @@ async def get_readable_time(seconds: int) -> str:
     
     return " ".join(result[-2:]) if result else "0s"
 
-async def extract_user(message: Message):
+async def extract_user(client: Client, message: Message):
     """Extract user from message (reply or command arguments)"""
+    logger.info(f"🔍 Extracting user from message: {message.text}")
+    
     if message.reply_to_message:
-        return message.reply_to_message.from_user
+        user = message.reply_to_message.from_user
+        logger.info(f"📨 Extracted user from reply: {user.id} - {user.first_name}")
+        return user
     
     if len(message.command) > 1:
         user_input = message.command[1]
+        logger.info(f"🔍 Processing user input: {user_input}")
+        
         try:
             if user_input.isdigit():
                 user_id = int(user_input)
-                user = await message._client.get_users(user_id)
+                user = await client.get_users(user_id)
+                logger.info(f"✅ Found user by ID: {user.id} - {user.first_name}")
                 return user
             else:
                 username = user_input.lstrip('@')
-                user = await message._client.get_users(username)
+                user = await client.get_users(username)
+                logger.info(f"✅ Found user by username: {user.id} - {user.first_name}")
                 return user
         except Exception as e:
-            logger.error(f"Error extracting user: {e}")
+            logger.error(f"❌ Error extracting user {user_input}: {e}")
             return None
     
+    logger.warning("❌ No user found in command")
     return None
 
 async def setup_gban_handlers(client: Client):
@@ -61,28 +70,50 @@ async def setup_gban_handlers(client: Client):
     
     logger.info("🔧 Setting up new GBan handlers...")
     
+    # Test handler to check if Pyrogram is receiving messages
+    @client.on_message(filters.command("test") & filters.private)
+    async def test_handler(client: Client, message: Message):
+        logger.info("✅ TEST COMMAND RECEIVED - Pyrogram is working!")
+        await message.reply("✅ **Pyrogram is working!** GBan system is active.")
+    
     # GBan command
-    @client.on_message(filters.command(["gban", "globalban"]) & filters.user(is_owner))
+    @client.on_message(filters.command(["gban", "globalban"]))
     async def global_ban(client: Client, message: Message):
-        if not message.reply_to_message:
-            if len(message.command) != 2:
-                return await message.reply_text("❌ **Usage:** `/gban <user_id/username> [reason]` or reply to user's message")
+        logger.info(f"📨 GBan command received from {message.from_user.id} in {message.chat.type}")
         
-        user = await extract_user(message)
+        # Check if user is owner
+        if not is_owner(message.from_user.id):
+            logger.warning(f"🚫 Non-owner {message.from_user.id} tried to use GBan")
+            await message.reply("❌ This command is only for bot owners.")
+            return
+        
+        logger.info(f"✅ Owner {message.from_user.id} using GBan")
+        
+        user = await extract_user(client, message)
         if not user:
-            return await message.reply_text("❌ Could not identify target user.")
+            await message.reply("❌ **Usage:** `/gban <user_id/username> [reason]` or reply to user's message")
+            return
         
         if user.id == message.from_user.id:
-            return await message.reply_text("❌ You cannot gban yourself!")
+            return await message.reply("❌ You cannot gban yourself!")
         elif user.id == client.me.id:
-            return await message.reply_text("❌ I cannot gban myself!")
+            return await message.reply("❌ I cannot gban myself!")
         elif is_owner(user.id):
-            return await message.reply_text("❌ Cannot gban another owner!")
+            return await message.reply("❌ Cannot gban another owner!")
         
         # Check if already gbanned
         is_gbanned = await is_banned_user(user.id)
         if is_gbanned:
-            return await message.reply_text(f"❌ {user.mention} is already globally banned!")
+            return await message.reply(f"❌ {user.mention} is already globally banned!")
+        
+        # Extract reason
+        reason = "No reason provided"
+        if len(message.command) > 2:
+            reason = " ".join(message.command[2:])
+        elif len(message.command) > 1 and not message.reply_to_message:
+            reason = " ".join(message.command[1:])
+        
+        logger.info(f"🚀 Starting GBan for {user.id} - Reason: {reason}")
         
         # Add to in-memory cache
         BANNED_USERS.add(user.id)
@@ -93,35 +124,58 @@ async def setup_gban_handlers(client: Client):
         for chat in chats:
             served_chats.append(int(chat["chat_id"]))
         
-        # Calculate expected time
-        time_expected = await get_readable_time(len(served_chats))
+        logger.info(f"📊 Found {len(served_chats)} served chats to process")
+        
+        # Calculate expected time (rough estimate: 2 seconds per chat)
+        total_seconds = len(served_chats) * 2
+        time_expected = await get_readable_time(total_seconds)
         
         # Send processing message
-        mystic = await message.reply_text(f"🔄 **Global Ban in Progress...**\n\n**User:** {user.mention}\n**Estimated Time:** {time_expected}")
+        mystic = await message.reply_text(
+            f"🔄 **Global Ban in Progress...**\n\n"
+            f"**User:** {user.mention}\n"
+            f"**Reason:** {reason}\n"
+            f"**Chats to process:** {len(served_chats)}\n"
+            f"**Estimated Time:** {time_expected}"
+        )
         
         # Delete user's sticker packs first
+        logger.info(f"🗑️ Deleting packs for user {user.id}")
         packs_deleted = await delete_user_packs(user.id)
-        logger.info(f"🗑️ Deleted {packs_deleted} packs for user {user.id}")
+        logger.info(f"✅ Deleted {packs_deleted} packs for user {user.id}")
         
         # Ban from all groups
         number_of_chats = 0
+        failed_chats = 0
+        
         for chat_id in served_chats:
             try:
                 await client.ban_chat_member(chat_id, user.id)
                 number_of_chats += 1
+                logger.debug(f"✅ Banned from {chat_id}")
+                
+                # Small delay to avoid flood
+                await asyncio.sleep(0.5)
+                
             except FloodWait as fw:
-                await asyncio.sleep(int(fw.value))
+                logger.warning(f"⏳ FloodWait for {fw.value} seconds")
+                await asyncio.sleep(fw.value + 1)
                 try:
                     await client.ban_chat_member(chat_id, user.id)
                     number_of_chats += 1
-                except:
-                    continue
+                    logger.debug(f"✅ Banned from {chat_id} after FloodWait")
+                except Exception as e:
+                    logger.error(f"❌ Failed to ban from {chat_id} after FloodWait: {e}")
+                    failed_chats += 1
+                    
             except Exception as e:
-                logger.debug(f"Could not ban from {chat_id}: {e}")
+                logger.error(f"❌ Failed to ban from {chat_id}: {e}")
+                failed_chats += 1
                 continue
         
         # Add to banned users database
         await add_banned_user(user.id)
+        logger.info(f"✅ Added {user.id} to banned users database")
         
         # Prepare success message
         success_msg = f"""
@@ -129,8 +183,10 @@ async def setup_gban_handlers(client: Client):
 
 **Target User:** {user.mention} (`{user.id}`)
 **Banned by:** {message.from_user.mention}
+**Reason:** {reason}
 **Packs Deleted:** {packs_deleted}
 **Groups Banned From:** {number_of_chats}
+**Failed Bans:** {failed_chats}
 
 **Auto-Ban Feature:** User will be automatically banned from any groups where I'm admin when they join.
 """
@@ -145,30 +201,39 @@ async def setup_gban_handlers(client: Client):
 
 **Target:** {user.mention} (`{user.id}`)
 **Banned by:** {message.from_user.mention} (`{message.from_user.id}`)
+**Reason:** {reason}
 **Packs Deleted:** {packs_deleted}
 **Groups Banned From:** {number_of_chats}
+**Failed Bans:** {failed_chats}
 **Time:** {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}
 """
             try:
                 await client.send_message(LOG_GROUP_ID, log_msg)
+                logger.info("✅ Log sent to logger group")
             except Exception as e:
-                logger.error(f"Could not send log to LOG_GROUP: {e}")
+                logger.error(f"❌ Could not send log to LOG_GROUP: {e}")
 
     # Ungban command
-    @client.on_message(filters.command("ungban") & filters.user(is_owner))
+    @client.on_message(filters.command("ungban"))
     async def global_unban(client: Client, message: Message):
-        if not message.reply_to_message:
-            if len(message.command) != 2:
-                return await message.reply_text("❌ **Usage:** `/ungban <user_id/username>` or reply to user's message")
+        logger.info(f"📨 Ungban command received from {message.from_user.id} in {message.chat.type}")
         
-        user = await extract_user(message)
+        # Check if user is owner
+        if not is_owner(message.from_user.id):
+            await message.reply("❌ This command is only for bot owners.")
+            return
+        
+        user = await extract_user(client, message)
         if not user:
-            return await message.reply_text("❌ Could not identify target user.")
+            await message.reply("❌ **Usage:** `/ungban <user_id/username>` or reply to user's message")
+            return
         
         # Check if user is gbanned
         is_gbanned = await is_banned_user(user.id)
         if not is_gbanned:
-            return await message.reply_text(f"❌ {user.mention} is not globally banned!")
+            return await message.reply(f"❌ {user.mention} is not globally banned!")
+        
+        logger.info(f"🚀 Starting unban for {user.id}")
         
         # Remove from in-memory cache
         if user.id in BANNED_USERS:
@@ -180,33 +245,62 @@ async def setup_gban_handlers(client: Client):
         for chat in chats:
             served_chats.append(int(chat["chat_id"]))
         
+        logger.info(f"📊 Found {len(served_chats)} served chats to process for unban")
+        
         # Calculate expected time
-        time_expected = await get_readable_time(len(served_chats))
+        total_seconds = len(served_chats) * 2
+        time_expected = await get_readable_time(total_seconds)
         
         # Send processing message
-        mystic = await message.reply_text(f"🔄 **Global Unban in Progress...**\n\n**User:** {user.mention}\n**Estimated Time:** {time_expected}")
+        mystic = await message.reply_text(
+            f"🔄 **Global Unban in Progress...**\n\n"
+            f"**User:** {user.mention}\n"
+            f"**Chats to process:** {len(served_chats)}\n"
+            f"**Estimated Time:** {time_expected}"
+        )
         
         # Unban from all groups
         number_of_chats = 0
+        failed_chats = 0
+        
         for chat_id in served_chats:
             try:
                 await client.unban_chat_member(chat_id, user.id)
                 number_of_chats += 1
+                logger.debug(f"✅ Unbanned from {chat_id}")
+                
+                # Small delay to avoid flood
+                await asyncio.sleep(0.5)
+                
             except FloodWait as fw:
-                await asyncio.sleep(int(fw.value))
+                logger.warning(f"⏳ FloodWait for {fw.value} seconds")
+                await asyncio.sleep(fw.value + 1)
                 try:
                     await client.unban_chat_member(chat_id, user.id)
                     number_of_chats += 1
-                except:
-                    continue
+                    logger.debug(f"✅ Unbanned from {chat_id} after FloodWait")
+                except Exception as e:
+                    logger.error(f"❌ Failed to unban from {chat_id} after FloodWait: {e}")
+                    failed_chats += 1
+                    
             except Exception as e:
-                logger.debug(f"Could not unban from {chat_id}: {e}")
+                logger.error(f"❌ Failed to unban from {chat_id}: {e}")
+                failed_chats += 1
                 continue
         
         # Remove from banned users database
         await remove_banned_user(user.id)
+        logger.info(f"✅ Removed {user.id} from banned users database")
         
-        await message.reply_text(f"✅ **Global Unban Complete**\n\n**User:** {user.mention}\n**Groups Unbanned From:** {number_of_chats}")
+        success_msg = f"""
+✅ **Global Unban Complete**
+
+**User:** {user.mention}
+**Groups Unbanned From:** {number_of_chats}
+**Failed Unbans:** {failed_chats}
+"""
+        
+        await message.reply_text(success_msg)
         await mystic.delete()
         
         # Log to logger group
@@ -217,21 +311,29 @@ async def setup_gban_handlers(client: Client):
 **Target:** {user.mention} (`{user.id}`)
 **Unbanned by:** {message.from_user.mention} (`{message.from_user.id}`)
 **Groups Unbanned From:** {number_of_chats}
+**Failed Unbans:** {failed_chats}
 **Time:** {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}
 """
             try:
                 await client.send_message(LOG_GROUP_ID, log_msg)
             except Exception as e:
-                logger.error(f"Could not send log to LOG_GROUP: {e}")
+                logger.error(f"❌ Could not send log to LOG_GROUP: {e}")
 
     # Gbanlist command
-    @client.on_message(filters.command(["gbannedusers", "gbanlist"]) & filters.user(is_owner))
+    @client.on_message(filters.command(["gbannedusers", "gbanlist"]))
     async def gbanned_list(client: Client, message: Message):
+        logger.info(f"📨 Gbanlist command received from {message.from_user.id}")
+        
+        # Check if user is owner
+        if not is_owner(message.from_user.id):
+            await message.reply("❌ This command is only for bot owners.")
+            return
+        
         counts = await get_banned_count()
         if counts == 0:
-            return await message.reply_text("📝 **No users are currently globally banned.**")
+            return await message.reply("📝 **No users are currently globally banned.**")
         
-        mystic = await message.reply_text("🔄 **Fetching globally banned users...**")
+        mystic = await message.reply("🔄 **Fetching globally banned users...**")
         
         msg = "🚫 **Globally Banned Users:**\n\n"
         count = 0
@@ -251,31 +353,6 @@ async def setup_gban_handlers(client: Client):
             await mystic.edit_text("📝 **No users are currently globally banned.**")
         else:
             await mystic.edit_text(msg)
-
-    # Auto-add groups to served chats when bot is added
-    @client.on_message(filters.new_chat_members)
-    async def add_new_chat(client: Client, message: Message):
-        try:
-            # Check if bot is in new members
-            for member in message.new_chat_members:
-                if member.id == client.me.id:
-                    # Bot added to group, add to served chats
-                    await add_served_chat(message.chat.id)
-                    logger.info(f"✅ Added new chat to served chats: {message.chat.title} ({message.chat.id})")
-                    break
-        except Exception as e:
-            logger.error(f"Error adding new chat: {e}")
-
-    # Remove group from served chats when bot is removed
-    @client.on_message(filters.left_chat_member)
-    async def remove_chat(client: Client, message: Message):
-        try:
-            if message.left_chat_member.id == client.me.id:
-                # Bot removed from group, remove from served chats
-                await remove_served_chat(message.chat.id)
-                logger.info(f"🗑️ Removed chat from served chats: {message.chat.title} ({message.chat.id})")
-        except Exception as e:
-            logger.error(f"Error removing chat: {e}")
 
     # Auto-ban handler for new group members
     @client.on_message(filters.new_chat_members & filters.group)
@@ -303,6 +380,8 @@ User {new_member.mention} (`{new_member.id}`) was automatically banned because t
                     await message.reply(warning_msg)
                     
         except Exception as e:
-            logger.error(f"Error in auto-ban: {e}")
+            logger.error(f"❌ Error in auto-ban: {e}")
 
     logger.info("✅ New GBan handlers setup complete")
+    logger.info("🔥 GBan commands: /gban, /ungban, /gbanlist")
+    logger.info("🔍 Test command: /test")

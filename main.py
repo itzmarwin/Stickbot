@@ -9,6 +9,7 @@ from pyrogram import Client
 from config import BOT_TOKEN, TELEGRAM_API_ID, TELEGRAM_API_HASH
 from database import init_db
 from handlers import start, kang, packs, misc, logger
+from handlers import sticker_id  # Add this line
 from telethon_quotly import setup_telethon_handlers
 from pyrogram_handlers.gban import setup_gban_handlers
 from pyrogram_handlers.afk import setup_afk_handlers
@@ -71,6 +72,7 @@ async def main():
         dp.include_router(start.router)
         dp.include_router(kang.router)
         dp.include_router(packs.router)
+        dp.include_router(sticker_id.router)
         dp.include_router(logger.router)
         dp.include_router(misc.router)
         

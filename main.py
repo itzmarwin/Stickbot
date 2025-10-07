@@ -39,8 +39,8 @@ async def setup_pyrogram():
         await pyro_client.start()
         
         # Setup all Pyrogram handlers
-        await setup_afk_handlers(pyro_client)
         await setup_gban_handlers(pyro_client)
+        await setup_afk_handlers(pyro_client)
         
         return pyro_client
         

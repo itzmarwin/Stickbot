@@ -77,11 +77,11 @@ async def cmd_getvidsticker(message: Message, bot: Bot):
             await cleanup_files(*temp_files)
             return
         
-        # Read WebM file and send as VIDEO (not document)
+        # Read WebM file and send as VIDEO (playable in chat)
         with open(webm_path, 'rb') as f:
             webm_file = BufferedInputFile(f.read(), filename="video_sticker.webm")
         
-        # Send as VIDEO (not document)
+        # Send as VIDEO (playable in chat, not as document)
         await message.reply_video(
             webm_file,
             caption=VIDEO_STICKER_CONVERSION_SUCCESS

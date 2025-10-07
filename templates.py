@@ -133,3 +133,20 @@ GENERIC_ERROR_MESSAGE = """
 <b>Don't worry, our team is on it.</b>
 If the issue continues, please report it here: <a href="https://t.me/YourSupportGroup"><b>Support Group</b></a>
 """
+
+
+
+# Get Sticker Command Templates
+GETSTICKER_NO_REPLY = "❌ <b>Please reply to a sticker to get its image file.</b>"
+GETSTICKER_NOT_STICKER = "❌ <b>The replied message is not a sticker.</b>"
+GETSTICKER_VIDEO_NOT_SUPPORTED = "❌ <b>This is a video sticker. Use /getvidsticker for video stickers.</b>"
+GETSTICKER_PROCESSING = "⏳ <b>Processing your sticker...</b>"
+
+GETVIDSTICKER_NO_REPLY = "❌ <b>Please reply to a video sticker to get its video file.</b>"
+GETVIDSTICKER_NOT_STICKER = "❌ <b>The replied message is not a sticker.</b>"
+GETVIDSTICKER_NOT_VIDEO = "❌ <b>This is not a video sticker. Use /getsticker for static stickers.</b>"
+GETVIDSTICKER_PROCESSING = "⏳ <b>Processing your video sticker...</b>"
+
+# Success messages
+STICKER_CONVERSION_SUCCESS = "✅ <b>Here's your sticker as an image:</b>"
+VIDEO_STICKER_CONVERSION_SUCCESS = "✅ <b>Here's your sticker as a video:</b>"

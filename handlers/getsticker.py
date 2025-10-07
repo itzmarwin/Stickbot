@@ -48,7 +48,7 @@ async def cleanup_files(*file_paths):
 
 @router.message(Command("getsticker"))
 async def cmd_getsticker(message: Message, bot: Bot):
-    """Handle /getsticker command - convert sticker to PNG image"""
+    """Handle /getsticker command - convert sticker to PNG file"""
     processing_msg = None
     temp_files = []
     
@@ -100,12 +100,12 @@ async def cmd_getsticker(message: Message, bot: Bot):
             await cleanup_files(*temp_files)
             return
         
-        # Read PNG file and send as PHOTO (not document)
+        # Read PNG file and send as DOCUMENT (file)
         with open(png_path, 'rb') as f:
             png_file = BufferedInputFile(f.read(), filename="sticker.png")
         
-        # Send as PHOTO (image) not document
-        await message.reply_photo(
+        # Send as DOCUMENT (file) not photo
+        await message.reply_document(
             png_file,
             caption=STICKER_CONVERSION_SUCCESS
         )

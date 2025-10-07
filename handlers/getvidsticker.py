@@ -31,7 +31,7 @@ async def cleanup_files(*file_paths):
 
 @router.message(Command("getvidsticker"))
 async def cmd_getvidsticker(message: Message, bot: Bot):
-    """Handle /getvidsticker command - get video sticker as video"""
+    """Handle /getvidsticker command - get video sticker as playable video"""
     processing_msg = None
     temp_files = []
     
@@ -77,13 +77,16 @@ async def cmd_getvidsticker(message: Message, bot: Bot):
             await cleanup_files(*temp_files)
             return
         
-        # Read WebM file and send as VIDEO (playable in chat)
+        # Read WebM file
         with open(webm_path, 'rb') as f:
-            webm_file = BufferedInputFile(f.read(), filename="video_sticker.webm")
+            video_data = f.read()
         
-        # Send as VIDEO (playable in chat, not as document)
+        # Create video file with proper MIME type
+        video_file = BufferedInputFile(video_data, filename="video.mp4")
+        
+        # Send as VIDEO (playable in chat)
         await message.reply_video(
-            webm_file,
+            video=video_file,
             caption=VIDEO_STICKER_CONVERSION_SUCCESS
         )
         

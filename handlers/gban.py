@@ -77,9 +77,15 @@ async def unban_user_from_chat(bot: Bot, chat_id: int, user_id: int) -> bool:
         logger.error(f"Failed to unban user {user_id} from chat {chat_id}: {e}")
         return False
 
-# Fix: Use separate Command filters instead of list
+# Separate decorators for each command (Aiogram 3.x requirement)
 @router.message(Command("gban"))
-@router.message(Command("globalban"))
+async def gban_command(message: Message, bot: Bot):
+    await global_ban(message, bot)
+
+@router.message(Command("globalban")) 
+async def globalban_command(message: Message, bot: Bot):
+    await global_ban(message, bot)
+
 async def global_ban(message: Message, bot: Bot):
     """Handle GBan command - Aiogram version"""
     # Check if user is owner
@@ -126,7 +132,7 @@ async def global_ban(message: Message, bot: Bot):
     # Send processing message
     processing_msg = await message.reply(
         f"🔄 **Global Ban in Progress...**\n\n"
-        f"**User:** {user.first_name}\n"
+        f"**User:** {user.first_name} (`{user.id}`)\n"
         f"**Reason:** {reason}\n"
         f"**Estimated Time:** {time_expected}\n\n"
         f"*This will run in background. Bot will remain responsive.*"
@@ -297,9 +303,14 @@ async def execute_ungban_background(bot: Bot, target_user, unbanned_by, processi
         logger.error(f"Error in background UnGBan: {e}")
         await processing_msg.edit_text(f"❌ Error in UnGBan process: {e}")
 
-# Fix: Use separate Command filters instead of list
 @router.message(Command("gbannedusers"))
+async def gbannedusers_command(message: Message, bot: Bot):
+    await gbanned_list(message, bot)
+
 @router.message(Command("gbanlist"))
+async def gbanlist_command(message: Message, bot: Bot):
+    await gbanned_list(message, bot)
+
 async def gbanned_list(message: Message, bot: Bot):
     """Show list of globally banned users"""
     # Check if user is owner

@@ -20,8 +20,8 @@ from templates import (
 logger = logging.getLogger(__name__)
 router = Router()
 
-async def convert_webp_to_png(webp_path: str, png_path: str) -> bool:
-    """Convert WebP sticker to PNG format"""
+def convert_webp_to_png(webp_path: str, png_path: str) -> bool:
+    """Convert WebP sticker to PNG format (SYNCHRONOUS function)"""
     try:
         with Image.open(webp_path) as img:
             # Convert to RGB if needed (for PNG compatibility)
@@ -89,10 +89,10 @@ async def cmd_getsticker(message: Message, bot: Bot):
         file = await bot.get_file(sticker.file_id)
         await bot.download_file(file.file_path, webp_path)
         
-        # Convert to PNG in background to avoid blocking
+        # Convert to PNG in background (using synchronous function)
         success = await asyncio.get_event_loop().run_in_executor(
             None, 
-            lambda: convert_webp_to_png(str(webp_path), str(png_path))
+            convert_webp_to_png, str(webp_path), str(png_path)
         )
         
         if not success or not os.path.exists(png_path):
@@ -100,12 +100,12 @@ async def cmd_getsticker(message: Message, bot: Bot):
             await cleanup_files(*temp_files)
             return
         
-        # Read PNG file and send as document
+        # Read PNG file and send as PHOTO (not document)
         with open(png_path, 'rb') as f:
             png_file = BufferedInputFile(f.read(), filename="sticker.png")
         
-        # Send the PNG file
-        await message.reply_document(
+        # Send as PHOTO (image) not document
+        await message.reply_photo(
             png_file,
             caption=STICKER_CONVERSION_SUCCESS
         )

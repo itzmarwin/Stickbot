@@ -10,8 +10,8 @@ from config import BOT_TOKEN, TELEGRAM_API_ID, TELEGRAM_API_HASH
 from database import init_db
 from handlers import start, kang, packs, misc, logger
 from telethon_quotly import setup_telethon_handlers
-from pyrogram_handlers.gban import setup_gban_handlers
 from pyrogram_handlers.afk import setup_afk_handlers
+from handlers.gban_handlers import router as gban_router  # NEW: Aiogram GBan handlers
 
 # Configure logging
 logging.basicConfig(
@@ -25,7 +25,7 @@ telethon_client = None
 aiogram_bot = None
 
 async def setup_pyrogram():
-    """Setup and start Pyrogram client"""
+    """Setup and start Pyrogram client - Now only for AFK"""
     global pyro_client
     
     try:
@@ -38,9 +38,8 @@ async def setup_pyrogram():
         
         await pyro_client.start()
         
-        # Setup all Pyrogram handlers
+        # Setup only AFK handlers (GBan removed from Pyrogram)
         await setup_afk_handlers(pyro_client)
-        await setup_gban_handlers(pyro_client)
         
         return pyro_client
         
@@ -73,6 +72,7 @@ async def main():
         dp.include_router(packs.router)
         dp.include_router(logger.router)
         dp.include_router(misc.router)
+        dp.include_router(gban_router)  # NEW: Aiogram GBan handlers included
         
         # Initialize Telethon client for /q command
         global telethon_client
@@ -86,7 +86,7 @@ async def main():
         await telethon_client.start(bot_token=BOT_TOKEN)
         await setup_telethon_handlers(telethon_client)
         
-        # Start Pyrogram client
+        # Start Pyrogram client (only for AFK now)
         await setup_pyrogram()
         
         # Get bot info

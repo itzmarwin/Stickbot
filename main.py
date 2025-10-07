@@ -11,7 +11,7 @@ from database import init_db
 from handlers import start, kang, packs, misc, logger
 from telethon_quotly import setup_telethon_handlers
 from pyrogram_handlers.afk import setup_afk_handlers
-from handlers.gban_handlers import router as gban_router  # NEW: Aiogram GBan handlers
+from handlers.gban_handlers import router as gban_router  # Aiogram GBan handlers
 
 # Configure logging
 logging.basicConfig(
@@ -72,7 +72,7 @@ async def main():
         dp.include_router(packs.router)
         dp.include_router(logger.router)
         dp.include_router(misc.router)
-        dp.include_router(gban_router)  # NEW: Aiogram GBan handlers included
+        dp.include_router(gban_router)  # Aiogram GBan handlers included
         
         # Initialize Telethon client for /q command
         global telethon_client

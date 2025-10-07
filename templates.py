@@ -150,3 +150,122 @@ GETVIDSTICKER_PROCESSING = "⏳ <b>Processing your video sticker...</b>"
 # Success messages
 STICKER_CONVERSION_SUCCESS = "✅ <b>Here's your sticker as an image:</b>"
 VIDEO_STICKER_CONVERSION_SUCCESS = "✅ <b>Here's your sticker as a video:</b>"
+
+
+
+# Start command templates
+START_MESSAGE_WITH_IMAGE = """
+🎨 <b>Welcome to Sticker Kang Bot!</b>
+
+Create your own sticker packs easily!
+• Convert images, videos, GIFs to stickers
+• Manage multiple packs
+• Publish your creations
+
+Use the buttons below to get started!
+"""
+
+MANAGE_PACKS_MESSAGE = """
+📦 <b>Your Sticker Packs</b>
+
+Select a pack to manage or create a new one:
+"""
+
+NO_PACKS_MESSAGE = """
+📦 <b>You don't have any packs yet!</b>
+
+Create your first sticker pack to get started.
+"""
+
+PACK_OPTIONS_MESSAGE = """
+🛠️ <b>Pack Options:</b> {pack_name}
+
+Choose an action for this pack:
+"""
+
+RENAME_PACK_MESSAGE = """
+✏️ <b>Rename Pack</b>
+
+Please send the new name for your pack <b>"{pack_name}"</b>:
+
+• Maximum 64 characters
+• Can include emojis and special characters
+
+Type /cancel to go back.
+"""
+
+DELETE_PACK_CONFIRMATION = """
+🗑️ <b>Delete Pack</b>
+
+Are you sure you want to delete <b>"{pack_name}"</b>?
+
+This action cannot be undone! All stickers in this pack will be lost.
+
+<b>Pack details:</b>
+• Stickers: {sticker_count}
+• Created: {created_date}
+"""
+
+PACK_DELETED_SUCCESS = """
+✅ <b>Pack deleted successfully!</b>
+
+Pack <b>"{pack_name}"</b> has been deleted.
+"""
+
+PACK_RENAMED_SUCCESS = """
+✅ <b>Pack renamed successfully!</b>
+
+<b>Old name:</b> {old_name}
+<b>New name:</b> {new_name}
+"""
+
+PUBLISH_REQUEST_SENT = """
+📤 <b>Publish Request Sent</b>
+
+Your publish request for <b>"{pack_name}"</b> has been sent to the owner.
+
+⏳ <b>Approval may take 4-5 hours.</b>
+
+You will be notified once your pack is published.
+"""
+
+ADD_STICKER_INSTRUCTIONS = """
+🎨 <b>Add Sticker to {pack_name}</b>
+
+Send me an image, video, GIF, or sticker to add to your pack.
+
+<b>Supported formats:</b>
+• Images (JPEG, PNG, WebP)
+• Videos (MP4, WebM - max 4MB)
+• GIFs
+• Other stickers
+
+Type /cancel to go back.
+"""
+
+PACK_FULL_MESSAGE = """
+❌ <b>Pack is Full</b>
+
+Pack <b>"{pack_name}"</b> has reached the maximum limit of 120 stickers.
+
+Please create a new pack to add more stickers.
+"""
+
+STICKER_ADDED_TO_PACK = """
+✅ <b>Sticker Added</b>
+
+Sticker successfully added to <b>"{pack_name}"</b>
+
+Current sticker count: {sticker_count}/120
+"""
+
+CREATE_PACK_PROMPT = """
+📝 <b>Create New Pack</b>
+
+Please send me a name for your new sticker pack:
+
+• Maximum 64 characters
+• Can include emojis and special characters
+• This will be the public name of your pack
+
+Type /cancel to go back.

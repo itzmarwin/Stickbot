@@ -23,33 +23,27 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 
-# Global clients
-telethon_client = None
-aiogram_bot = None
-
 async def main():
     try:
         # Initialize database
         await init_db()
         
         # Initialize Aiogram bot and dispatcher
-        global aiogram_bot
         aiogram_bot = Bot(
             token=BOT_TOKEN,
             default=DefaultBotProperties(parse_mode=ParseMode.HTML)
         )
         dp = Dispatcher()
         
-        # Register Aiogram routers - IMPORTANT: Order matters!
+        # Register Aiogram routers
         dp.include_router(start_router)
         dp.include_router(kang_router)
         dp.include_router(packs_router)
         dp.include_router(logger_router)
         dp.include_router(misc_router)
-        dp.include_router(gban_router)  # GBan router included
+        dp.include_router(gban_router)
         
         # Initialize Telethon client for /q command
-        global telethon_client
         telethon_client = TelegramClient(
             'quotly_bot_session',
             TELEGRAM_API_ID,
@@ -64,15 +58,6 @@ async def main():
         bot_info = await aiogram_bot.get_me()
         logging.info(f"Bot started: @{bot_info.username}")
         
-        # Log loaded routers
-        logging.info("✅ Routers loaded:")
-        logging.info(f"   - Start router: {start_router}")
-        logging.info(f"   - Kang router: {kang_router}")
-        logging.info(f"   - Packs router: {packs_router}") 
-        logging.info(f"   - Logger router: {logger_router}")
-        logging.info(f"   - Misc router: {misc_router}")
-        logging.info(f"   - GBan router: {gban_router}")
-        
         # Run all clients
         await dp.start_polling(aiogram_bot)
         
@@ -82,9 +67,9 @@ async def main():
         logging.error(f"Error in main: {e}")
     finally:
         # Disconnect all clients
-        if telethon_client:
+        if 'telethon_client' in locals():
             await telethon_client.disconnect()
-        if aiogram_bot:
+        if 'aiogram_bot' in locals():
             await aiogram_bot.session.close()
 
 if __name__ == "__main__":

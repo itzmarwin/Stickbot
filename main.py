@@ -4,23 +4,55 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from telethon import TelegramClient
+from pyrogram import Client
 
 from config import BOT_TOKEN, TELEGRAM_API_ID, TELEGRAM_API_HASH
 from database import init_db
+from handlers import start, kang, packs, misc, logger
 from telethon_quotly import setup_telethon_handlers
+from pyrogram_handlers.gban import setup_gban_handlers
+from pyrogram_handlers.afk import setup_afk_handlers
 
-# Import individual routers
-from handlers.start import router as start_router
-from handlers.kang import router as kang_router
-from handlers.packs import router as packs_router
-from handlers.misc import router as misc_router
-from handlers.logger import router as logger_router
-from handlers.gban import router as gban_router
-
+# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
+
+# Global clients
+pyro_client = None
+telethon_client = None
+aiogram_bot = None
+
+async def setup_pyrogram():
+    """Setup and start Pyrogram client"""
+    global pyro_client
+    
+    try:
+        pyro_client = Client(
+            "bot_session",
+            api_id=TELEGRAM_API_ID,
+            api_hash=TELEGRAM_API_HASH,
+            bot_token=BOT_TOKEN
+        )
+        
+        await pyro_client.start()
+        
+        # Setup all Pyrogram handlers
+        await setup_afk_handlers(pyro_client)
+        await setup_gban_handlers(pyro_client)
+        
+        return pyro_client
+        
+    except Exception as e:
+        logging.error(f"Error starting Pyrogram client: {e}")
+        raise
+
+async def stop_pyrogram():
+    """Stop Pyrogram client"""
+    global pyro_client
+    if pyro_client:
+        await pyro_client.stop()
 
 async def main():
     try:
@@ -28,21 +60,22 @@ async def main():
         await init_db()
         
         # Initialize Aiogram bot and dispatcher
-        bot = Bot(
+        global aiogram_bot
+        aiogram_bot = Bot(
             token=BOT_TOKEN,
             default=DefaultBotProperties(parse_mode=ParseMode.HTML)
         )
         dp = Dispatcher()
         
-        # Include routers in specific order
-        dp.include_router(start_router)
-        dp.include_router(kang_router)
-        dp.include_router(packs_router)
-        dp.include_router(logger_router)
-        dp.include_router(misc_router)
-        dp.include_router(gban_router)  # GBan router last mein
+        # Register Aiogram routers
+        dp.include_router(start.router)
+        dp.include_router(kang.router)
+        dp.include_router(packs.router)
+        dp.include_router(logger.router)
+        dp.include_router(misc.router)
         
         # Initialize Telethon client for /q command
+        global telethon_client
         telethon_client = TelegramClient(
             'quotly_bot_session',
             TELEGRAM_API_ID,
@@ -53,26 +86,15 @@ async def main():
         await telethon_client.start(bot_token=BOT_TOKEN)
         await setup_telethon_handlers(telethon_client)
         
+        # Start Pyrogram client
+        await setup_pyrogram()
+        
         # Get bot info
-        bot_info = await bot.get_me()
-        logging.info(f"✅ Bot started: @{bot_info.username}")
+        bot_info = await aiogram_bot.get_me()
+        logging.info(f"Bot started: @{bot_info.username}")
         
-        # Log all loaded routers
-        logging.info("📋 Loaded routers:")
-        logging.info(f"   - Start: ✅")
-        logging.info(f"   - Kang: ✅")
-        logging.info(f"   - Packs: ✅")
-        logging.info(f"   - Logger: ✅")
-        logging.info(f"   - Misc: ✅")
-        logging.info(f"   - GBan: ✅")
-        logging.info(f"   - Telethon Quotly: ✅")
-        
-        print("\n🎉 Bot successfully started!")
-        print("📝 Available commands:")
-        print("   /start, /help, /kang, /packs, /ping, /stats, /gban, /ungban, /gbanlist, /q")
-        
-        # Run the bot
-        await dp.start_polling(bot)
+        # Run all clients
+        await dp.start_polling(aiogram_bot)
         
     except KeyboardInterrupt:
         logging.info("Bot stopped by user")
@@ -80,9 +102,11 @@ async def main():
         logging.error(f"Error in main: {e}")
     finally:
         # Disconnect all clients
-        if 'telethon_client' in locals():
+        if telethon_client:
             await telethon_client.disconnect()
-        await bot.session.close()
+        await stop_pyrogram()
+        if aiogram_bot:
+            await aiogram_bot.session.close()
 
 if __name__ == "__main__":
     asyncio.run(main())

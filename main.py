@@ -72,9 +72,9 @@ async def main():
         dp.include_router(start.router)
         dp.include_router(kang.router)
         dp.include_router(packs.router)
+        dp.include_router(sticker_id.router)
         dp.include_router(logger.router)
         dp.include_router(misc.router)
-        dp.include_router(sticker_id.router)
         
         # Initialize Telethon client for /q command
         global telethon_client

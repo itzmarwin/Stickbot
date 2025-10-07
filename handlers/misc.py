@@ -98,3 +98,18 @@ async def handle_text_messages(message: Message):
     """Handle any unhandled text messages"""
     # This catches any text that doesn't match other handlers
     pass
+
+@router.message(Command("debug_gban"))
+async def debug_gban(message: Message):
+    """Debug GBan command"""
+    if not is_owner(message.from_user.id):
+        return
+    
+    # Check if GBan router is working
+    from handlers import gban
+    await message.answer(f"✅ GBan module loaded: {gban.router}")
+    
+    # Check served chats count
+    from database import get_served_chats_count
+    chat_count = await get_served_chats_count()
+    await message.answer(f"✅ Served chats: {chat_count}")

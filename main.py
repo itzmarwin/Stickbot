@@ -8,7 +8,7 @@ from pyrogram import Client
 
 from config import BOT_TOKEN, TELEGRAM_API_ID, TELEGRAM_API_HASH
 from database import init_db
-from handlers import start, kang, packs, misc, logger
+from handlers import start, kang, misc, logger
 from handlers import sticker_id
 from handlers import getsticker, getvidsticker
 from telethon_quotly import setup_telethon_handlers
@@ -72,7 +72,6 @@ async def main():
         # Register Aiogram routers
         dp.include_router(start.router)
         dp.include_router(kang.router)
-        dp.include_router(packs.router)
         dp.include_router(sticker_id.router)
         dp.include_router(getvidsticker.router)
         dp.include_router(getsticker.router)

@@ -12,7 +12,6 @@ from handlers import start, kang, packs, misc, logger
 from telethon_quotly import setup_telethon_handlers
 from pyrogram_handlers.gban import setup_gban_handlers
 from pyrogram_handlers.afk import setup_afk_handlers
-from pyrogram_handlers.broadcast import setup_broadcast_handlers  # NEW IMPORT
 
 # Configure logging
 logging.basicConfig(
@@ -42,7 +41,6 @@ async def setup_pyrogram():
         # Setup all Pyrogram handlers
         await setup_afk_handlers(pyro_client)
         await setup_gban_handlers(pyro_client)
-        await setup_broadcast_handlers(pyro_client)  # NEW LINE
         
         return pyro_client
         

@@ -118,3 +118,18 @@ BOT_REMOVED_FROM_GROUP = """
 <b>Chat ID:</b> <code>{chat_id}</code>
 <b>Time:</b> {time}
 """
+
+STICKER_ID_RESPONSE = """
+<b>Sticker ID:</b> <code>{sticker_id}</code>
+<b>Emoji:</b> {emoji}
+"""
+
+STICKER_ID_NO_REPLY = "❌ <b>Please reply to a sticker message to get its ID.</b>"
+
+STICKER_ID_NOT_STICKER = "❌ <b>The replied message is not a sticker.</b>"
+
+GENERIC_ERROR_MESSAGE = """
+⚠️ <b>Oops — something went wrong.</b>
+<b>Don't worry, our team is on it.</b>
+If the issue continues, please report it here: <a href="https://t.me/YourSupportGroup"><b>Support Group</b></a>
+"""

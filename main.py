@@ -1,18 +1,19 @@
 import asyncio
 import logging
 from aiogram import Bot, Dispatcher
+from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from handlers import gban  # import router
-
+from handlers import gban
 from config import BOT_TOKEN
 
 logging.basicConfig(level=logging.INFO)
 
 async def main():
-    bot = Bot(token=BOT_TOKEN, parse_mode=ParseMode.HTML)
+    bot = Bot(
+        token=BOT_TOKEN,
+        default=DefaultBotProperties(parse_mode=ParseMode.HTML)
+    )
     dp = Dispatcher()
-
-    # Include router
     dp.include_router(gban.router)
 
     print("Bot started. Send /gban to test.")

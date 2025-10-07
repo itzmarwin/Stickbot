@@ -77,7 +77,9 @@ async def unban_user_from_chat(bot: Bot, chat_id: int, user_id: int) -> bool:
         logger.error(f"Failed to unban user {user_id} from chat {chat_id}: {e}")
         return False
 
-@router.message(Command(["gban", "globalban"]))
+# Fix: Use separate Command filters instead of list
+@router.message(Command("gban"))
+@router.message(Command("globalban"))
 async def global_ban(message: Message, bot: Bot):
     """Handle GBan command - Aiogram version"""
     # Check if user is owner
@@ -295,7 +297,9 @@ async def execute_ungban_background(bot: Bot, target_user, unbanned_by, processi
         logger.error(f"Error in background UnGBan: {e}")
         await processing_msg.edit_text(f"❌ Error in UnGBan process: {e}")
 
-@router.message(Command(["gbannedusers", "gbanlist"]))
+# Fix: Use separate Command filters instead of list
+@router.message(Command("gbannedusers"))
+@router.message(Command("gbanlist"))
 async def gbanned_list(message: Message, bot: Bot):
     """Show list of globally banned users"""
     # Check if user is owner

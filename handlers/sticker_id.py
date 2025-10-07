@@ -23,34 +23,10 @@ async def cmd_stickerid(message: Message):
     sticker = replied_msg.sticker
     sticker_id = sticker.file_id
     
-    # Prepare response with sticker information
-    response = f"""
-📄 **Sticker Information**
-
-**🆔 Sticker ID:** `{sticker_id}`
-**📦 Emoji:** {sticker.emoji or 'None'}
-**✨ Type:** {'Video Sticker' if sticker.is_video else 'Static Sticker'}
-**📏 Set Name:** {sticker.set_name or 'Not part of a pack'}
-"""
+    # Prepare response with exact format as requested
+    response = f"""**Sticker ID:** `{sticker_id}`
+**Emoji:** {sticker.emoji or 'None'}"""
     
     await message.reply(response)
 
-# Optional: Also handle when someone sends a sticker directly (not as reply to command)
-@router.message(F.sticker)
-async def handle_sticker_direct(message: Message):
-    """Handle when someone sends a sticker (optional feature)"""
-    
-    sticker = message.sticker
-    sticker_id = sticker.file_id
-    
-    response = f"""
-📄 **Sticker Detected**
-
-**🆔 Sticker ID:** `{sticker_id}`
-**📦 Emoji:** {sticker.emoji or 'None'}
-**✨ Type:** {'Video Sticker' if sticker.is_video else 'Static Sticker'}
-
-💡 *Tip: Use /stickerid as a reply to any sticker to get its ID anytime!*
-"""
-    
-    await message.reply(response)
+# REMOVED the automatic sticker response handler to prevent unwanted replies

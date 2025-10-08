@@ -8,7 +8,7 @@ from datetime import datetime
 
 from database import (
     get_user, get_user_pack, create_sticker_pack, 
-    increment_sticker_count
+    increment_sticker_count, delete_user_pack
 )
 from templates import (
     NEED_TO_START, ASK_PACK_NAME, PACK_CREATED, 
@@ -100,8 +100,11 @@ async def cmd_kang(message: Message, state: FSMContext, bot: Bot):
             bot=bot,
             user_id=user_id,
             pack_short_name=pack["short_name"],
+            pack_data=pack,
             media=media,
-            media_type=media_type
+            media_type=media_type,
+            message=message,
+            state=state
         )
         
         if success:
@@ -267,8 +270,9 @@ async def process_pack_name(message: Message, state: FSMContext, bot: Bot):
         await state.clear()
 
 async def add_sticker_to_pack(bot: Bot, user_id: int, pack_short_name: str, 
-                              media, media_type: str) -> bool:
-    """Add sticker to existing pack"""
+                              pack_data: dict, media, media_type: str, 
+                              message: Message, state: FSMContext) -> bool:
+    """Add sticker to existing pack with automatic STICKERSET_INVALID recovery"""
     temp_files = []
     
     try:
@@ -327,14 +331,44 @@ async def add_sticker_to_pack(bot: Bot, user_id: int, pack_short_name: str,
             format=sticker_format
         )
         
-        await bot.add_sticker_to_set(
-            user_id=user_id,
-            name=pack_short_name,
-            sticker=sticker
-        )
-        
-        cleanup_temp_files(*temp_files)
-        return True
+        try:
+            await bot.add_sticker_to_set(
+                user_id=user_id,
+                name=pack_short_name,
+                sticker=sticker
+            )
+            
+            cleanup_temp_files(*temp_files)
+            logger.info(f"✅ Sticker added successfully to pack: {pack_short_name}")
+            return True
+            
+        except Exception as e:
+            if "STICKERSET_INVALID" in str(e):
+                logger.warning(f"🔄 Pack {pack_short_name} is invalid, starting automatic recovery...")
+                
+                # Delete the invalid pack from database
+                await delete_user_pack(user_id)
+                logger.info(f"🗑️ Deleted invalid pack from database: {pack_short_name}")
+                
+                # Store current media info and ask for new pack name
+                await state.update_data(
+                    media=media.file_id, 
+                    media_type=media_type
+                )
+                await state.set_state(KangStates.waiting_for_pack_name)
+                
+                # Send message to user asking for new pack name
+                await message.answer(
+                    "❌ Your sticker pack was not found (it may have been deleted).\n\n"
+                    "Please provide a name for your new sticker pack:"
+                )
+                
+                logger.info("📝 Automatic recovery: Prompting user for new pack name")
+                return False
+            else:
+                # Re-raise other errors
+                logger.error(f"Error adding sticker to pack: {e}")
+                raise
         
     except Exception as e:
         logger.error(f"Error adding sticker to pack: {e}")

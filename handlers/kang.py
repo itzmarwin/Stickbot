@@ -1,5 +1,6 @@
 import os
 import logging
+import random
 from aiogram import Router, F, Bot
 from aiogram.filters import Command
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, InputSticker, BufferedInputFile
@@ -29,6 +30,13 @@ from config import BOT_USERNAME, MAX_VIDEO_SIZE_MB
 
 logger = logging.getLogger(__name__)
 router = Router()
+
+# Predefined list of emojis for random selection
+EMOJI_LIST = ["😀", "🤕", "😂", "🥰", "😎", "🤯", "😱", "😜", "🤖", "🐱", "🌸", "🍕", "🎉", "💀", "🔥", "❤️", "✨", "⭐", "🌟", "🎈", "🎊", "🤩", "😍", "🐶", "🦋", "🌈"]
+
+def get_random_emoji():
+    """Get a random emoji from the predefined list"""
+    return random.choice(EMOJI_LIST)
 
 @router.message(Command("kang"))
 async def cmd_kang(message: Message, state: FSMContext, bot: Bot):
@@ -227,10 +235,14 @@ async def process_pack_name(message: Message, state: FSMContext, bot: Bot):
         if not sticker_file:
             raise Exception("Failed to prepare sticker file")
         
+        # Get random emoji
+        random_emoji = get_random_emoji()
+        logger.info(f"Using random emoji: {random_emoji}")
+        
         # Create sticker pack
         sticker = InputSticker(
             sticker=sticker_file,
-            emoji_list=["🎨"],
+            emoji_list=[random_emoji],  # Use random emoji instead of hardcoded 🎨
             format=sticker_format
         )
         
@@ -329,10 +341,14 @@ async def add_sticker_to_pack(bot: Bot, user_id: int, pack_short_name: str,
             cleanup_temp_files(*temp_files)
             return False, False
         
+        # Get random emoji
+        random_emoji = get_random_emoji()
+        logger.info(f"Using random emoji: {random_emoji}")
+        
         # Add to pack
         sticker = InputSticker(
             sticker=sticker_file,
-            emoji_list=["🎨"],
+            emoji_list=[random_emoji],  # Use random emoji instead of hardcoded 🎨
             format=sticker_format
         )
         

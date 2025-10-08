@@ -5,8 +5,8 @@ from aiogram import Router, F
 from aiogram.types import Message
 from aiogram.filters import Command
 
-from database import get_total_users_count, get_total_packs_count
-from config import is_admin  # Changed from is_owner to is_admin
+from database import get_total_users_count, get_total_packs_count, get_served_chats_count
+from config import is_admin
 
 router = Router()
 
@@ -70,6 +70,7 @@ async def cmd_stats(message: Message):
     
     total_users = await get_total_users_count()
     total_packs = await get_total_packs_count()
+    total_groups = await get_served_chats_count()
     
     # Calculate uptime
     uptime_seconds = time.time() - bot_start_time
@@ -88,6 +89,7 @@ async def cmd_stats(message: Message):
 
 <b>Total Users:</b> {total_users}
 <b>Total Packs:</b> {total_packs}
+<b>Total Groups:</b> {total_groups}
 <b>Uptime:</b> {uptime_str}
 """
     
@@ -98,18 +100,3 @@ async def handle_text_messages(message: Message):
     """Handle any unhandled text messages"""
     # This catches any text that doesn't match other handlers
     pass
-
-@router.message(Command("debug_gban"))
-async def debug_gban(message: Message):
-    """Debug GBan command (admin only)"""
-    if not is_admin(message.from_user.id):
-        return
-    
-    # Check if GBan router is working
-    from handlers import gban
-    await message.answer(f"✅ GBan module loaded: {gban.router}")
-    
-    # Check served chats count
-    from database import get_served_chats_count
-    chat_count = await get_served_chats_count()
-    await message.answer(f"✅ Served chats: {chat_count}")

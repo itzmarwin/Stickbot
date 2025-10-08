@@ -96,7 +96,7 @@ async def cmd_kang(message: Message, state: FSMContext, bot: Bot):
     processing_msg = await message.reply(PROCESSING_MEDIA)
     
     try:
-        success = await add_sticker_to_pack(
+        success, needs_new_pack = await add_sticker_to_pack(
             bot=bot,
             user_id=user_id,
             pack_short_name=pack["short_name"],
@@ -119,6 +119,9 @@ async def cmd_kang(message: Message, state: FSMContext, bot: Bot):
             ]])
             
             await processing_msg.edit_text(STICKER_ADDED, reply_markup=keyboard)
+        elif needs_new_pack:
+            # Don't send error message - we already sent the recovery message
+            await processing_msg.delete()
         else:
             await processing_msg.edit_text(ERROR_OCCURRED)
     except Exception as e:
@@ -271,8 +274,10 @@ async def process_pack_name(message: Message, state: FSMContext, bot: Bot):
 
 async def add_sticker_to_pack(bot: Bot, user_id: int, pack_short_name: str, 
                               pack_data: dict, media, media_type: str, 
-                              message: Message, state: FSMContext) -> bool:
-    """Add sticker to existing pack with automatic STICKERSET_INVALID recovery"""
+                              message: Message, state: FSMContext):
+    """Add sticker to existing pack with automatic STICKERSET_INVALID recovery
+    Returns: (success: bool, needs_new_pack: bool)
+    """
     temp_files = []
     
     try:
@@ -299,7 +304,7 @@ async def add_sticker_to_pack(bot: Bot, user_id: int, pack_short_name: str,
                 sticker_format = "static"
             else:
                 cleanup_temp_files(*temp_files)
-                return False
+                return False, False
         
         elif media_type in ["animation", "video"]:
             # Convert video/GIF with automatic duration adjustment
@@ -318,11 +323,11 @@ async def add_sticker_to_pack(bot: Bot, user_id: int, pack_short_name: str,
                 sticker_format = "video"
             else:
                 cleanup_temp_files(*temp_files)
-                return False
+                return False, False
         
         if not sticker_file:
             cleanup_temp_files(*temp_files)
-            return False
+            return False, False
         
         # Add to pack
         sticker = InputSticker(
@@ -340,7 +345,7 @@ async def add_sticker_to_pack(bot: Bot, user_id: int, pack_short_name: str,
             
             cleanup_temp_files(*temp_files)
             logger.info(f"✅ Sticker added successfully to pack: {pack_short_name}")
-            return True
+            return True, False
             
         except Exception as e:
             if "STICKERSET_INVALID" in str(e):
@@ -364,13 +369,13 @@ async def add_sticker_to_pack(bot: Bot, user_id: int, pack_short_name: str,
                 )
                 
                 logger.info("📝 Automatic recovery: Prompting user for new pack name")
-                return False
+                return False, True  # Indicates we need a new pack and already sent message
             else:
                 # Re-raise other errors
                 logger.error(f"Error adding sticker to pack: {e}")
-                raise
+                return False, False
         
     except Exception as e:
         logger.error(f"Error adding sticker to pack: {e}")
         cleanup_temp_files(*temp_files)
-        return False
+        return False, False

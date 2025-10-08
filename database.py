@@ -260,7 +260,18 @@ async def delete_user_packs(user_id: int) -> int:
         logger.error(f"Error deleting user packs for {user_id}: {e}")
         return 0
 
-# ==================== OLD GBAN FUNCTIONS (REMOVED - Using new system instead) ====================
+# ==================== BROADCAST SYSTEM FUNCTIONS ====================
+
+async def get_all_users() -> List[Dict[str, Any]]:
+    """Get all users from database for broadcast"""
+    try:
+        cursor = db.users.find({})
+        return await cursor.to_list(length=None)
+    except Exception as e:
+        logger.error(f"Error getting all users: {e}")
+        return []
+
+# ==================== OLD GBAN FUNCTIONS (KEPT FOR COMPATIBILITY) ====================
 
 async def get_gban_user(user_id: int) -> Optional[Dict[str, Any]]:
     """Get GBan data for a user"""
@@ -308,11 +319,6 @@ async def get_all_gbanned_users() -> List[Dict[str, Any]]:
     return await cursor.to_list(length=None)
 
 # Statistics operations
-async def get_all_users() -> list:
-    """Get all users"""
-    cursor = db.users.find({})
-    return await cursor.to_list(length=None)
-
 async def get_total_users_count() -> int:
     """Get total users count"""
     return await db.users.count_documents({})

@@ -6,7 +6,7 @@ from aiogram.types import Message
 from aiogram.filters import Command
 
 from database import get_total_users_count, get_total_packs_count
-from config import is_owner
+from config import is_admin  # Changed from is_owner to is_admin
 
 router = Router()
 
@@ -15,9 +15,9 @@ bot_start_time = time.time()
 
 @router.message(Command("ping"))
 async def cmd_ping(message: Message):
-    """Handle /ping command - show bot status and system info (owner only)"""
-    # Check if user is owner
-    if not is_owner(message.from_user.id):
+    """Handle /ping command - show bot status and system info (admin only)"""
+    # Check if user is admin
+    if not is_admin(message.from_user.id):
         return
     
     # Calculate response time
@@ -64,8 +64,8 @@ async def cmd_ping(message: Message):
 
 @router.message(Command("stats"))
 async def cmd_stats(message: Message):
-    """Handle /stats command - show bot statistics (owner only)"""
-    if not is_owner(message.from_user.id):
+    """Handle /stats command - show bot statistics (admin only)"""
+    if not is_admin(message.from_user.id):
         return
     
     total_users = await get_total_users_count()
@@ -101,8 +101,8 @@ async def handle_text_messages(message: Message):
 
 @router.message(Command("debug_gban"))
 async def debug_gban(message: Message):
-    """Debug GBan command"""
-    if not is_owner(message.from_user.id):
+    """Debug GBan command (admin only)"""
+    if not is_admin(message.from_user.id):
         return
     
     # Check if GBan router is working

@@ -259,13 +259,3 @@ Sticker successfully added to <b>"{pack_name}"</b>
 Current sticker count: {sticker_count}/120
 """
 
-CREATE_PACK_PROMPT = """
-📝 <b>Create New Pack</b>
-
-Please send me a name for your new sticker pack:
-
-• Maximum 64 characters
-• Can include emojis and special characters
-• This will be the public name of your pack
-
-Type /cancel to go back.

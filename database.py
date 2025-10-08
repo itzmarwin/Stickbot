@@ -113,6 +113,20 @@ async def increment_sticker_count(user_id: int) -> bool:
         logger.error(f"Error incrementing sticker count: {e}")
         return False
 
+async def delete_user_pack(user_id: int) -> bool:
+    """Delete user's sticker pack from database"""
+    try:
+        result = await db.sticker_packs.delete_one({"user_id": user_id})
+        if result.deleted_count > 0:
+            logger.info(f"🗑️ Deleted sticker pack for user {user_id}")
+            return True
+        else:
+            logger.warning(f"⚠️ No sticker pack found to delete for user {user_id}")
+            return False
+    except Exception as e:
+        logger.error(f"Error deleting user pack for {user_id}: {e}")
+        return False
+
 # AFK operations
 async def get_afk_user(user_id: int) -> Optional[Dict[str, Any]]:
     """Get AFK data for a user"""

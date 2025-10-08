@@ -6,7 +6,7 @@ from pyrogram.types import Message
 from pyrogram.errors import FloodWait
 from pyrogram.enums import ChatMemberStatus
 
-from config import is_owner, LOG_GROUP_ID
+from config import is_admin, LOG_GROUP_ID  # Changed from is_owner to is_admin
 from database import (
     add_banned_user, remove_banned_user, get_banned_count, get_banned_users,
     get_served_chats, is_banned_user, delete_user_packs
@@ -61,9 +61,9 @@ async def setup_gban_handlers(client: Client):
     # GBan command
     @client.on_message(filters.command(["gban", "globalban"]))
     async def global_ban(client: Client, message: Message):
-        # Check if user is owner
-        if not is_owner(message.from_user.id):
-            await message.reply("❌ This command is only for bot owners.")
+        # Check if user is admin
+        if not is_admin(message.from_user.id):
+            await message.reply("❌ This command is only for bot admins.")
             return
         
         user = await extract_user(client, message)
@@ -75,8 +75,8 @@ async def setup_gban_handlers(client: Client):
             return await message.reply("❌ You cannot gban yourself!")
         elif user.id == client.me.id:
             return await message.reply("❌ I cannot gban myself!")
-        elif is_owner(user.id):
-            return await message.reply("❌ Cannot gban another owner!")
+        elif is_admin(user.id):  # Changed from is_owner to is_admin
+            return await message.reply("❌ Cannot gban another admin!")
         
         # Check if already gbanned
         is_gbanned = await is_banned_user(user.id)
@@ -178,9 +178,9 @@ async def setup_gban_handlers(client: Client):
     # Ungban command
     @client.on_message(filters.command("ungban"))
     async def global_unban(client: Client, message: Message):
-        # Check if user is owner
-        if not is_owner(message.from_user.id):
-            await message.reply("❌ This command is only for bot owners.")
+        # Check if user is admin
+        if not is_admin(message.from_user.id):
+            await message.reply("❌ This command is only for bot admins.")
             return
         
         user = await extract_user(client, message)
@@ -270,9 +270,9 @@ async def setup_gban_handlers(client: Client):
     # Gbanlist command
     @client.on_message(filters.command(["gbannedusers", "gbanlist"]))
     async def gbanned_list(client: Client, message: Message):
-        # Check if user is owner
-        if not is_owner(message.from_user.id):
-            await message.reply("❌ This command is only for bot owners.")
+        # Check if user is admin
+        if not is_admin(message.from_user.id):
+            await message.reply("❌ This command is only for bot admins.")
             return
         
         counts = await get_banned_count()

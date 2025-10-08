@@ -104,7 +104,7 @@ async def cmd_kang(message: Message, state: FSMContext, bot: Bot):
     processing_msg = await message.reply(PROCESSING_MEDIA)
     
     try:
-        success, needs_new_pack = await add_sticker_to_pack(
+        success, needs_new_pack, pack_full = await add_sticker_to_pack(
             bot=bot,
             user_id=user_id,
             pack_short_name=pack["short_name"],
@@ -129,6 +129,9 @@ async def cmd_kang(message: Message, state: FSMContext, bot: Bot):
             await processing_msg.edit_text(STICKER_ADDED, reply_markup=keyboard)
         elif needs_new_pack:
             # Don't send error message - we already sent the recovery message
+            await processing_msg.delete()
+        elif pack_full:
+            # Don't send error message - we already sent the pack full message
             await processing_msg.delete()
         else:
             await processing_msg.edit_text(ERROR_OCCURRED)
@@ -287,8 +290,8 @@ async def process_pack_name(message: Message, state: FSMContext, bot: Bot):
 async def add_sticker_to_pack(bot: Bot, user_id: int, pack_short_name: str, 
                               pack_data: dict, media, media_type: str, 
                               message: Message, state: FSMContext):
-    """Add sticker to existing pack with automatic STICKERSET_INVALID recovery
-    Returns: (success: bool, needs_new_pack: bool)
+    """Add sticker to existing pack with automatic STICKERSET_INVALID and STICKERS_TOO_MUCH recovery
+    Returns: (success: bool, needs_new_pack: bool, pack_full: bool)
     """
     temp_files = []
     
@@ -316,7 +319,7 @@ async def add_sticker_to_pack(bot: Bot, user_id: int, pack_short_name: str,
                 sticker_format = "static"
             else:
                 cleanup_temp_files(*temp_files)
-                return False, False
+                return False, False, False
         
         elif media_type in ["animation", "video"]:
             # Convert video/GIF with automatic duration adjustment
@@ -335,11 +338,11 @@ async def add_sticker_to_pack(bot: Bot, user_id: int, pack_short_name: str,
                 sticker_format = "video"
             else:
                 cleanup_temp_files(*temp_files)
-                return False, False
+                return False, False, False
         
         if not sticker_file:
             cleanup_temp_files(*temp_files)
-            return False, False
+            return False, False, False
         
         # Get random emoji
         random_emoji = get_random_emoji()
@@ -361,10 +364,13 @@ async def add_sticker_to_pack(bot: Bot, user_id: int, pack_short_name: str,
             
             cleanup_temp_files(*temp_files)
             logger.info(f"✅ Sticker added successfully to pack: {pack_short_name}")
-            return True, False
+            return True, False, False
             
         except Exception as e:
-            if "STICKERSET_INVALID" in str(e):
+            error_msg = str(e)
+            
+            # Handle STICKERSET_INVALID (pack deleted or not found)
+            if "STICKERSET_INVALID" in error_msg:
                 logger.warning(f"🔄 Pack {pack_short_name} is invalid, starting automatic recovery...")
                 
                 # Delete the invalid pack from database
@@ -385,13 +391,35 @@ async def add_sticker_to_pack(bot: Bot, user_id: int, pack_short_name: str,
                 )
                 
                 logger.info("📝 Automatic recovery: Prompting user for new pack name")
-                return False, True  # Indicates we need a new pack and already sent message
+                return False, True, False  # Indicates we need a new pack and already sent message
+            
+            # Handle STICKERS_TOO_MUCH (pack is full - 120 stickers limit)
+            elif "STICKERS_TOO_MUCH" in error_msg:
+                logger.warning(f"📦 Pack {pack_short_name} is full (120 stickers), prompting for new pack...")
+                
+                # Keep the current pack in database (it's still valid, just full)
+                # Store current media info and ask for new pack name
+                await state.update_data(
+                    media=media.file_id, 
+                    media_type=media_type
+                )
+                await state.set_state(KangStates.waiting_for_pack_name)
+                
+                # Send message to user asking for new pack name
+                await message.answer(
+                    "📦 Your current sticker pack is full (120 stickers limit).\n\n"
+                    "Please provide a name for your new sticker pack:"
+                )
+                
+                logger.info("📝 Pack full: Prompting user for new pack name")
+                return False, True, True  # Indicates pack is full and we need a new pack
+            
             else:
                 # Re-raise other errors
                 logger.error(f"Error adding sticker to pack: {e}")
-                return False, False
+                return False, False, False
         
     except Exception as e:
         logger.error(f"Error adding sticker to pack: {e}")
         cleanup_temp_files(*temp_files)
-        return False, False
+        return False, False, False

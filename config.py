@@ -11,8 +11,14 @@ BOT_USERNAME = os.getenv("BOT_USERNAME")
 TELEGRAM_API_ID = os.getenv("TELEGRAM_API_ID")
 TELEGRAM_API_HASH = os.getenv("TELEGRAM_API_HASH")
 
-# Multiple owner IDs (comma-separated in .env)
-OWNER_IDS = [int(x) for x in os.getenv("OWNER_IDS", "").split(",") if x.strip().isdigit()]
+# Single owner ID
+OWNER_ID = int(os.getenv("OWNER_ID", "0"))
+
+# Multiple admin IDs (comma-separated in .env, includes owner automatically)
+ADMIN_IDS = [int(x) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip().isdigit()]
+# Always include owner in admin list
+if OWNER_ID and OWNER_ID not in ADMIN_IDS:
+    ADMIN_IDS.append(OWNER_ID)
 
 LOG_GROUP_ID = int(os.getenv("LOG_GROUP_ID", "0"))  # Logger group ID
 
@@ -29,4 +35,7 @@ MAX_VIDEO_SIZE_MB = 4
 BANNED_USERS = set()  # In-memory cache for banned users
 
 def is_owner(user_id: int) -> bool:
-    return user_id in OWNER_IDS
+    return user_id == OWNER_ID
+
+def is_admin(user_id: int) -> bool:
+    return user_id in ADMIN_IDS

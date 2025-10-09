@@ -12,10 +12,20 @@ client: Optional[AsyncIOMotorClient] = None
 db = None
 
 async def init_db():
-    """Initialize database connection"""
+    """Initialize database connection with proper timeout and pooling"""
     global client, db
     try:
-        client = AsyncIOMotorClient(MONGO_URI)
+        client = AsyncIOMotorClient(
+            MONGO_URI,
+            serverSelectionTimeoutMS=5000,
+            connectTimeoutMS=10000,
+            socketTimeoutMS=30000,
+            maxPoolSize=50,
+            minPoolSize=10
+        )
+        
+        # Test connection
+        await client.admin.command('ping')
         db = client[DATABASE_NAME]
         
         # Create indexes
@@ -24,10 +34,10 @@ async def init_db():
         await db.sticker_packs.create_index("short_name", unique=True)
         await db.afk.create_index("user.id", unique=True)
         await db.gbans.create_index("user_id", unique=True)
-        await db.served_chats.create_index("chat_id", unique=True)  # NEW: For served chats tracking
+        await db.served_chats.create_index("chat_id", unique=True)
         
         logger.info("Database initialized successfully")
-        return db  # Return db instance
+        return db
     except Exception as e:
         logger.error(f"Database initialization error: {e}")
         raise
@@ -38,15 +48,17 @@ async def close_db():
     if client:
         client.close()
 
-# Get database instance
 def get_db():
-    """Get database instance"""
     return db
 
 # User operations
 async def get_user(user_id: int) -> Optional[Dict[str, Any]]:
     """Get user from database"""
-    return await db.users.find_one({"user_id": user_id})
+    try:
+        return await db.users.find_one({"user_id": user_id})
+    except Exception as e:
+        logger.error(f"Error getting user {user_id}: {e}")
+        return None
 
 async def create_user(user_id: int, username: Optional[str] = None, 
                      first_name: Optional[str] = None) -> bool:
@@ -81,7 +93,11 @@ async def update_user_started(user_id: int) -> bool:
 # Sticker pack operations
 async def get_user_pack(user_id: int) -> Optional[Dict[str, Any]]:
     """Get user's sticker pack"""
-    return await db.sticker_packs.find_one({"user_id": user_id})
+    try:
+        return await db.sticker_packs.find_one({"user_id": user_id})
+    except Exception as e:
+        logger.error(f"Error getting user pack {user_id}: {e}")
+        return None
 
 async def create_sticker_pack(user_id: int, pack_name: str, 
                              short_name: str) -> bool:
@@ -117,12 +133,7 @@ async def delete_user_pack(user_id: int) -> bool:
     """Delete user's sticker pack from database"""
     try:
         result = await db.sticker_packs.delete_one({"user_id": user_id})
-        if result.deleted_count > 0:
-            logger.info(f"🗑️ Deleted sticker pack for user {user_id}")
-            return True
-        else:
-            logger.warning(f"⚠️ No sticker pack found to delete for user {user_id}")
-            return False
+        return result.deleted_count > 0
     except Exception as e:
         logger.error(f"Error deleting user pack for {user_id}: {e}")
         return False
@@ -130,31 +141,39 @@ async def delete_user_pack(user_id: int) -> bool:
 # AFK operations
 async def get_afk_user(user_id: int) -> Optional[Dict[str, Any]]:
     """Get AFK data for a user"""
-    return await db.afk.find_one({"user.id": user_id})
+    try:
+        return await db.afk.find_one({"user.id": user_id})
+    except Exception as e:
+        logger.error(f"Error getting AFK user {user_id}: {e}")
+        return None
 
 async def set_afk_user(user_id: int, first_name: str, reason: str, since: datetime):
     """Set AFK data for a user"""
-    afk_data = {
-        "user": {
-            "id": user_id,
-            "first_name": first_name,
-        },
-        "reason": reason,
-        "since": since
-    }
-    await db.afk.update_one(
-        {"user.id": user_id},
-        {"$set": afk_data},
-        upsert=True
-    )
+    try:
+        afk_data = {
+            "user": {
+                "id": user_id,
+                "first_name": first_name,
+            },
+            "reason": reason,
+            "since": since
+        }
+        await db.afk.update_one(
+            {"user.id": user_id},
+            {"$set": afk_data},
+            upsert=True
+        )
+    except Exception as e:
+        logger.error(f"Error setting AFK user {user_id}: {e}")
 
 async def remove_afk_user(user_id: int):
     """Remove AFK data for a user"""
-    await db.afk.delete_one({"user.id": user_id})
+    try:
+        await db.afk.delete_one({"user.id": user_id})
+    except Exception as e:
+        logger.error(f"Error removing AFK user {user_id}: {e}")
 
-# ==================== NEW GBAN SYSTEM DATABASE FUNCTIONS ====================
-
-# Served Chats Operations (for tracking groups where bot is added)
+# Served Chats Operations
 async def add_served_chat(chat_id: int) -> bool:
     """Add chat to served chats list"""
     try:
@@ -198,7 +217,7 @@ async def get_served_chats_count() -> int:
         logger.error(f"Error getting served chats count: {e}")
         return 0
 
-# New GBan Operations (for new GBan system)
+# GBan Operations
 async def add_banned_user(user_id: int) -> bool:
     """Add user to banned users list"""
     try:
@@ -252,30 +271,22 @@ async def is_banned_user(user_id: int) -> bool:
         logger.error(f"Error checking banned user {user_id}: {e}")
         return False
 
-# Pack deletion function for GBan system
 async def delete_user_packs(user_id: int) -> int:
-    """
-    Delete all sticker packs created by user and return count of deleted packs
-    """
+    """Delete all sticker packs created by user"""
     try:
-        # Get all packs by user
         packs_cursor = db.sticker_packs.find({"user_id": user_id})
         packs = await packs_cursor.to_list(length=None)
-        
         deleted_count = len(packs)
         
-        # Delete all packs
         for pack in packs:
             await db.sticker_packs.delete_one({"_id": pack["_id"]})
-            logger.info(f"🗑️ Deleted pack for GBanned user {user_id}: {pack.get('pack_name', 'Unknown')}")
             
         return deleted_count
     except Exception as e:
         logger.error(f"Error deleting user packs for {user_id}: {e}")
         return 0
 
-# ==================== BROADCAST SYSTEM FUNCTIONS ====================
-
+# Broadcast functions
 async def get_all_users() -> List[Dict[str, Any]]:
     """Get all users from database for broadcast"""
     try:
@@ -285,62 +296,27 @@ async def get_all_users() -> List[Dict[str, Any]]:
         logger.error(f"Error getting all users: {e}")
         return []
 
-# ==================== OLD GBAN FUNCTIONS (KEPT FOR COMPATIBILITY) ====================
-
-async def get_gban_user(user_id: int) -> Optional[Dict[str, Any]]:
-    """Get GBan data for a user"""
-    return await db.gbans.find_one({"user_id": user_id})
-
-async def set_gban_user(user_id: int, reason: str, banned_by: int, 
-                       packs_deleted: int = 0, groups_banned: int = 0) -> bool:
-    """Set GBan data for a user"""
-    try:
-        gban_data = {
-            "user_id": user_id,
-            "reason": reason,
-            "banned_by": banned_by,
-            "packs_deleted": packs_deleted,
-            "groups_banned": groups_banned,
-            "banned_at": datetime.utcnow()
-        }
-        await db.gbans.update_one(
-            {"user_id": user_id},
-            {"$set": gban_data},
-            upsert=True
-        )
-        return True
-    except Exception as e:
-        logger.error(f"Error setting GBan for user {user_id}: {e}")
-        return False
-
-async def update_gban_stats(user_id: int, packs_deleted: int = None, groups_banned: int = None):
-    """Update GBan statistics"""
-    update_data = {}
-    if packs_deleted is not None:
-        update_data["packs_deleted"] = packs_deleted
-    if groups_banned is not None:
-        update_data["groups_banned"] = groups_banned
-    
-    if update_data:
-        await db.gbans.update_one(
-            {"user_id": user_id},
-            {"$set": update_data}
-        )
-
-async def get_all_gbanned_users() -> List[Dict[str, Any]]:
-    """Get all globally banned users"""
-    cursor = db.gbans.find({})
-    return await cursor.to_list(length=None)
-
 # Statistics operations
 async def get_total_users_count() -> int:
     """Get total users count"""
-    return await db.users.count_documents({})
+    try:
+        return await db.users.count_documents({})
+    except Exception as e:
+        logger.error(f"Error getting users count: {e}")
+        return 0
 
 async def get_total_packs_count() -> int:
     """Get total packs count"""
-    return await db.sticker_packs.count_documents({})
+    try:
+        return await db.sticker_packs.count_documents({})
+    except Exception as e:
+        logger.error(f"Error getting packs count: {e}")
+        return 0
 
 async def get_gbanned_users_count() -> int:
     """Get total GBanned users count"""
-    return await db.gbans.count_documents({})
+    try:
+        return await db.gbans.count_documents({})
+    except Exception as e:
+        logger.error(f"Error getting gbanned count: {e}")
+        return 0

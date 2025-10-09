@@ -90,14 +90,25 @@ async def update_user_started(user_id: int) -> bool:
         logger.error(f"Error updating user {user_id}: {e}")
         return False
 
-# Sticker pack operations
-async def get_user_pack(user_id: int) -> Optional[Dict[str, Any]]:
-    """Get user's sticker pack"""
+# Sticker pack operations - MULTIPLE PACKS SUPPORT
+async def get_user_active_pack(user_id: int) -> Optional[Dict[str, Any]]:
+    """Get user's active (latest) sticker pack"""
     try:
-        return await db.sticker_packs.find_one({"user_id": user_id})
+        cursor = db.sticker_packs.find({"user_id": user_id}).sort("created_at", -1).limit(1)
+        packs = await cursor.to_list(length=1)
+        return packs[0] if packs else None
     except Exception as e:
-        logger.error(f"Error getting user pack {user_id}: {e}")
+        logger.error(f"Error getting user active pack {user_id}: {e}")
         return None
+
+async def get_user_all_packs(user_id: int) -> List[Dict[str, Any]]:
+    """Get all packs for a user"""
+    try:
+        cursor = db.sticker_packs.find({"user_id": user_id}).sort("created_at", -1)
+        return await cursor.to_list(length=None)
+    except Exception as e:
+        logger.error(f"Error getting user packs {user_id}: {e}")
+        return []
 
 async def create_sticker_pack(user_id: int, pack_name: str, 
                              short_name: str) -> bool:
@@ -118,15 +129,31 @@ async def create_sticker_pack(user_id: int, pack_name: str,
         return False
 
 async def increment_sticker_count(user_id: int) -> bool:
-    """Increment sticker count in pack"""
+    """Increment sticker count in latest pack"""
+    try:
+        # Get the latest pack and increment its count
+        latest_pack = await get_user_active_pack(user_id)
+        if latest_pack:
+            await db.sticker_packs.update_one(
+                {"short_name": latest_pack["short_name"]},
+                {"$inc": {"sticker_count": 1}}
+            )
+            return True
+        return False
+    except Exception as e:
+        logger.error(f"Error incrementing sticker count: {e}")
+        return False
+
+async def update_pack_sticker_count(pack_short_name: str, count: int) -> bool:
+    """Update sticker count for a specific pack"""
     try:
         await db.sticker_packs.update_one(
-            {"user_id": user_id},
-            {"$inc": {"sticker_count": 1}}
+            {"short_name": pack_short_name},
+            {"$set": {"sticker_count": count}}
         )
         return True
     except Exception as e:
-        logger.error(f"Error incrementing sticker count: {e}")
+        logger.error(f"Error updating pack count {pack_short_name}: {e}")
         return False
 
 async def delete_user_pack(user_id: int) -> bool:
@@ -320,3 +347,8 @@ async def get_gbanned_users_count() -> int:
     except Exception as e:
         logger.error(f"Error getting gbanned count: {e}")
         return 0
+
+# Keep old function for compatibility (deprecated)
+async def get_user_pack(user_id: int) -> Optional[Dict[str, Any]]:
+    """Get user's sticker pack (deprecated - use get_user_active_pack instead)"""
+    return await get_user_active_pack(user_id)

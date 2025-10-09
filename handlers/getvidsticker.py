@@ -20,12 +20,11 @@ logger = logging.getLogger(__name__)
 router = Router()
 
 async def cleanup_files(*file_paths):
-    """Clean up temporary files asynchronously"""
+    """Clean up temporary files"""
     for file_path in file_paths:
         try:
             if file_path and os.path.exists(file_path):
                 os.remove(file_path)
-                logger.debug(f"Cleaned up: {file_path}")
         except Exception as e:
             logger.error(f"Error cleaning up {file_path}: {e}")
 

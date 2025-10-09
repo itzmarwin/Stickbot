@@ -395,7 +395,7 @@ async def add_sticker_to_pack(bot: Bot, user_id: int, pack_short_name: str,
             
             # Handle STICKERS_TOO_MUCH (pack is full - 120 stickers limit)
             elif "STICKERS_TOO_MUCH" in error_msg:
-                logger.warning(f"📦 Pack {pack_short_name} is full (120 stickers), prompting for new pack...")
+                logger.warning(f" Pack {pack_short_name} is full (120 stickers), prompting for new pack...")
                 
                 # Keep the current pack in database (it's still valid, just full)
                 # Store current media info and ask for new pack name

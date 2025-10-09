@@ -8,14 +8,17 @@ from aiogram.fsm.context import FSMContext
 from datetime import datetime
 
 from database import (
-    get_user, get_user_pack, create_sticker_pack, 
-    increment_sticker_count, delete_user_pack
+    get_user, get_user_active_pack, create_sticker_pack, 
+    increment_sticker_count, delete_user_pack, get_user_all_packs,
+    update_pack_sticker_count
 )
 from templates import (
     NEED_TO_START, ASK_PACK_NAME, PACK_CREATED, 
     STICKER_ADDED, NO_MEDIA_REPLY, VIDEO_TOO_LARGE,
     PACK_NAME_INVALID, PROCESSING_MEDIA,
-    ERROR_OCCURRED, VIDEO_COMPRESSION_FAILED
+    ERROR_OCCURRED, VIDEO_COMPRESSION_FAILED,
+    PACK_FULL_MESSAGE, NEW_PACK_CREATED_MULTI,
+    STICKER_ADDED_SIMPLE, PACK_NOT_FOUND_MESSAGE
 )
 from utils.fsm_states import KangStates
 from utils.helpers import (
@@ -40,7 +43,7 @@ def get_random_emoji():
 
 @router.message(Command("kang"))
 async def cmd_kang(message: Message, state: FSMContext, bot: Bot):
-    """Handle /kang command with proper error handling"""
+    """Handle /kang command with multiple packs support"""
     # Rate limiting check
     if await is_rate_limited(message.from_user.id):
         await message.reply("⏳ Please wait a few seconds before making another request.")
@@ -96,11 +99,11 @@ async def cmd_kang(message: Message, state: FSMContext, bot: Bot):
                 await message.reply(VIDEO_TOO_LARGE)
                 return
         
-        # Check if user has a pack
-        pack = await get_user_pack(user_id)
+        # Check if user has any pack (get active/latest pack)
+        active_pack = await get_user_active_pack(user_id)
         
-        if not pack:
-            # Ask for pack name
+        if not active_pack:
+            # Ask for first pack name
             await state.set_state(KangStates.waiting_for_pack_name)
             await state.update_data(media=media.file_id, media_type=media_type)
             await message.reply(ASK_PACK_NAME)
@@ -109,11 +112,11 @@ async def cmd_kang(message: Message, state: FSMContext, bot: Bot):
         # Add sticker to existing pack
         processing_msg = await message.reply(PROCESSING_MEDIA)
         
-        success, needs_new_pack, pack_full = await add_sticker_to_pack(
+        success, pack_full = await add_sticker_to_pack(
             bot=bot,
             user_id=user_id,
-            pack_short_name=pack["short_name"],
-            pack_data=pack,
+            pack_short_name=active_pack["short_name"],
+            pack_data=active_pack,
             media=media,
             media_type=media_type,
             message=message,
@@ -127,15 +130,22 @@ async def cmd_kang(message: Message, state: FSMContext, bot: Bot):
             keyboard = InlineKeyboardMarkup(inline_keyboard=[[
                 InlineKeyboardButton(
                     text="View Pack",
-                    url=pack["pack_link"]
+                    url=active_pack["pack_link"]
                 )
             ]])
             
-            await processing_msg.edit_text(STICKER_ADDED, reply_markup=keyboard)
-        elif needs_new_pack:
-            await processing_msg.delete()
+            await processing_msg.edit_text(STICKER_ADDED_SIMPLE, reply_markup=keyboard)
         elif pack_full:
+            # Pack is full, ask for new pack name
             await processing_msg.delete()
+            await state.set_state(KangStates.waiting_for_pack_name)
+            await state.update_data(media=media.file_id, media_type=media_type)
+            
+            # Get all user packs to show count
+            all_packs = await get_user_all_packs(user_id)
+            pack_count = len(all_packs)
+            
+            await message.reply(PACK_FULL_MESSAGE.format(pack_count=pack_count))
         else:
             await processing_msg.edit_text(ERROR_OCCURRED)
             
@@ -254,7 +264,7 @@ async def process_pack_name(message: Message, state: FSMContext, bot: Bot):
                 stickers=[sticker]
             )
             
-            # Save to database
+            # Save to database (this creates NEW pack without deleting old ones)
             pack_link = f"https://t.me/addstickers/{short_name}"
             await create_sticker_pack(
                 user_id=user_id,
@@ -265,6 +275,10 @@ async def process_pack_name(message: Message, state: FSMContext, bot: Bot):
             # Clean up temp files
             cleanup_temp_files(*temp_files)
             
+            # Get all user packs count
+            all_packs = await get_user_all_packs(user_id)
+            pack_count = len(all_packs)
+            
             # Create button for pack link
             keyboard = InlineKeyboardMarkup(inline_keyboard=[[
                 InlineKeyboardButton(
@@ -274,7 +288,10 @@ async def process_pack_name(message: Message, state: FSMContext, bot: Bot):
             ]])
             
             await processing_msg.edit_text(
-                PACK_CREATED.format(pack_name=formatted_pack_name),
+                NEW_PACK_CREATED_MULTI.format(
+                    pack_name=formatted_pack_name,
+                    pack_count=pack_count
+                ),
                 reply_markup=keyboard
             )
             await state.clear()
@@ -318,7 +335,7 @@ async def add_sticker_to_pack(bot: Bot, user_id: int, pack_short_name: str,
                 sticker_format = "static"
             else:
                 cleanup_temp_files(*temp_files)
-                return False, False, False
+                return False, False
         
         elif media_type in ["animation", "video"]:
             file = await bot.get_file(media.file_id)
@@ -336,11 +353,11 @@ async def add_sticker_to_pack(bot: Bot, user_id: int, pack_short_name: str,
                 sticker_format = "video"
             else:
                 cleanup_temp_files(*temp_files)
-                return False, False, False
+                return False, False
         
         if not sticker_file:
             cleanup_temp_files(*temp_files)
-            return False, False, False
+            return False, False
         
         # Get random emoji
         random_emoji = get_random_emoji()
@@ -360,7 +377,7 @@ async def add_sticker_to_pack(bot: Bot, user_id: int, pack_short_name: str,
             )
             
             cleanup_temp_files(*temp_files)
-            return True, False, False
+            return True, False
             
         except Exception as e:
             error_msg = str(e)
@@ -375,36 +392,24 @@ async def add_sticker_to_pack(bot: Bot, user_id: int, pack_short_name: str,
                 )
                 await state.set_state(KangStates.waiting_for_pack_name)
                 
-                await message.reply(
-                    "❌ Your sticker pack was not found.\n\n"
-                    "Please provide a name for your new sticker pack:"
-                )
+                await message.reply(PACK_NOT_FOUND_MESSAGE)
                 
-                return False, True, False
+                return False, False
             
             # Handle STICKERS_TOO_MUCH (pack is full - 120 stickers limit)
             elif "STICKERS_TOO_MUCH" in error_msg:
-                await state.update_data(
-                    media=media.file_id, 
-                    media_type=media_type
-                )
-                await state.set_state(KangStates.waiting_for_pack_name)
-                
-                await message.reply(
-                    "📦 Your current sticker pack is full (120 stickers limit).\n\n"
-                    "Please provide a name for your new sticker pack:"
-                )
-                
-                return False, True, True
+                # Mark pack as full in database
+                await update_pack_sticker_count(pack_short_name, 120)
+                return False, True
             
             else:
                 logger.error(f"Error adding sticker to pack: {e}")
-                return False, False, False
+                return False, False
         
     except Exception as e:
         logger.error(f"Unexpected error adding sticker to pack: {e}")
         cleanup_temp_files(*temp_files)
-        return False, False, False
+        return False, False
     finally:
         # Ensure cleanup
         cleanup_temp_files(*temp_files)

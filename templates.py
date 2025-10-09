@@ -259,3 +259,30 @@ Sticker successfully added to <b>"{pack_name}"</b>
 Current sticker count: {sticker_count}/120
 """
 
+# Add these new templates to templates.py
+
+# Multiple packs support messages
+PACK_FULL_MESSAGE = """
+📦 Your current sticker pack is full (120 stickers limit).
+
+You have {pack_count} pack(s) already.
+Please provide a name for your new sticker pack:
+"""
+
+NEW_PACK_CREATED_MULTI = """
+✅ <b>New pack created successfully!</b>
+
+<b>Pack:</b> {pack_name}
+<b>Total Packs:</b> {pack_count}
+
+Your first sticker has been added! 🎉
+"""
+
+STICKER_ADDED_SIMPLE = "✅ <b>Sticker added successfully!</b>"
+
+PACK_NOT_FOUND_MESSAGE = """
+❌ Your sticker pack was not found.
+
+Please provide a name for your new sticker pack:
+"""
+

@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 router = Router()
 
 def convert_webp_to_png(webp_path: str, png_path: str) -> bool:
-    """Convert WebP sticker to PNG format (SYNCHRONOUS function)"""
+    """Convert WebP sticker to PNG format"""
     try:
         with Image.open(webp_path) as img:
             # Convert to RGB if needed (for PNG compatibility)
@@ -37,12 +37,11 @@ def convert_webp_to_png(webp_path: str, png_path: str) -> bool:
         return False
 
 async def cleanup_files(*file_paths):
-    """Clean up temporary files asynchronously"""
+    """Clean up temporary files"""
     for file_path in file_paths:
         try:
             if file_path and os.path.exists(file_path):
                 os.remove(file_path)
-                logger.debug(f"Cleaned up: {file_path}")
         except Exception as e:
             logger.error(f"Error cleaning up {file_path}: {e}")
 
@@ -89,7 +88,7 @@ async def cmd_getsticker(message: Message, bot: Bot):
         file = await bot.get_file(sticker.file_id)
         await bot.download_file(file.file_path, webp_path)
         
-        # Convert to PNG in background (using synchronous function)
+        # Convert to PNG in background
         success = await asyncio.get_event_loop().run_in_executor(
             None, 
             convert_webp_to_png, str(webp_path), str(png_path)
@@ -100,11 +99,11 @@ async def cmd_getsticker(message: Message, bot: Bot):
             await cleanup_files(*temp_files)
             return
         
-        # Read PNG file and send as DOCUMENT (file)
+        # Read PNG file and send as DOCUMENT
         with open(png_path, 'rb') as f:
             png_file = BufferedInputFile(f.read(), filename="sticker.png")
         
-        # Send as DOCUMENT (file) not photo
+        # Send as DOCUMENT
         await message.reply_document(
             png_file,
             caption=STICKER_CONVERSION_SUCCESS

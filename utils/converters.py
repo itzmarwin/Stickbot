@@ -40,10 +40,6 @@ async def convert_video_to_webm(input_path: str, output_path: str) -> bool:
     """
     Convert video/GIF to WebM format for video stickers
     Automatically adjusts duration to fit 256KB limit
-    Requirements:
-    - 512x512 resolution (fills entire sticker, no black borders)
-    - VP9 codec
-    - Max 256KB file size (will auto-cut duration to fit)
     """
     try:
         max_size = 256 * 1024  # 256KB in bytes
@@ -58,13 +54,11 @@ async def convert_video_to_webm(input_path: str, output_path: str) -> bool:
             target_bitrate = int((max_size * 8) / duration / 1024 * 0.8)
             target_bitrate = max(100, min(target_bitrate, 500))
             
-            # IMPORTANT: Use crop and scale to fill entire 512x512 without black borders
-            # This crops the video to square aspect ratio first, then scales to 512x512
+            # Use crop and scale to fill entire 512x512 without black borders
             cmd = [
                 'ffmpeg',
                 '-i', input_path,
                 '-t', str(duration),
-                # Crop to square aspect ratio then scale to fill 512x512
                 '-vf', 'crop=min(iw\\,ih):min(iw\\,ih),scale=512:512,setsar=1',
                 '-c:v', 'libvpx-vp9',
                 '-b:v', f'{target_bitrate}k',
@@ -88,35 +82,28 @@ async def convert_video_to_webm(input_path: str, output_path: str) -> bool:
                 )
                 
                 if process.returncode != 0 or not os.path.exists(temp_output):
-                    logger.warning(f"Failed to convert with {duration}s duration")
                     if os.path.exists(temp_output):
                         os.remove(temp_output)
                     continue
                 
                 # Check file size
                 file_size = os.path.getsize(temp_output)
-                logger.info(f"Created video with {duration}s duration: {file_size} bytes")
                 
                 if file_size <= max_size:
                     # Success! Move to final output
                     os.rename(temp_output, output_path)
-                    logger.info(f"Successfully created video sticker: {file_size} bytes, {duration}s")
                     return True
                 else:
                     # Too large, try shorter duration
-                    logger.info(f"File too large ({file_size} bytes) with {duration}s, trying shorter...")
                     os.remove(temp_output)
                     continue
                     
             except subprocess.TimeoutExpired:
-                logger.warning(f"Timeout for {duration}s duration")
                 if os.path.exists(temp_output):
                     os.remove(temp_output)
                 continue
         
         # If all durations failed, try one last aggressive compression
-        logger.info("Attempting final aggressive compression...")
-        
         cmd_final = [
             'ffmpeg',
             '-i', input_path,
@@ -143,7 +130,6 @@ async def convert_video_to_webm(input_path: str, output_path: str) -> bool:
         if process.returncode == 0 and os.path.exists(output_path):
             file_size = os.path.getsize(output_path)
             if file_size <= max_size:
-                logger.info(f"Final aggressive compression succeeded: {file_size} bytes")
                 return True
         
         logger.error("Failed to compress video to under 256KB")
@@ -167,7 +153,6 @@ def cleanup_temp_files(*file_paths: str):
         try:
             if file_path and os.path.exists(file_path):
                 os.remove(file_path)
-                logger.debug(f"Cleaned up: {file_path}")
         except Exception as e:
             logger.error(f"Error cleaning up {file_path}: {e}")
 

@@ -1,7 +1,7 @@
 import logging
 import os
 from aiogram import Router, F, Bot
-from aiogram.types import Message, CallbackQuery, BufferedInputFile, FSInputFile
+from aiogram.types import Message, CallbackQuery, BufferedInputFile, FSInputFile, InputSticker
 from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.utils.keyboard import InlineKeyboardBuilder
@@ -26,7 +26,7 @@ from templates import (
 )
 from utils.fsm_states import PackManagementStates
 from utils.helpers import validate_pack_name, format_pack_name, generate_short_name, get_file_size_mb
-from utils.converters import convert_image_to_webp, convert_video_to_webm, cleanup_temp_files, create_temp_dir
+from utils.converters import convert_image_to_webp, convert_video_to_webm, cleanup_temp_files, create_temp_dir, create_transparent_webp
 from handlers.kang import add_sticker_to_pack, get_random_emoji
 from config import BOT_USERNAME, MAX_VIDEO_SIZE_MB, LOG_GROUP_ID
 
@@ -526,7 +526,7 @@ async def process_sticker_addition(message: Message, state: FSMContext, bot: Bot
             "❌ Failed to add sticker. Please try again with a different file."
         )
 
-# Create new pack callback - FIXED: Redirect to pack options after creation
+# Create new pack callback - FIXED: Now creates pack with transparent sticker
 @router.callback_query(F.data == PackManagementCallback.CREATE_NEW_PACK)
 async def create_new_pack_callback(callback: CallbackQuery, state: FSMContext):
     """Start create new pack process"""
@@ -538,10 +538,10 @@ async def create_new_pack_callback(callback: CallbackQuery, state: FSMContext):
     )
     await callback.answer()
 
-# Handle new pack name input - FIXED: Redirect to pack options after creation
+# Handle new pack name input - FIXED: Now creates pack with transparent sticker
 @router.message(PackManagementStates.waiting_for_new_pack_name)
 async def process_new_pack_name(message: Message, state: FSMContext, bot: Bot):
-    """Process new pack name creation"""
+    """Process new pack name creation with transparent sticker"""
     pack_name = message.text.strip()
     
     # Validate pack name
@@ -558,19 +558,41 @@ async def process_new_pack_name(message: Message, state: FSMContext, bot: Bot):
     formatted_name = format_pack_name(pack_name)
     short_name = generate_short_name(pack_name, message.from_user.id)
     
-    # Create empty sticker pack (we'll add stickers later)
+    # Create pack with transparent sticker
+    processing_msg = await message.reply("⌛ Creating your pack with transparent sticker...")
+    
     try:
-        # Create with a dummy sticker (Telegram requires at least one sticker)
-        # We'll use a simple approach - user needs to add first sticker manually
-        from aiogram.types import InputSticker
+        # Create transparent sticker
+        transparent_sticker_data = create_transparent_webp()
+        transparent_file = BufferedInputFile(transparent_sticker_data, filename="transparent.webp")
         
-        # For now, we'll create the pack when user adds first sticker
-        # Just create the database entry
+        # Get random emoji
+        random_emoji = get_random_emoji()
+        
+        # Create sticker pack with transparent sticker
+        sticker = InputSticker(
+            sticker=transparent_file,
+            emoji_list=[random_emoji],
+            format="static"
+        )
+        
+        await bot.create_new_sticker_set(
+            user_id=message.from_user.id,
+            name=short_name,
+            title=formatted_name,
+            stickers=[sticker]
+        )
+        
+        # Save to database with sticker count 1
+        pack_link = f"https://t.me/addstickers/{short_name}"
         await create_sticker_pack(
             user_id=message.from_user.id,
             pack_name=formatted_name,
             short_name=short_name
         )
+        
+        # Update sticker count to 1 in database
+        await update_pack_sticker_count(short_name, 1)
         
         # Get all user packs count
         all_packs = await get_user_all_packs(message.from_user.id)
@@ -580,21 +602,22 @@ async def process_new_pack_name(message: Message, state: FSMContext, bot: Bot):
         pack = await get_pack_by_short_name(short_name)
         if pack:
             pack_name_display = pack["pack_name"].replace(f" ~ @{BOT_USERNAME}", "")
-            await message.reply(
+            await processing_msg.edit_text(
                 f"✅ <b>Pack created successfully!</b>\n\n"
                 f"<b>Pack:</b> {formatted_name}\n"
-                f"<b>Total Packs:</b> {pack_count}",
+                f"<b>Total Packs:</b> {pack_count}\n\n"
+                f"🎨 Now you can add stickers to your pack!",
                 reply_markup=get_pack_options_keyboard(short_name)
             )
         else:
-            await message.reply(
+            await processing_msg.edit_text(
                 "✅ Pack created! Now use the 'Add Sticker' option to add your first sticker.",
                 reply_markup=get_main_menu_keyboard()
             )
         
     except Exception as e:
         logger.error(f"Error creating new pack: {e}")
-        await message.reply(ERROR_OCCURRED)
+        await processing_msg.edit_text(ERROR_OCCURRED)
     
     await state.clear()
 

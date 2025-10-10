@@ -519,4 +519,51 @@ async def next_page_callback(callback: CallbackQuery):
     await callback.answer()
 
 @router.callback_query(F.data.startswith(PackManagementCallback.PREV_PAGE))
+async def prev_page_callback(callback: CallbackQuery):
+    """Show previous page of packs"""
+    page = int(callback.data.split(":")[1])
+    user_id = callback.from_user.id
+    
+    await callback.message.edit_text(
+        MANAGE_PACKS_MESSAGE,
+        reply_markup=await get_manage_packs_keyboard(user_id, page)
+    )
+    await callback.answer()
 
+@router.callback_query(F.data == PackManagementCallback.BACK_TO_MANAGE)
+async def back_to_manage_callback(callback: CallbackQuery):
+    """Go back to manage packs"""
+    user_id = callback.from_user.id
+    packs, total = await get_user_packs_paginated(user_id)
+    
+    if total == 0:
+        await callback.message.edit_text(
+            NO_PACKS_MESSAGE,
+            reply_markup=get_back_to_main_keyboard()
+        )
+    else:
+        await callback.message.edit_text(
+            MANAGE_PACKS_MESSAGE,
+            reply_markup=await get_manage_packs_keyboard(user_id)
+        )
+    
+    await callback.answer()
+
+@router.callback_query(F.data == PackManagementCallback.BACK_TO_MAIN)
+async def back_to_main_callback(callback: CallbackQuery):
+    """Go back to main menu"""
+    await callback.message.edit_text(
+        START_MESSAGE_WITH_IMAGE,
+        reply_markup=get_main_menu_keyboard()
+    )
+    await callback.answer()
+
+# Cancel handlers
+@router.message(StateFilter(PackManagementStates), Command("cancel"))
+async def cancel_pack_management(message: Message, state: FSMContext):
+    """Cancel any pack management operation"""
+    await state.clear()
+    await message.reply(
+        "Operation cancelled.",
+        reply_markup=get_main_menu_keyboard()
+    )

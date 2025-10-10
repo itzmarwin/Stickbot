@@ -160,6 +160,11 @@ async def cmd_kang(message: Message, state: FSMContext, bot: Bot):
 @router.message(KangStates.waiting_for_pack_name)
 async def process_pack_name(message: Message, state: FSMContext, bot: Bot):
     """Process pack name input with error handling"""
+    # FIX: Check if message has text
+    if not message.text:
+        await message.reply("Please send a valid pack name.")
+        return
+    
     pack_name = message.text.strip()
     
     try:

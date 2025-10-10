@@ -7,22 +7,26 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from datetime import datetime
 
 from database import (
+    get_user, create_user, update_user_started,
     get_user_packs_paginated, update_pack_name, delete_pack_by_short_name,
-    get_pack_by_short_name, create_sticker_pack, increment_sticker_count
+    get_pack_by_short_name, create_sticker_pack, increment_sticker_count,
+    get_user_all_packs
 )
 from templates import (
-    MANAGE_PACKS_MESSAGE, NO_PACKS_MESSAGE, PACK_OPTIONS_MESSAGE,
-    RENAME_PACK_MESSAGE, DELETE_PACK_CONFIRMATION, PACK_DELETED_SUCCESS,
-    PACK_RENAMED_SUCCESS, ADD_STICKER_INSTRUCTIONS, PACK_FULL_MESSAGE,
-    STICKER_ADDED_TO_PACK, ASK_PACK_NAME, NEW_PACK_CREATED_MULTI,
-    NO_MEDIA_REPLY, VIDEO_TOO_LARGE, VIDEO_COMPRESSION_FAILED,
-    ERROR_OCCURRED, PROCESSING_MEDIA
+    START_MESSAGE_WITH_IMAGE, MANAGE_PACKS_MESSAGE, NO_PACKS_MESSAGE,
+    PACK_OPTIONS_MESSAGE, RENAME_PACK_MESSAGE, DELETE_PACK_CONFIRMATION,
+    PACK_DELETED_SUCCESS, PACK_RENAMED_SUCCESS, ADD_STICKER_INSTRUCTIONS,
+    PACK_FULL_MESSAGE, STICKER_ADDED_TO_PACK, ASK_PACK_NAME,
+    NEW_PACK_CREATED_MULTI, NO_MEDIA_REPLY, VIDEO_TOO_LARGE,
+    VIDEO_COMPRESSION_FAILED, ERROR_OCCURRED, PROCESSING_MEDIA,
+    RENAME_PACK_INFO, DELETE_PACK_INFO, ADD_STICKER_INFO,
+    RATE_LIMIT_MESSAGE, STICKER_ADDING_IN_PROGRESS
 )
-from utils.fsm_states import PackManagementStates, KangStates
+from utils.fsm_states import PackManagementStates
 from utils.helpers import validate_pack_name, format_pack_name, generate_short_name, get_file_size_mb
 from utils.converters import convert_image_to_webp, convert_video_to_webm, cleanup_temp_files, create_temp_dir
 from handlers.kang import add_sticker_to_pack, get_random_emoji
-from config import BOT_USERNAME, MAX_VIDEO_SIZE_MB
+from config import BOT_USERNAME, MAX_VIDEO_SIZE_MB, LOG_GROUP_ID
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -48,8 +52,8 @@ def get_main_menu_keyboard():
     """Get main menu keyboard"""
     builder = InlineKeyboardBuilder()
     builder.button(text="📦 Manage Packs", callback_data=PackManagementCallback.MANAGE_PACKS)
-    builder.button(text="🆘 Support", url=f"https://t.me/YourSupportGroup")  # Update URL
-    builder.button(text="📢 Updates", url=f"https://t.me/YourUpdateChannel")  # Update URL
+    builder.button(text="🆘 Support", url="https://t.me/YourSupportGroup")
+    builder.button(text="📢 Updates", url="https://t.me/YourUpdateChannel")
     builder.adjust(1, 2)
     return builder.as_markup()
 
@@ -126,19 +130,54 @@ def get_delete_confirmation_keyboard(short_name: str):
 
 # Start command handler with image
 @router.message(Command("start"))
-async def cmd_start(message: Message):
+async def cmd_start(message: Message, state: FSMContext):
     """Handle /start command with image and main menu"""
+    user = message.from_user
+    
+    # Clear any existing FSM state
+    await state.clear()
+    
+    # Check if user exists
+    user_data = await get_user(user.id)
+    
+    if not user_data:
+        # Create new user
+        await create_user(
+            user_id=user.id,
+            username=user.username,
+            first_name=user.first_name
+        )
+        
+        # Send log to logger group if this is a new user
+        if LOG_GROUP_ID:
+            try:
+                from templates import NEW_USER_LOG
+                log_msg = NEW_USER_LOG.format(
+                    user_id=user.id,
+                    username=user.username or "None",
+                    first_name=user.first_name or "Unknown",
+                    time=datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+                )
+                await message.bot.send_message(LOG_GROUP_ID, log_msg)
+            except Exception as e:
+                logger.error(f"Error sending new user log: {e}")
+    else:
+        # Update has_started status
+        await update_user_started(user.id)
+    
+    # Send welcome message with image
     try:
-        # Send welcome image (replace with your actual image path)
+        # Try to send with image first
         try:
-            welcome_image = FSInputFile("assets/welcome.jpg")  # Create this image
+            welcome_image = FSInputFile("assets/welcome.jpg")
             await message.answer_photo(
                 photo=welcome_image,
                 caption=START_MESSAGE_WITH_IMAGE,
                 reply_markup=get_main_menu_keyboard()
             )
-        except:
-            # Fallback if image doesn't exist
+        except Exception as e:
+            logger.warning(f"Could not send welcome image: {e}")
+            # Fallback without image
             await message.answer(
                 START_MESSAGE_WITH_IMAGE,
                 reply_markup=get_main_menu_keyboard()
@@ -195,11 +234,11 @@ async def pack_info_callback(callback: CallbackQuery):
     info_type = callback.data.split(":")[1]
     
     if info_type == "rename":
-        message = "Change your pack's name. Click Rename Pack and type the new name!"
+        message = RENAME_PACK_INFO
     elif info_type == "delete":
-        message = "Permanently remove this pack. All stickers in it will be deleted too!"
+        message = DELETE_PACK_INFO
     elif info_type == "add":
-        message = "Upload images, videos, GIFs or stickers to this pack. Max 120 stickers per pack!"
+        message = ADD_STICKER_INFO
     else:
         message = "Information about this action."
     
@@ -468,21 +507,11 @@ async def process_new_pack_name(message: Message, state: FSMContext, bot: Bot):
     # Create empty sticker pack (we'll add stickers later)
     try:
         # Create with a dummy sticker (Telegram requires at least one sticker)
+        # We'll use a simple approach - user needs to add first sticker manually
         from aiogram.types import InputSticker
-        dummy_sticker = InputSticker(
-            sticker="CAACAgIAAxkBAAIB...",  # You need a valid sticker file_id here
-            emoji_list=["😀"],
-            format="static"
-        )
         
-        await bot.create_new_sticker_set(
-            user_id=message.from_user.id,
-            name=short_name,
-            title=formatted_name,
-            stickers=[dummy_sticker]
-        )
-        
-        # Save to database
+        # For now, we'll create the pack when user adds first sticker
+        # Just create the database entry
         await create_sticker_pack(
             user_id=message.from_user.id,
             pack_name=formatted_name,
@@ -490,12 +519,11 @@ async def process_new_pack_name(message: Message, state: FSMContext, bot: Bot):
         )
         
         # Get all user packs count
-        from database import get_user_all_packs
         all_packs = await get_user_all_packs(message.from_user.id)
         pack_count = len(all_packs)
         
         await message.reply(
-            NEW_PACK_CREATED_MULTI.format(pack_name=formatted_name, pack_count=pack_count),
+            "✅ Pack created! Now use the 'Add Sticker' option to add your first sticker to the pack.",
             reply_markup=get_main_menu_keyboard()
         )
         

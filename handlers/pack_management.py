@@ -7,6 +7,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from datetime import datetime
 from aiogram.exceptions import TelegramBadRequest
+import html
 
 from database import (
     get_user, create_user, update_user_started,
@@ -26,7 +27,7 @@ from templates import (
 )
 from utils.fsm_states import PackManagementStates
 from utils.helpers import validate_pack_name, format_pack_name, generate_short_name, get_file_size_mb
-from utils.converters import convert_image_to_webp, convert_video_to_webm, cleanup_temp_files, create_temp_dir, create_transparent_webp
+from utils.converters import convert_image_to_webp, convert_video_to_webm, cleanup_temp_files, create_temp_dir
 from handlers.kang import add_sticker_to_pack, get_random_emoji
 from config import BOT_USERNAME, MAX_VIDEO_SIZE_MB, LOG_GROUP_ID
 
@@ -526,54 +527,165 @@ async def process_sticker_addition(message: Message, state: FSMContext, bot: Bot
             "❌ Failed to add sticker. Please try again with a different file."
         )
 
-# Create new pack callback - FIXED: Now creates pack with transparent sticker
+# Create new pack callback - NEW FLOW: Ask for sticker first
 @router.callback_query(F.data == PackManagementCallback.CREATE_NEW_PACK)
 async def create_new_pack_callback(callback: CallbackQuery, state: FSMContext):
-    """Start create new pack process"""
-    await state.set_state(PackManagementStates.waiting_for_new_pack_name)
+    """Start create new pack process - ask for sticker first"""
+    await state.set_state(PackManagementStates.waiting_for_first_sticker)
     await safe_edit_message(
         callback,
-        ASK_PACK_NAME,
+        "🎨 <b>Let's create a new sticker pack!</b>\n\n"
+        "<b>First, send me the sticker you want to start your pack with.</b>\n"
+        "It can be GIF, video, image or sticker",
         get_back_to_manage_keyboard()
     )
     await callback.answer()
 
-# Handle new pack name input - FIXED: Now creates pack with transparent sticker
+# Handle first sticker for new pack
+@router.message(PackManagementStates.waiting_for_first_sticker)
+async def process_first_sticker(message: Message, state: FSMContext):
+    """Process the first sticker for new pack"""
+    # Check if message has media
+    if not message.photo and not message.sticker and not message.animation and not message.video:
+        await message.reply(
+            "⚠️ <b>That media is not valid.</b> Please send a proper sticker:\n"
+            "- PNG/JPEG/WEBP for static stickers\n" 
+            "- WEBM/MP4 for video stickers\n"
+            "- GIF for animated\n"
+            "- Existing stickers"
+        )
+        return
+
+    # Get media from message
+    media = None
+    media_type = None
+    
+    if message.photo:
+        media = message.photo[-1]
+        media_type = "photo"
+    elif message.sticker:
+        media = message.sticker
+        media_type = "sticker"
+    elif message.animation:
+        media = message.animation
+        media_type = "animation"
+    elif message.video:
+        media = message.video
+        media_type = "video"
+
+    # Check video size
+    if media_type == "video":
+        file_size_mb = get_file_size_mb(media.file_size)
+        if file_size_mb > MAX_VIDEO_SIZE_MB:
+            await message.reply(VIDEO_TOO_LARGE)
+            return
+
+    # Store media in state and ask for pack name
+    await state.update_data(
+        first_sticker=media,
+        first_sticker_type=media_type
+    )
+    
+    await message.reply(
+        "👍 <b>Got it!</b> Now send me a name for your pack.\n\n"
+        "<i>You can use any symbols, emojis, or fonts in the name.</i>"
+    )
+    await state.set_state(PackManagementStates.waiting_for_new_pack_name)
+
+# Handle new pack name input - NEW FLOW: Create pack with first sticker
 @router.message(PackManagementStates.waiting_for_new_pack_name)
 async def process_new_pack_name(message: Message, state: FSMContext, bot: Bot):
-    """Process new pack name creation with transparent sticker"""
+    """Process new pack name and create pack with first sticker"""
     pack_name = message.text.strip()
     
-    # Validate pack name
-    is_valid, error = validate_pack_name(pack_name)
+    # Get stored sticker data
+    data = await state.get_data()
+    first_sticker = data.get("first_sticker")
+    first_sticker_type = data.get("first_sticker_type")
     
-    if not is_valid:
-        if error == "pack_name_too_long":
-            await message.reply("Pack name is too long! Maximum 64 characters.")
-        else:
-            await message.reply("Invalid pack name!")
+    if not first_sticker:
+        await message.reply("❌ Sticker data lost. Please start over.")
+        await state.clear()
+        return
+
+    # Validate pack name length only (allow any characters)
+    if len(pack_name) > 64:
+        await message.reply("❌ Pack name is too long! Maximum 64 characters.")
         return
     
+    if len(pack_name) == 0:
+        await message.reply("❌ Pack name cannot be empty.")
+        return
+
     # Format pack name and generate short name
     formatted_name = format_pack_name(pack_name)
     short_name = generate_short_name(pack_name, message.from_user.id)
     
-    # Create pack with transparent sticker
-    processing_msg = await message.reply("⌛ Creating your pack with transparent sticker...")
+    # Create pack with first sticker
+    processing_msg = await message.reply(
+        "⌛ <b>Creating your sticker pack...</b>\n"
+        "Please wait a moment"
+    )
+    
+    temp_files = []
     
     try:
-        # Create transparent sticker
-        transparent_sticker_data = create_transparent_webp()
-        transparent_file = BufferedInputFile(transparent_sticker_data, filename="transparent.webp")
+        # Prepare sticker based on media type
+        sticker_file = None
+        sticker_format = None
         
+        if first_sticker_type == "sticker":
+            sticker_file = first_sticker.file_id
+            sticker_format = "static" if not first_sticker.is_video else "video"
+        
+        elif first_sticker_type == "photo":
+            file = await bot.get_file(first_sticker.file_id)
+            temp_dir = create_temp_dir()
+            input_path = os.path.join(temp_dir, f"{message.from_user.id}_first_input.jpg")
+            output_path = os.path.join(temp_dir, f"{message.from_user.id}_first_output.webp")
+            temp_files.extend([input_path, output_path])
+            
+            await bot.download_file(file.file_path, input_path)
+            
+            if await convert_image_to_webp(input_path, output_path):
+                with open(output_path, 'rb') as f:
+                    sticker_file = BufferedInputFile(f.read(), filename="sticker.webp")
+                sticker_format = "static"
+            else:
+                raise Exception("Failed to convert image")
+        
+        elif first_sticker_type in ["animation", "video"]:
+            file = await bot.get_file(first_sticker.file_id)
+            temp_dir = create_temp_dir()
+            input_path = os.path.join(temp_dir, f"{message.from_user.id}_first_input.mp4")
+            output_path = os.path.join(temp_dir, f"{message.from_user.id}_first_output.webm")
+            temp_files.extend([input_path, output_path])
+            
+            await bot.download_file(file.file_path, input_path)
+            
+            conversion_success = await convert_video_to_webm(input_path, output_path)
+            
+            if conversion_success and os.path.exists(output_path):
+                with open(output_path, 'rb') as f:
+                    sticker_file = BufferedInputFile(f.read(), filename="sticker.webm")
+                sticker_format = "video"
+            else:
+                cleanup_temp_files(*temp_files)
+                await processing_msg.edit_text(VIDEO_COMPRESSION_FAILED)
+                await state.clear()
+                return
+
+        if not sticker_file:
+            raise Exception("Failed to prepare sticker file")
+
         # Get random emoji
         random_emoji = get_random_emoji()
         
-        # Create sticker pack with transparent sticker
+        # Create sticker pack with first sticker
         sticker = InputSticker(
-            sticker=transparent_file,
+            sticker=sticker_file,
             emoji_list=[random_emoji],
-            format="static"
+            format=sticker_format
         )
         
         await bot.create_new_sticker_set(
@@ -583,7 +695,7 @@ async def process_new_pack_name(message: Message, state: FSMContext, bot: Bot):
             stickers=[sticker]
         )
         
-        # Save to database with sticker count 1
+        # Save to database
         pack_link = f"https://t.me/addstickers/{short_name}"
         await create_sticker_pack(
             user_id=message.from_user.id,
@@ -591,33 +703,43 @@ async def process_new_pack_name(message: Message, state: FSMContext, bot: Bot):
             short_name=short_name
         )
         
-        # Update sticker count to 1 in database
+        # Update sticker count to 1
         await update_pack_sticker_count(short_name, 1)
+        
+        # Clean up temp files
+        cleanup_temp_files(*temp_files)
         
         # Get all user packs count
         all_packs = await get_user_all_packs(message.from_user.id)
         pack_count = len(all_packs)
         
-        # FIXED: Redirect to pack options instead of main menu
-        pack = await get_pack_by_short_name(short_name)
-        if pack:
-            pack_name_display = pack["pack_name"].replace(f" ~ @{BOT_USERNAME}", "")
-            await processing_msg.edit_text(
-                f"✅ <b>Pack created successfully!</b>\n\n"
-                f"<b>Pack:</b> {formatted_name}\n"
-                f"<b>Total Packs:</b> {pack_count}\n\n"
-                f"🎨 Now you can add stickers to your pack!",
-                reply_markup=get_pack_options_keyboard(short_name)
-            )
-        else:
-            await processing_msg.edit_text(
-                "✅ Pack created! Now use the 'Add Sticker' option to add your first sticker.",
-                reply_markup=get_main_menu_keyboard()
-            )
+        # Escape pack name for HTML
+        escaped_pack_name = html.escape(formatted_name)
+        
+        # Success message with clickable pack name
+        success_message = (
+            f"✅ <b>Your sticker pack has been created successfully!</b>\n\n"
+            f'<a href="{pack_link}">{escaped_pack_name}</a>'
+        )
+        
+        await processing_msg.edit_text(
+            success_message,
+            reply_markup=get_pack_options_keyboard(short_name)
+        )
         
     except Exception as e:
         logger.error(f"Error creating new pack: {e}")
-        await processing_msg.edit_text(ERROR_OCCURRED)
+        cleanup_temp_files(*temp_files)
+        
+        # Handle specific errors
+        error_msg = str(e)
+        if "STICKERSET_INVALID" in error_msg or "invalid" in error_msg.lower():
+            await processing_msg.edit_text(
+                "❌ <b>Sorry, that pack name is already taken.</b>\n"
+                "Please try again with a different name."
+            )
+        else:
+            await processing_msg.edit_text(ERROR_OCCURRED)
     
     await state.clear()
 

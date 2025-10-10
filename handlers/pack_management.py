@@ -11,7 +11,7 @@ from database import (
     get_user, create_user, update_user_started,
     get_user_packs_paginated, update_pack_name, delete_pack_by_short_name,
     get_pack_by_short_name, create_sticker_pack, increment_sticker_count,
-    get_user_all_packs
+    get_user_all_packs, update_pack_sticker_count
 )
 from templates import (
     START_MESSAGE_WITH_IMAGE, MANAGE_PACKS_MESSAGE, NO_PACKS_MESSAGE,
@@ -48,6 +48,7 @@ class PackManagementCallback:
     PREV_PAGE = "prev_page:"
     BACK_TO_MANAGE = "back_to_manage"
     BACK_TO_MAIN = "back_to_main"
+    STOP_ADDING_STICKERS = "stop_adding_stickers:"
 
 def get_main_menu_keyboard():
     """Get main menu keyboard"""
@@ -68,6 +69,21 @@ def get_back_to_manage_keyboard():
     """Get back to manage packs keyboard"""
     builder = InlineKeyboardBuilder()
     builder.button(text="⬅️ Back", callback_data=PackManagementCallback.BACK_TO_MANAGE)
+    return builder.as_markup()
+
+def get_no_packs_keyboard():
+    """Get keyboard for when user has no packs"""
+    builder = InlineKeyboardBuilder()
+    builder.button(text="🆕 Create New Pack", callback_data=PackManagementCallback.CREATE_NEW_PACK)
+    builder.button(text="⬅️ Back", callback_data=PackManagementCallback.BACK_TO_MAIN)
+    builder.adjust(1, 1)
+    return builder.as_markup()
+
+def get_continue_adding_keyboard(short_name: str):
+    """Get keyboard for continuous sticker adding"""
+    builder = InlineKeyboardBuilder()
+    builder.button(text="🛑 Stop Adding", callback_data=f"{PackManagementCallback.STOP_ADDING_STICKERS}{short_name}")
+    builder.adjust(1)
     return builder.as_markup()
 
 async def get_manage_packs_keyboard(user_id: int, page: int = 0):
@@ -201,7 +217,7 @@ async def manage_packs_callback(callback: CallbackQuery):
         await safe_edit_message(
             callback,
             NO_PACKS_MESSAGE,
-            get_back_to_main_keyboard()
+            get_no_packs_keyboard()  # CHANGED: Now has Create New Pack button
         )
     else:
         await safe_edit_message(
@@ -387,10 +403,10 @@ async def cancel_delete_callback(callback: CallbackQuery):
     
     await callback.answer()
 
-# Add sticker callback
+# Add sticker callback - UPDATED for continuous adding
 @router.callback_query(F.data.startswith(PackManagementCallback.ADD_STICKER))
 async def add_sticker_callback(callback: CallbackQuery, state: FSMContext):
-    """Start add sticker process"""
+    """Start add sticker process - continuous adding"""
     short_name = callback.data.split(":")[1]
     pack = await get_pack_by_short_name(short_name)
     
@@ -401,30 +417,69 @@ async def add_sticker_callback(callback: CallbackQuery, state: FSMContext):
             return
         
         await state.set_state(PackManagementStates.waiting_for_sticker_to_add)
-        await state.update_data(short_name=short_name, pack_data=pack)
+        await state.update_data(
+            short_name=short_name, 
+            pack_data=pack,
+            sticker_count=pack.get("sticker_count", 0)
+        )
         
         pack_name = pack["pack_name"].replace(f" ~ @{BOT_USERNAME}", "")
-        await safe_edit_message(
-            callback,
-            ADD_STICKER_INSTRUCTIONS.format(pack_name=pack_name),
-            get_back_to_manage_keyboard()
+        
+        # Send new message instead of editing to start fresh session
+        await callback.message.delete()
+        await callback.message.answer(
+            f"🎨 <b>Add Stickers to {pack_name}</b>\n\n"
+            f"Now send me images, videos, GIFs, or stickers to add to your pack.\n"
+            f"I'll keep adding them until you click 'Stop Adding' or the pack is full.\n\n"
+            f"<b>Current count:</b> {pack.get('sticker_count', 0)}/120\n"
+            f"<b>Supported formats:</b> Images, Videos (max 4MB), GIFs, Stickers",
+            reply_markup=get_continue_adding_keyboard(short_name)
         )
     else:
         await callback.answer("Pack not found!", show_alert=True)
     
     await callback.answer()
 
-# Handle sticker addition
+# Stop adding stickers callback
+@router.callback_query(F.data.startswith(PackManagementCallback.STOP_ADDING_STICKERS))
+async def stop_adding_stickers_callback(callback: CallbackQuery, state: FSMContext):
+    """Stop continuous sticker adding and go back to pack options"""
+    short_name = callback.data.split(":")[1]
+    pack = await get_pack_by_short_name(short_name)
+    
+    if pack:
+        pack_name = pack["pack_name"].replace(f" ~ @{BOT_USERNAME}", "")
+        await state.clear()
+        
+        await callback.message.delete()
+        await callback.message.answer(
+            f"✅ <b>Sticker adding session ended for {pack_name}</b>\n\n"
+            f"Pack now has {pack.get('sticker_count', 0)}/120 stickers.",
+            reply_markup=get_pack_options_keyboard(short_name)
+        )
+    else:
+        await callback.answer("Pack not found!", show_alert=True)
+    
+    await callback.answer()
+
+# Handle sticker addition - UPDATED for continuous adding
 @router.message(PackManagementStates.waiting_for_sticker_to_add)
 async def process_sticker_addition(message: Message, state: FSMContext, bot: Bot):
-    """Process sticker addition to pack"""
+    """Process sticker addition to pack - continuous mode"""
     data = await state.get_data()
     short_name = data.get("short_name")
     pack_data = data.get("pack_data")
+    current_count = data.get("sticker_count", 0)
+    
+    # Check if pack is full
+    if current_count >= 120:
+        await message.reply("❌ Pack is full! Cannot add more stickers.")
+        await state.clear()
+        return
     
     # Check if replying to a message with media
     if not message.photo and not message.sticker and not message.animation and not message.video:
-        await message.reply(NO_MEDIA_REPLY)
+        await message.reply("⚠️ Please send an image, video, GIF, or sticker to add to your pack.")
         return
     
     # Get media from message
@@ -451,7 +506,7 @@ async def process_sticker_addition(message: Message, state: FSMContext, bot: Bot
             await message.reply(VIDEO_TOO_LARGE)
             return
     
-    processing_msg = await message.reply(PROCESSING_MEDIA)
+    processing_msg = await message.reply("⌛ Adding sticker to your pack...")
     
     # REUSE existing function from kang.py
     success, pack_full = await add_sticker_to_pack(
@@ -466,21 +521,41 @@ async def process_sticker_addition(message: Message, state: FSMContext, bot: Bot
     )
     
     if success:
-        await increment_sticker_count(message.from_user.id)
+        # Update sticker count in state and database
+        new_count = current_count + 1
+        await state.update_data(sticker_count=new_count)
+        await update_pack_sticker_count(short_name, new_count)
+        
         pack_name = pack_data["pack_name"].replace(f" ~ @{BOT_USERNAME}", "")
-        new_count = pack_data.get("sticker_count", 0) + 1
+        pack_link = f"https://t.me/addstickers/{short_name}"
+        
+        # Success message with pack link
+        success_message = (
+            f"✅ <b>Sticker #{new_count} added successfully!</b>\n\n"
+            f"<b>Pack:</b> {pack_name}\n"
+            f"<b>Current count:</b> {new_count}/120\n\n"
+            f"<a href='{pack_link}'>View Your Pack</a>\n\n"
+            f"Send another sticker to continue adding, or click 'Stop Adding' to finish."
+        )
         
         await processing_msg.edit_text(
-            STICKER_ADDED_TO_PACK.format(pack_name=pack_name, sticker_count=new_count),
-            reply_markup=get_back_to_manage_keyboard()
+            success_message,
+            reply_markup=get_continue_adding_keyboard(short_name)
         )
-        await state.clear()
         
     elif pack_full:
-        await processing_msg.edit_text(PACK_FULL_MESSAGE.format(pack_name=pack_data["pack_name"]))
+        await processing_msg.edit_text(
+            "❌ <b>Pack is full!</b>\n\n"
+            "This pack has reached the maximum limit of 120 stickers. "
+            "Please create a new pack to add more stickers.",
+            reply_markup=get_continue_adding_keyboard(short_name)
+        )
         await state.clear()
     else:
-        await processing_msg.edit_text(ERROR_OCCURRED)
+        await processing_msg.edit_text(
+            "❌ Failed to add sticker. Please try again with a different file.",
+            reply_markup=get_continue_adding_keyboard(short_name)
+        )
 
 # Create new pack callback
 @router.callback_query(F.data == PackManagementCallback.CREATE_NEW_PACK)
@@ -580,7 +655,7 @@ async def back_to_manage_callback(callback: CallbackQuery):
         await safe_edit_message(
             callback,
             NO_PACKS_MESSAGE,
-            get_back_to_main_keyboard()
+            get_no_packs_keyboard()  # CHANGED: Now has Create New Pack button
         )
     else:
         await safe_edit_message(

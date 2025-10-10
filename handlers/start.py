@@ -1,18 +1,17 @@
-from aiogram import Router, F
+from aiogram import Router
 from aiogram.filters import Command
 from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
 
 from database import get_user, create_user, update_user_started
-from templates import START_MESSAGE, HELP_MESSAGE
-from config import LOG_GROUP_ID, BOT_USERNAME
+from config import LOG_GROUP_ID
 from datetime import datetime
 
 router = Router()
 
 @router.message(Command("start"))
 async def cmd_start(message: Message, state: FSMContext):
-    """Handle /start command"""
+    """Handle /start command - basic initialization"""
     user = message.from_user
     
     # Clear any existing FSM state
@@ -46,9 +45,11 @@ async def cmd_start(message: Message, state: FSMContext):
         # Update has_started status
         await update_user_started(user.id)
     
-    await message.answer(START_MESSAGE)
+    # The actual start message with image and keyboard is now in pack_management.py
+    # This handler just handles user initialization
 
 @router.message(Command("help"))
 async def cmd_help(message: Message):
     """Handle /help command"""
+    from templates import HELP_MESSAGE
     await message.answer(HELP_MESSAGE)

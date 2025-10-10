@@ -10,3 +10,4 @@ class PackManagementStates(StatesGroup):
     waiting_for_rename_pack_name = State()
     waiting_for_sticker_to_add = State()
     confirming_delete_pack = State()
+    waiting_for_first_sticker = State()  # NEW STATE ADDED

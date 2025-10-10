@@ -54,9 +54,9 @@ class PackManagementCallback:
 def get_main_menu_keyboard():
     """Get main menu keyboard"""
     builder = InlineKeyboardBuilder()
-    builder.button(text="📦 Manage Packs", callback_data=PackManagementCallback.MANAGE_PACKS)
-    builder.button(text="🆘 Support", url="https://t.me/YourSupportGroup")
-    builder.button(text="📢 Updates", url="https://t.me/YourUpdateChannel")
+    builder.button(text="Manage Packs", callback_data=PackManagementCallback.MANAGE_PACKS)
+    builder.button(text="Support", url="https://t.me/Samurais_Support_chat")
+    builder.button(text="Updates", url="https://t.me/Samurais_network")
     builder.adjust(1, 2)
     return builder.as_markup()
 

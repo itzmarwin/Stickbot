@@ -9,10 +9,10 @@ import io
 logger = logging.getLogger(__name__)
 
 def create_transparent_webp() -> bytes:
-    """Create a transparent 1x1 WebP sticker for empty pack creation"""
+    """Create a transparent 512x512 WebP sticker for empty pack creation"""
     try:
-        # Create a 1x1 transparent image
-        img = Image.new('RGBA', (1, 1), (0, 0, 0, 0))
+        # Create a 512x512 transparent image (NOT 1x1)
+        img = Image.new('RGBA', (512, 512), (0, 0, 0, 0))
         
         # Save to bytes buffer
         buffer = io.BytesIO()
@@ -21,8 +21,8 @@ def create_transparent_webp() -> bytes:
         return buffer.getvalue()
     except Exception as e:
         logger.error(f"Error creating transparent WebP: {e}")
-        # Fallback: create a tiny white pixel
-        img = Image.new('RGB', (1, 1), (255, 255, 255))
+        # Fallback: create a 512x512 white pixel
+        img = Image.new('RGB', (512, 512), (255, 255, 255))
         buffer = io.BytesIO()
         img.save(buffer, format='WEBP', quality=1)
         return buffer.getvalue()

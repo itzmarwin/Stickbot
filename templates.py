@@ -134,8 +134,6 @@ GENERIC_ERROR_MESSAGE = """
 If the issue continues, please report it here: <a href="https://t.me/YourSupportGroup"><b>Support Group</b></a>
 """
 
-
-
 # Get Sticker Command Templates
 GETSTICKER_NO_REPLY = "❌ <b>Please reply to a sticker to get its image file.</b>"
 GETSTICKER_NOT_STICKER = "❌ <b>The replied message is not a sticker.</b>"
@@ -150,8 +148,6 @@ GETVIDSTICKER_PROCESSING = "⏳ <b>Processing your video sticker...</b>"
 # Success messages
 STICKER_CONVERSION_SUCCESS = "✅ <b>Here's your sticker as an image:</b>"
 VIDEO_STICKER_CONVERSION_SUCCESS = "✅ <b>Here's your sticker as a video:</b>"
-
-
 
 # Start command templates
 START_MESSAGE_WITH_IMAGE = """
@@ -259,10 +255,8 @@ Sticker successfully added to <b>"{pack_name}"</b>
 Current sticker count: {sticker_count}/120
 """
 
-# Add these new templates to templates.py
-
 # Multiple packs support messages
-PACK_FULL_MESSAGE = """
+PACK_FULL_CREATE_NEW = """
 📦 Your current sticker pack is full (120 stickers limit).
 
 You have {pack_count} pack(s) already.
@@ -286,3 +280,11 @@ PACK_NOT_FOUND_MESSAGE = """
 Please provide a name for your new sticker pack:
 """
 
+# Info popup messages for pack management
+RENAME_PACK_INFO = "Change your pack's name. Click Rename Pack and type the new name!"
+DELETE_PACK_INFO = "Permanently remove this pack. All stickers in it will be deleted too!"
+ADD_STICKER_INFO = "Upload images, videos, GIFs or stickers to this pack. Max 120 stickers per pack!"
+
+# Rate limiting messages
+RATE_LIMIT_MESSAGE = "⏳ Please wait a few seconds before making another request."
+STICKER_ADDING_IN_PROGRESS = "Please wait for the previous sticker to be added before sending the next one."

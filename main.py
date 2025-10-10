@@ -78,9 +78,9 @@ async def main():
         dp.include_router(sticker_id.router)
         dp.include_router(getvidsticker.router)
         dp.include_router(getsticker.router)
+        dp.include_router(pack_management.router)
         dp.include_router(logger.router)
         dp.include_router(misc.router)
-        dp.include_router(pack_management.router)  # NEW: Add pack management router
         
         # Initialize Telethon client for /q command
         global telethon_client

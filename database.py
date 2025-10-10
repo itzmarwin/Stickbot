@@ -207,6 +207,15 @@ async def get_pack_by_short_name(short_name: str) -> Optional[Dict[str, Any]]:
         logger.error(f"Error getting pack {short_name}: {e}")
         return None
 
+# NEW FUNCTION ADDED - Pack name duplication check
+async def get_pack_by_name(pack_name: str) -> Optional[Dict[str, Any]]:
+    """Get pack by pack name"""
+    try:
+        return await db.sticker_packs.find_one({"pack_name": pack_name})
+    except Exception as e:
+        logger.error(f"Error getting pack by name {pack_name}: {e}")
+        return None
+
 # AFK operations
 async def get_afk_user(user_id: int) -> Optional[Dict[str, Any]]:
     """Get AFK data for a user"""

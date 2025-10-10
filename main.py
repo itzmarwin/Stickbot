@@ -74,11 +74,11 @@ async def main():
         
         # Register Aiogram routers
         dp.include_router(start.router)
+        dp.include_router(pack_management.router)
         dp.include_router(kang.router)
         dp.include_router(sticker_id.router)
         dp.include_router(getvidsticker.router)
         dp.include_router(getsticker.router)
-        dp.include_router(pack_management.router)
         dp.include_router(logger.router)
         dp.include_router(misc.router)
         

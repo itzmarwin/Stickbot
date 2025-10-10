@@ -5,6 +5,7 @@ from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from datetime import datetime
+from aiogram.exceptions import TelegramBadRequest
 
 from database import (
     get_user, create_user, update_user_started,
@@ -128,10 +129,28 @@ def get_delete_confirmation_keyboard(short_name: str):
     builder.adjust(2, 1)
     return builder.as_markup()
 
-# Start command handler with image
+async def safe_edit_message(callback: CallbackQuery, text: str, reply_markup=None):
+    """Safely edit message, handling photo messages by sending new message"""
+    try:
+        await callback.message.edit_text(
+            text,
+            reply_markup=reply_markup
+        )
+    except TelegramBadRequest as e:
+        if "no text in the message" in str(e):
+            # Original message was a photo, send new text message
+            await callback.message.delete()
+            await callback.message.answer(
+                text,
+                reply_markup=reply_markup
+            )
+        else:
+            raise e
+
+# Start command handler - TEXT ONLY to avoid editing issues
 @router.message(Command("start"))
 async def cmd_start(message: Message, state: FSMContext):
-    """Handle /start command with image and main menu"""
+    """Handle /start command with main menu"""
     user = message.from_user
     
     # Clear any existing FSM state
@@ -165,29 +184,11 @@ async def cmd_start(message: Message, state: FSMContext):
         # Update has_started status
         await update_user_started(user.id)
     
-    # Send welcome message with image
-    try:
-        # Try to send with image first
-        try:
-            welcome_image = FSInputFile("assets/welcome.jpg")
-            await message.answer_photo(
-                photo=welcome_image,
-                caption=START_MESSAGE_WITH_IMAGE,
-                reply_markup=get_main_menu_keyboard()
-            )
-        except Exception as e:
-            logger.warning(f"Could not send welcome image: {e}")
-            # Fallback without image
-            await message.answer(
-                START_MESSAGE_WITH_IMAGE,
-                reply_markup=get_main_menu_keyboard()
-            )
-    except Exception as e:
-        logger.error(f"Error in start command: {e}")
-        await message.answer(
-            "Welcome to Sticker Kang Bot!",
-            reply_markup=get_main_menu_keyboard()
-        )
+    # Send welcome message as TEXT ONLY to avoid photo editing issues
+    await message.answer(
+        START_MESSAGE_WITH_IMAGE,
+        reply_markup=get_main_menu_keyboard()
+    )
 
 # Manage Packs callback
 @router.callback_query(F.data == PackManagementCallback.MANAGE_PACKS)
@@ -197,14 +198,16 @@ async def manage_packs_callback(callback: CallbackQuery):
     packs, total = await get_user_packs_paginated(user_id)
     
     if total == 0:
-        await callback.message.edit_text(
+        await safe_edit_message(
+            callback,
             NO_PACKS_MESSAGE,
-            reply_markup=get_back_to_main_keyboard()
+            get_back_to_main_keyboard()
         )
     else:
-        await callback.message.edit_text(
+        await safe_edit_message(
+            callback,
             MANAGE_PACKS_MESSAGE,
-            reply_markup=await get_manage_packs_keyboard(user_id)
+            await get_manage_packs_keyboard(user_id)
         )
     
     await callback.answer()
@@ -218,9 +221,10 @@ async def pack_selected_callback(callback: CallbackQuery):
     
     if pack:
         pack_name = pack["pack_name"].replace(f" ~ @{BOT_USERNAME}", "")
-        await callback.message.edit_text(
+        await safe_edit_message(
+            callback,
             PACK_OPTIONS_MESSAGE.format(pack_name=pack_name),
-            reply_markup=get_pack_options_keyboard(short_name)
+            get_pack_options_keyboard(short_name)
         )
     else:
         await callback.answer("Pack not found!", show_alert=True)
@@ -256,9 +260,10 @@ async def rename_pack_callback(callback: CallbackQuery, state: FSMContext):
         await state.update_data(short_name=short_name, old_name=pack["pack_name"])
         
         pack_name = pack["pack_name"].replace(f" ~ @{BOT_USERNAME}", "")
-        await callback.message.edit_text(
+        await safe_edit_message(
+            callback,
             RENAME_PACK_MESSAGE.format(pack_name=pack_name),
-            reply_markup=get_back_to_manage_keyboard()
+            get_back_to_manage_keyboard()
         )
     else:
         await callback.answer("Pack not found!", show_alert=True)
@@ -320,13 +325,14 @@ async def delete_pack_callback(callback: CallbackQuery):
         pack_name = pack["pack_name"].replace(f" ~ @{BOT_USERNAME}", "")
         created_date = pack["created_at"].strftime("%Y-%m-%d") if pack.get("created_at") else "Unknown"
         
-        await callback.message.edit_text(
+        await safe_edit_message(
+            callback,
             DELETE_PACK_CONFIRMATION.format(
                 pack_name=pack_name,
                 sticker_count=pack.get("sticker_count", 0),
                 created_date=created_date
             ),
-            reply_markup=get_delete_confirmation_keyboard(short_name)
+            get_delete_confirmation_keyboard(short_name)
         )
     else:
         await callback.answer("Pack not found!", show_alert=True)
@@ -350,14 +356,15 @@ async def confirm_delete_callback(callback: CallbackQuery, bot: Bot):
             # Delete from database
             await delete_pack_by_short_name(short_name)
             
-            await callback.message.edit_text(
+            await safe_edit_message(
+                callback,
                 PACK_DELETED_SUCCESS.format(pack_name=pack_name),
-                reply_markup=get_back_to_manage_keyboard()
+                get_back_to_manage_keyboard()
             )
             
         except Exception as e:
             logger.error(f"Error deleting pack: {e}")
-            await callback.message.edit_text(ERROR_OCCURRED)
+            await safe_edit_message(callback, ERROR_OCCURRED)
     else:
         await callback.answer("Pack not found!", show_alert=True)
     
@@ -372,9 +379,10 @@ async def cancel_delete_callback(callback: CallbackQuery):
     
     if pack:
         pack_name = pack["pack_name"].replace(f" ~ @{BOT_USERNAME}", "")
-        await callback.message.edit_text(
+        await safe_edit_message(
+            callback,
             PACK_OPTIONS_MESSAGE.format(pack_name=pack_name),
-            reply_markup=get_pack_options_keyboard(short_name)
+            get_pack_options_keyboard(short_name)
         )
     
     await callback.answer()
@@ -396,9 +404,10 @@ async def add_sticker_callback(callback: CallbackQuery, state: FSMContext):
         await state.update_data(short_name=short_name, pack_data=pack)
         
         pack_name = pack["pack_name"].replace(f" ~ @{BOT_USERNAME}", "")
-        await callback.message.edit_text(
+        await safe_edit_message(
+            callback,
             ADD_STICKER_INSTRUCTIONS.format(pack_name=pack_name),
-            reply_markup=get_back_to_manage_keyboard()
+            get_back_to_manage_keyboard()
         )
     else:
         await callback.answer("Pack not found!", show_alert=True)
@@ -478,9 +487,10 @@ async def process_sticker_addition(message: Message, state: FSMContext, bot: Bot
 async def create_new_pack_callback(callback: CallbackQuery, state: FSMContext):
     """Start create new pack process"""
     await state.set_state(PackManagementStates.waiting_for_new_pack_name)
-    await callback.message.edit_text(
+    await safe_edit_message(
+        callback,
         ASK_PACK_NAME,
-        reply_markup=get_back_to_manage_keyboard()
+        get_back_to_manage_keyboard()
     )
     await callback.answer()
 
@@ -540,9 +550,10 @@ async def next_page_callback(callback: CallbackQuery):
     page = int(callback.data.split(":")[1])
     user_id = callback.from_user.id
     
-    await callback.message.edit_text(
+    await safe_edit_message(
+        callback,
         MANAGE_PACKS_MESSAGE,
-        reply_markup=await get_manage_packs_keyboard(user_id, page)
+        await get_manage_packs_keyboard(user_id, page)
     )
     await callback.answer()
 
@@ -552,9 +563,10 @@ async def prev_page_callback(callback: CallbackQuery):
     page = int(callback.data.split(":")[1])
     user_id = callback.from_user.id
     
-    await callback.message.edit_text(
+    await safe_edit_message(
+        callback,
         MANAGE_PACKS_MESSAGE,
-        reply_markup=await get_manage_packs_keyboard(user_id, page)
+        await get_manage_packs_keyboard(user_id, page)
     )
     await callback.answer()
 
@@ -565,14 +577,16 @@ async def back_to_manage_callback(callback: CallbackQuery):
     packs, total = await get_user_packs_paginated(user_id)
     
     if total == 0:
-        await callback.message.edit_text(
+        await safe_edit_message(
+            callback,
             NO_PACKS_MESSAGE,
-            reply_markup=get_back_to_main_keyboard()
+            get_back_to_main_keyboard()
         )
     else:
-        await callback.message.edit_text(
+        await safe_edit_message(
+            callback,
             MANAGE_PACKS_MESSAGE,
-            reply_markup=await get_manage_packs_keyboard(user_id)
+            await get_manage_packs_keyboard(user_id)
         )
     
     await callback.answer()
@@ -580,9 +594,10 @@ async def back_to_manage_callback(callback: CallbackQuery):
 @router.callback_query(F.data == PackManagementCallback.BACK_TO_MAIN)
 async def back_to_main_callback(callback: CallbackQuery):
     """Go back to main menu"""
-    await callback.message.edit_text(
+    await safe_edit_message(
+        callback,
         START_MESSAGE_WITH_IMAGE,
-        reply_markup=get_main_menu_keyboard()
+        get_main_menu_keyboard()
     )
     await callback.answer()
 

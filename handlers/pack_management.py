@@ -54,9 +54,9 @@ class PackManagementCallback:
 def get_main_menu_keyboard():
     """Get main menu keyboard"""
     builder = InlineKeyboardBuilder()
-    builder.button(text="Manage Packs", callback_data=PackManagementCallback.MANAGE_PACKS)
-    builder.button(text="Support", url="https://t.me/Samurais_Support_chat")
-    builder.button(text="Updates", url="https://t.me/Samurais_network")
+    builder.button(text="📦 Manage Packs", callback_data=PackManagementCallback.MANAGE_PACKS)
+    builder.button(text="🆘 Support", url="https://t.me/Samurais_Support_chat")
+    builder.button(text="📢 Updates", url="https://t.me/Samurais_network")
     builder.adjust(1, 2)
     return builder.as_markup()
 
@@ -207,91 +207,107 @@ async def cmd_start(message: Message, state: FSMContext):
         reply_markup=get_main_menu_keyboard()
     )
 
-# Manage Packs callback
+# Manage Packs callback - FIXED: Better error handling
 @router.callback_query(F.data == PackManagementCallback.MANAGE_PACKS)
 async def manage_packs_callback(callback: CallbackQuery):
     """Show manage packs panel"""
-    user_id = callback.from_user.id
-    packs, total = await get_user_packs_paginated(user_id)
-    
-    if total == 0:
-        await safe_edit_message(
-            callback,
-            NO_PACKS_MESSAGE,
-            get_no_packs_keyboard()  # Has Create New Pack button
-        )
-    else:
-        await safe_edit_message(
-            callback,
-            MANAGE_PACKS_MESSAGE,
-            await get_manage_packs_keyboard(user_id)
-        )
-    
-    await callback.answer()
+    try:
+        user_id = callback.from_user.id
+        packs, total = await get_user_packs_paginated(user_id)
+        
+        if total == 0:
+            await safe_edit_message(
+                callback,
+                NO_PACKS_MESSAGE,
+                get_no_packs_keyboard()
+            )
+        else:
+            await safe_edit_message(
+                callback,
+                MANAGE_PACKS_MESSAGE,
+                await get_manage_packs_keyboard(user_id)
+            )
+        
+        await callback.answer()
+    except Exception as e:
+        logger.error(f"Error in manage_packs_callback: {e}")
+        await callback.answer("Error loading packs. Please try again.", show_alert=True)
 
-# Pack selected callback - FIXED: HTML escape
+# Pack selected callback - FIXED: HTML escape and better error handling
 @router.callback_query(F.data.startswith(PackManagementCallback.PACK_SELECTED))
 async def pack_selected_callback(callback: CallbackQuery):
     """Show options for selected pack"""
-    short_name = callback.data.split(":")[1]
-    pack = await get_pack_by_short_name(short_name)
-    
-    if pack:
-        pack_name = pack["pack_name"].replace(f" ~ @{BOT_USERNAME}", "")
-        # FIX: Use HTML escape
-        escaped_pack_name = escape_html(pack_name)
-        await safe_edit_message(
-            callback,
-            PACK_OPTIONS_MESSAGE.format(pack_name=escaped_pack_name),
-            get_pack_options_keyboard(short_name)
-        )
-    else:
-        await callback.answer("Pack not found!", show_alert=True)
-    
-    await callback.answer()
+    try:
+        short_name = callback.data.split(":")[1]
+        pack = await get_pack_by_short_name(short_name)
+        
+        if pack:
+            pack_name = pack["pack_name"].replace(f" ~ @{BOT_USERNAME}", "")
+            # FIX: Use HTML escape
+            escaped_pack_name = escape_html(pack_name)
+            await safe_edit_message(
+                callback,
+                PACK_OPTIONS_MESSAGE.format(pack_name=escaped_pack_name),
+                get_pack_options_keyboard(short_name)
+            )
+        else:
+            await callback.answer("Pack not found!", show_alert=True)
+        
+        await callback.answer()
+    except Exception as e:
+        logger.error(f"Error in pack_selected_callback: {e}")
+        await callback.answer("Error loading pack. Please try again.", show_alert=True)
 
 # Pack info callback (alert popup)
 @router.callback_query(F.data.startswith(PackManagementCallback.PACK_INFO))
 async def pack_info_callback(callback: CallbackQuery):
     """Show info alert for pack actions"""
-    info_type = callback.data.split(":")[1]
-    
-    if info_type == "rename":
-        message = RENAME_PACK_INFO
-    elif info_type == "delete":
-        message = DELETE_PACK_INFO
-    elif info_type == "add":
-        message = ADD_STICKER_INFO
-    else:
-        message = "Information about this action."
-    
-    await callback.answer(message, show_alert=True)
+    try:
+        info_type = callback.data.split(":")[1]
+        
+        if info_type == "rename":
+            message = RENAME_PACK_INFO
+        elif info_type == "delete":
+            message = DELETE_PACK_INFO
+        elif info_type == "add":
+            message = ADD_STICKER_INFO
+        else:
+            message = "Information about this action."
+        
+        await callback.answer(message, show_alert=True)
+    except Exception as e:
+        logger.error(f"Error in pack_info_callback: {e}")
+        await callback.answer("Error showing info.", show_alert=True)
 
 # Rename pack callback - FIXED: HTML escape
 @router.callback_query(F.data.startswith(PackManagementCallback.RENAME_PACK))
 async def rename_pack_callback(callback: CallbackQuery, state: FSMContext):
     """Start rename pack process"""
-    short_name = callback.data.split(":")[1]
-    pack = await get_pack_by_short_name(short_name)
-    
-    if pack:
-        await state.set_state(PackManagementStates.waiting_for_rename_pack_name)
-        await state.update_data(short_name=short_name, old_name=pack["pack_name"])
+    try:
+        short_name = callback.data.split(":")[1]
+        pack = await get_pack_by_short_name(short_name)
         
-        pack_name = pack["pack_name"].replace(f" ~ @{BOT_USERNAME}", "")
-        # FIX: Use HTML escape
-        escaped_pack_name = escape_html(pack_name)
-        await safe_edit_message(
-            callback,
-            RENAME_PACK_MESSAGE.format(pack_name=escaped_pack_name),
-            get_back_to_manage_keyboard()
-        )
-    else:
-        await callback.answer("Pack not found!", show_alert=True)
-    
-    await callback.answer()
+        if pack:
+            await state.set_state(PackManagementStates.waiting_for_rename_pack_name)
+            await state.update_data(short_name=short_name, old_name=pack["pack_name"])
+            
+            pack_name = pack["pack_name"].replace(f" ~ @{BOT_USERNAME}", "")
+            # FIX: Use HTML escape
+            escaped_pack_name = escape_html(pack_name)
+            await safe_edit_message(
+                callback,
+                RENAME_PACK_MESSAGE.format(pack_name=escaped_pack_name),
+                get_back_to_manage_keyboard()
+            )
+        else:
+            await callback.answer("Pack not found!", show_alert=True)
+        
+        await callback.answer()
+    except Exception as e:
+        logger.error(f"Error in rename_pack_callback: {e}")
+        await callback.answer("Error starting rename process.", show_alert=True)
 
-# Handle rename pack name input
+# Handle rename pack name input - FIXED: HTML escape in success message
 @router.message(PackManagementStates.waiting_for_rename_pack_name)
 async def process_rename_pack_name(message: Message, state: FSMContext, bot: Bot):
     """Process new pack name for renaming"""
@@ -324,8 +340,12 @@ async def process_rename_pack_name(message: Message, state: FSMContext, bot: Bot
         # Update in database
         await update_pack_name(short_name, formatted_name)
         
+        # FIX: Escape HTML in success message
+        escaped_old_name = escape_html(old_name.replace(f" ~ @{BOT_USERNAME}", ""))
+        escaped_new_name = escape_html(formatted_name.replace(f" ~ @{BOT_USERNAME}", ""))
+        
         await message.reply(
-            PACK_RENAMED_SUCCESS.format(old_name=old_name, new_name=formatted_name),
+            PACK_RENAMED_SUCCESS.format(old_name=escaped_old_name, new_name=escaped_new_name),
             reply_markup=get_main_menu_keyboard()
         )
         
@@ -339,114 +359,133 @@ async def process_rename_pack_name(message: Message, state: FSMContext, bot: Bot
 @router.callback_query(F.data.startswith(PackManagementCallback.DELETE_PACK))
 async def delete_pack_callback(callback: CallbackQuery):
     """Show delete confirmation"""
-    short_name = callback.data.split(":")[1]
-    pack = await get_pack_by_short_name(short_name)
-    
-    if pack:
-        pack_name = pack["pack_name"].replace(f" ~ @{BOT_USERNAME}", "")
-        # FIX: Use HTML escape
-        escaped_pack_name = escape_html(pack_name)
-        created_date = pack["created_at"].strftime("%Y-%m-%d") if pack.get("created_at") else "Unknown"
+    try:
+        short_name = callback.data.split(":")[1]
+        pack = await get_pack_by_short_name(short_name)
         
-        await safe_edit_message(
-            callback,
-            DELETE_PACK_CONFIRMATION.format(
-                pack_name=escaped_pack_name,
-                sticker_count=pack.get("sticker_count", 0),
-                created_date=created_date
-            ),
-            get_delete_confirmation_keyboard(short_name)
-        )
-    else:
-        await callback.answer("Pack not found!", show_alert=True)
-    
-    await callback.answer()
-
-# Confirm delete callback
-@router.callback_query(F.data.startswith(PackManagementCallback.CONFIRM_DELETE))
-async def confirm_delete_callback(callback: CallbackQuery, bot: Bot):
-    """Confirm and delete pack"""
-    short_name = callback.data.split(":")[1]
-    pack = await get_pack_by_short_name(short_name)
-    
-    if pack:
-        pack_name = pack["pack_name"].replace(f" ~ @{BOT_USERNAME}", "")
-        
-        try:
-            # Delete pack via bot API
-            await bot.delete_sticker_set(short_name)
-            
-            # Delete from database
-            await delete_pack_by_short_name(short_name)
+        if pack:
+            pack_name = pack["pack_name"].replace(f" ~ @{BOT_USERNAME}", "")
+            # FIX: Use HTML escape
+            escaped_pack_name = escape_html(pack_name)
+            created_date = pack["created_at"].strftime("%Y-%m-%d") if pack.get("created_at") else "Unknown"
             
             await safe_edit_message(
                 callback,
-                PACK_DELETED_SUCCESS.format(pack_name=pack_name),
-                get_back_to_manage_keyboard()
+                DELETE_PACK_CONFIRMATION.format(
+                    pack_name=escaped_pack_name,
+                    sticker_count=pack.get("sticker_count", 0),
+                    created_date=created_date
+                ),
+                get_delete_confirmation_keyboard(short_name)
             )
-            
-        except Exception as e:
-            logger.error(f"Error deleting pack: {e}")
-            await safe_edit_message(callback, ERROR_OCCURRED)
-    else:
-        await callback.answer("Pack not found!", show_alert=True)
-    
-    await callback.answer()
+        else:
+            await callback.answer("Pack not found!", show_alert=True)
+        
+        await callback.answer()
+    except Exception as e:
+        logger.error(f"Error in delete_pack_callback: {e}")
+        await callback.answer("Error loading delete confirmation.", show_alert=True)
 
-# Cancel delete callback
+# Confirm delete callback - FIXED: HTML escape in success message
+@router.callback_query(F.data.startswith(PackManagementCallback.CONFIRM_DELETE))
+async def confirm_delete_callback(callback: CallbackQuery, bot: Bot):
+    """Confirm and delete pack"""
+    try:
+        short_name = callback.data.split(":")[1]
+        pack = await get_pack_by_short_name(short_name)
+        
+        if pack:
+            pack_name = pack["pack_name"].replace(f" ~ @{BOT_USERNAME}", "")
+            
+            try:
+                # Delete pack via bot API
+                await bot.delete_sticker_set(short_name)
+                
+                # Delete from database
+                await delete_pack_by_short_name(short_name)
+                
+                # FIX: Escape HTML in success message
+                escaped_pack_name = escape_html(pack_name.replace(f" ~ @{BOT_USERNAME}", ""))
+                
+                await safe_edit_message(
+                    callback,
+                    PACK_DELETED_SUCCESS.format(pack_name=escaped_pack_name),
+                    get_back_to_manage_keyboard()
+                )
+                
+            except Exception as e:
+                logger.error(f"Error deleting pack: {e}")
+                await safe_edit_message(callback, ERROR_OCCURRED)
+        else:
+            await callback.answer("Pack not found!", show_alert=True)
+        
+        await callback.answer()
+    except Exception as e:
+        logger.error(f"Error in confirm_delete_callback: {e}")
+        await callback.answer("Error deleting pack.", show_alert=True)
+
+# Cancel delete callback - FIXED: Better error handling
 @router.callback_query(F.data.startswith(PackManagementCallback.CANCEL_DELETE))
 async def cancel_delete_callback(callback: CallbackQuery):
     """Cancel delete and go back to pack options"""
-    short_name = callback.data.split(":")[1]
-    pack = await get_pack_by_short_name(short_name)
-    
-    if pack:
-        pack_name = pack["pack_name"].replace(f" ~ @{BOT_USERNAME}", "")
-        await safe_edit_message(
-            callback,
-            PACK_OPTIONS_MESSAGE.format(pack_name=pack_name),
-            get_pack_options_keyboard(short_name)
-        )
-    
-    await callback.answer()
+    try:
+        short_name = callback.data.split(":")[1]
+        pack = await get_pack_by_short_name(short_name)
+        
+        if pack:
+            pack_name = pack["pack_name"].replace(f" ~ @{BOT_USERNAME}", "")
+            await safe_edit_message(
+                callback,
+                PACK_OPTIONS_MESSAGE.format(pack_name=pack_name),
+                get_pack_options_keyboard(short_name)
+            )
+        
+        await callback.answer()
+    except Exception as e:
+        logger.error(f"Error in cancel_delete_callback: {e}")
+        await callback.answer("Error canceling delete.", show_alert=True)
 
-# Add sticker callback - FIXED: HTML escape
+# Add sticker callback - FIXED: HTML escape and better error handling
 @router.callback_query(F.data.startswith(PackManagementCallback.ADD_STICKER))
 async def add_sticker_callback(callback: CallbackQuery, state: FSMContext):
     """Start add sticker process - continuous adding without stop button"""
-    short_name = callback.data.split(":")[1]
-    pack = await get_pack_by_short_name(short_name)
-    
-    if pack:
-        # Check if pack is full
-        if pack.get("sticker_count", 0) >= 120:
-            await callback.answer("Pack is full! Create a new pack.", show_alert=True)
-            return
+    try:
+        short_name = callback.data.split(":")[1]
+        pack = await get_pack_by_short_name(short_name)
         
-        await state.set_state(PackManagementStates.waiting_for_sticker_to_add)
-        await state.update_data(
-            short_name=short_name, 
-            pack_data=pack,
-            sticker_count=pack.get("sticker_count", 0)
-        )
+        if pack:
+            # Check if pack is full
+            if pack.get("sticker_count", 0) >= 120:
+                await callback.answer("Pack is full! Create a new pack.", show_alert=True)
+                return
+            
+            await state.set_state(PackManagementStates.waiting_for_sticker_to_add)
+            await state.update_data(
+                short_name=short_name, 
+                pack_data=pack,
+                sticker_count=pack.get("sticker_count", 0)
+            )
+            
+            pack_name = pack["pack_name"].replace(f" ~ @{BOT_USERNAME}", "")
+            # FIX: Use HTML escape
+            escaped_pack_name = escape_html(pack_name)
+            
+            # Send new message to start fresh session
+            await callback.message.delete()
+            await callback.message.answer(
+                f"🎨 <b>Add Stickers to {escaped_pack_name}</b>\n\n"
+                f"Send me images, videos, GIFs, or stickers to add to your pack.\n"
+                f"I'll keep adding them until the pack is full.\n\n"
+                f"<b>Current count:</b> {pack.get('sticker_count', 0)}/120\n"
+                f"<b>Supported formats:</b> Images, Videos (max 4MB), GIFs, Stickers"
+            )
+        else:
+            await callback.answer("Pack not found!", show_alert=True)
         
-        pack_name = pack["pack_name"].replace(f" ~ @{BOT_USERNAME}", "")
-        # FIX: Use HTML escape
-        escaped_pack_name = escape_html(pack_name)
-        
-        # Send new message to start fresh session
-        await callback.message.delete()
-        await callback.message.answer(
-            f"🎨 <b>Add Stickers to {escaped_pack_name}</b>\n\n"
-            f"Send me images, videos, GIFs, or stickers to add to your pack.\n"
-            f"I'll keep adding them until the pack is full.\n\n"
-            f"<b>Current count:</b> {pack.get('sticker_count', 0)}/120\n"
-            f"<b>Supported formats:</b> Images, Videos (max 4MB), GIFs, Stickers"
-        )
-    else:
-        await callback.answer("Pack not found!", show_alert=True)
-    
-    await callback.answer()
+        await callback.answer()
+    except Exception as e:
+        logger.error(f"Error in add_sticker_callback: {e}")
+        await callback.answer("Error starting sticker addition.", show_alert=True)
 
 # Handle sticker addition - FIXED: Continuous adding with simple success message
 @router.message(PackManagementStates.waiting_for_sticker_to_add)
@@ -539,15 +578,19 @@ async def process_sticker_addition(message: Message, state: FSMContext, bot: Bot
 @router.callback_query(F.data == PackManagementCallback.CREATE_NEW_PACK)
 async def create_new_pack_callback(callback: CallbackQuery, state: FSMContext):
     """Start create new pack process - ask for sticker first"""
-    await state.set_state(PackManagementStates.waiting_for_first_sticker)
-    await safe_edit_message(
-        callback,
-        "🎨 <b>Let's create a new sticker pack!</b>\n\n"
-        "<b>First, send me the sticker you want to start your pack with.</b>\n"
-        "It can be GIF, video, image or sticker",
-        get_back_to_manage_keyboard()
-    )
-    await callback.answer()
+    try:
+        await state.set_state(PackManagementStates.waiting_for_first_sticker)
+        await safe_edit_message(
+            callback,
+            "🎨 <b>Let's create a new sticker pack!</b>\n\n"
+            "<b>First, send me the sticker you want to start your pack with.</b>\n"
+            "It can be GIF, video, image or sticker",
+            get_back_to_manage_keyboard()
+        )
+        await callback.answer()
+    except Exception as e:
+        logger.error(f"Error in create_new_pack_callback: {e}")
+        await callback.answer("Error starting pack creation.", show_alert=True)
 
 # Handle first sticker for new pack
 @router.message(PackManagementStates.waiting_for_first_sticker)
@@ -760,63 +803,79 @@ async def process_new_pack_name(message: Message, state: FSMContext, bot: Bot):
     
     await state.clear()
 
-# Navigation callbacks
+# Navigation callbacks - FIXED: Better error handling
 @router.callback_query(F.data.startswith(PackManagementCallback.NEXT_PAGE))
 async def next_page_callback(callback: CallbackQuery):
     """Show next page of packs"""
-    page = int(callback.data.split(":")[1])
-    user_id = callback.from_user.id
-    
-    await safe_edit_message(
-        callback,
-        MANAGE_PACKS_MESSAGE,
-        await get_manage_packs_keyboard(user_id, page)
-    )
-    await callback.answer()
+    try:
+        page = int(callback.data.split(":")[1])
+        user_id = callback.from_user.id
+        
+        await safe_edit_message(
+            callback,
+            MANAGE_PACKS_MESSAGE,
+            await get_manage_packs_keyboard(user_id, page)
+        )
+        await callback.answer()
+    except Exception as e:
+        logger.error(f"Error in next_page_callback: {e}")
+        await callback.answer("Error loading next page.", show_alert=True)
 
 @router.callback_query(F.data.startswith(PackManagementCallback.PREV_PAGE))
 async def prev_page_callback(callback: CallbackQuery):
     """Show previous page of packs"""
-    page = int(callback.data.split(":")[1])
-    user_id = callback.from_user.id
-    
-    await safe_edit_message(
-        callback,
-        MANAGE_PACKS_MESSAGE,
-        await get_manage_packs_keyboard(user_id, page)
-    )
-    await callback.answer()
+    try:
+        page = int(callback.data.split(":")[1])
+        user_id = callback.from_user.id
+        
+        await safe_edit_message(
+            callback,
+            MANAGE_PACKS_MESSAGE,
+            await get_manage_packs_keyboard(user_id, page)
+        )
+        await callback.answer()
+    except Exception as e:
+        logger.error(f"Error in prev_page_callback: {e}")
+        await callback.answer("Error loading previous page.", show_alert=True)
 
 @router.callback_query(F.data == PackManagementCallback.BACK_TO_MANAGE)
 async def back_to_manage_callback(callback: CallbackQuery):
     """Go back to manage packs"""
-    user_id = callback.from_user.id
-    packs, total = await get_user_packs_paginated(user_id)
-    
-    if total == 0:
-        await safe_edit_message(
-            callback,
-            NO_PACKS_MESSAGE,
-            get_no_packs_keyboard()  # Has Create New Pack button
-        )
-    else:
-        await safe_edit_message(
-            callback,
-            MANAGE_PACKS_MESSAGE,
-            await get_manage_packs_keyboard(user_id)
-        )
-    
-    await callback.answer()
+    try:
+        user_id = callback.from_user.id
+        packs, total = await get_user_packs_paginated(user_id)
+        
+        if total == 0:
+            await safe_edit_message(
+                callback,
+                NO_PACKS_MESSAGE,
+                get_no_packs_keyboard()
+            )
+        else:
+            await safe_edit_message(
+                callback,
+                MANAGE_PACKS_MESSAGE,
+                await get_manage_packs_keyboard(user_id)
+            )
+        
+        await callback.answer()
+    except Exception as e:
+        logger.error(f"Error in back_to_manage_callback: {e}")
+        await callback.answer("Error going back.", show_alert=True)
 
 @router.callback_query(F.data == PackManagementCallback.BACK_TO_MAIN)
 async def back_to_main_callback(callback: CallbackQuery):
     """Go back to main menu"""
-    await safe_edit_message(
-        callback,
-        START_MESSAGE_WITH_IMAGE,
-        get_main_menu_keyboard()
-    )
-    await callback.answer()
+    try:
+        await safe_edit_message(
+            callback,
+            START_MESSAGE_WITH_IMAGE,
+            get_main_menu_keyboard()
+        )
+        await callback.answer()
+    except Exception as e:
+        logger.error(f"Error in back_to_main_callback: {e}")
+        await callback.answer("Error going back to main menu.", show_alert=True)
 
 # Cancel handlers
 @router.message(StateFilter(PackManagementStates), Command("cancel"))

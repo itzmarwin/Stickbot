@@ -14,6 +14,11 @@ TELEGRAM_API_HASH = os.getenv("TELEGRAM_API_HASH")
 # Single owner ID
 OWNER_ID = int(os.getenv("OWNER_ID", "0"))
 
+#publish info
+PUBLISH_OWNER_ID = int(os.getenv("PUBLISH_OWNER_ID", 0)) if os.getenv("PUBLISH_OWNER_ID") else None
+PUBLISH_CHANNEL_ID = int(os.getenv("PUBLISH_CHANNEL_ID", 0)) if os.getenv("PUBLISH_CHANNEL_ID") else None
+
+
 # Multiple admin IDs (comma-separated in .env, includes owner automatically)
 ADMIN_IDS = [int(x) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip().isdigit()]
 # Always include owner in admin list

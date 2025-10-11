@@ -1,6 +1,6 @@
 import logging
 import re
-from aiogram import Router, Bot
+from aiogram import Router, Bot, F
 from aiogram.types import (
     CallbackQuery, Message, InlineQuery, 
     InlineQueryResultCachedSticker, InlineKeyboardMarkup, InlineKeyboardButton
@@ -55,14 +55,14 @@ def validate_keyword(keyword: str) -> bool:
     
     return True
 
-# ✅ Info button callback (from pack_management.py)
-@router.callback_query(PublishCallback.PUBLISH_INFO)
+# ✅ FIXED: Info button callback - Use F.data for exact match
+@router.callback_query(F.data == PublishCallback.PUBLISH_INFO)
 async def publish_info_callback(callback: CallbackQuery):
     """Show publish info popup"""
     await callback.answer(PUBLISH_PACK_INFO, show_alert=True)
 
 # ✅ Start publish flow
-@router.callback_query(lambda c: c.data and c.data.startswith(PublishCallback.PUBLISH_PACK))
+@router.callback_query(F.data.startswith(PublishCallback.PUBLISH_PACK))
 async def start_publish_callback(callback: CallbackQuery, state: FSMContext):
     """Start publish pack flow - ask for keyword"""
     await callback.answer()  # Instant response
@@ -165,7 +165,7 @@ async def process_publish_keyword(message: Message, state: FSMContext):
     )
 
 # ✅ Handle publish confirmation - YES
-@router.callback_query(lambda c: c.data and c.data.startswith(PublishCallback.PUBLISH_CONFIRM_YES))
+@router.callback_query(F.data.startswith(PublishCallback.PUBLISH_CONFIRM_YES))
 async def confirm_publish_yes(callback: CallbackQuery, state: FSMContext, bot: Bot):
     """User confirmed publish - send to owner"""
     await callback.answer()
@@ -263,7 +263,7 @@ async def confirm_publish_yes(callback: CallbackQuery, state: FSMContext, bot: B
         await state.clear()
 
 # ✅ Handle publish confirmation - NO
-@router.callback_query(PublishCallback.PUBLISH_CONFIRM_NO)
+@router.callback_query(F.data == PublishCallback.PUBLISH_CONFIRM_NO)
 async def confirm_publish_no(callback: CallbackQuery, state: FSMContext):
     """User cancelled publish"""
     await callback.answer("Publish cancelled.", show_alert=True)
@@ -277,7 +277,7 @@ async def confirm_publish_no(callback: CallbackQuery, state: FSMContext):
     )
 
 # ✅ Owner approves publish
-@router.callback_query(lambda c: c.data and c.data.startswith(PublishCallback.OWNER_APPROVE))
+@router.callback_query(F.data.startswith(PublishCallback.OWNER_APPROVE))
 async def owner_approve_publish(callback: CallbackQuery, bot: Bot):
     """Owner approved publish request"""
     await callback.answer()
@@ -363,7 +363,7 @@ async def owner_approve_publish(callback: CallbackQuery, bot: Bot):
         await callback.answer("Error approving publish!", show_alert=True)
 
 # ✅ Owner rejects publish
-@router.callback_query(lambda c: c.data and c.data.startswith(PublishCallback.OWNER_REJECT))
+@router.callback_query(F.data.startswith(PublishCallback.OWNER_REJECT))
 async def owner_reject_publish(callback: CallbackQuery, bot: Bot):
     """Owner rejected publish request"""
     await callback.answer()

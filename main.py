@@ -1,6 +1,9 @@
 import asyncio
 import logging
 from aiogram import Bot, Dispatcher
+import asyncio
+import logging
+from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from telethon import TelegramClient
@@ -11,7 +14,7 @@ from database import init_db
 from handlers import start, kang, misc, logger
 from handlers import sticker_id
 from handlers import getsticker, getvidsticker
-from handlers import pack_management  # NEW IMPORT
+from handlers import pack_management, publish  # ✅ ADDED PUBLISH IMPORT
 from telethon_quotly import setup_telethon_handlers
 from pyrogram_handlers.gban import setup_gban_handlers
 from pyrogram_handlers.afk import setup_afk_handlers
@@ -80,6 +83,7 @@ async def main():
         dp.include_router(getsticker.router)
         dp.include_router(logger.router)
         dp.include_router(pack_management.router)
+        dp.include_router(publish.router)  # ✅ ADDED PUBLISH ROUTER
         dp.include_router(misc.router)
         
         # Initialize Telethon client for /q command

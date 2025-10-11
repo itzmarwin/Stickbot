@@ -288,3 +288,138 @@ ADD_STICKER_INFO = "Upload images, videos, GIFs or stickers to this pack. Max 12
 # Rate limiting messages
 RATE_LIMIT_MESSAGE = "⏳ Please wait a few seconds before making another request."
 STICKER_ADDING_IN_PROGRESS = "Please wait for the previous sticker to be added before sending the next one."
+
+
+
+
+
+# Add these templates to your existing templates.py
+
+# Publish Pack Feature Templates
+PUBLISH_PACK_INFO = "Publish your pack to make it searchable via inline mode. Share it with the world!"
+
+PUBLISH_PACK_ASK_KEYWORD = """
+📤 <b>Publish Your Pack</b>
+
+<b>Pack:</b> {pack_name}
+
+Please send a keyword for your pack. This keyword will be used to find your pack in inline search.
+
+<b>Example:</b> If you send "funny", users can search via:
+<code>@{bot_username} funny</code>
+
+<b>Rules:</b>
+• One word only (no spaces)
+• 3-20 characters
+• Letters and numbers only
+
+Type /cancel to go back.
+"""
+
+PUBLISH_KEYWORD_INVALID = """
+❌ <b>Invalid Keyword</b>
+
+Please send a valid keyword:
+• One word only (no spaces)
+• 3-20 characters
+• Letters and numbers only
+
+Try again or type /cancel to go back.
+"""
+
+PUBLISH_KEYWORD_TAKEN = """
+❌ <b>Keyword Already Taken</b>
+
+This keyword is already being used by another pack.
+Please choose a different keyword.
+"""
+
+PUBLISH_CONFIRM_REQUEST = """
+📤 <b>Confirm Publish Request</b>
+
+<b>Pack:</b> {pack_name}
+<b>Keyword:</b> <code>{keyword}</code>
+
+Are you sure you want to publish this pack with this keyword?
+
+Users will be able to search for it using:
+<code>@{bot_username} {keyword}</code>
+"""
+
+PUBLISH_REQUEST_SENT = """
+✅ <b>Publish Request Sent</b>
+
+Your request to publish <b>{pack_name}</b> has been sent to the owner.
+
+⏳ <b>Approval may take 4-5 hours.</b>
+
+You will be notified once your pack is reviewed.
+"""
+
+PUBLISH_REQUEST_APPROVED = """
+🎉 <b>Publish Request Approved!</b>
+
+Your pack <b>{pack_name}</b> has been published!
+
+Users can now find it using:
+<code>@{bot_username} {keyword}</code>
+
+<a href="{pack_link}">View Your Pack</a>
+"""
+
+PUBLISH_REQUEST_REJECTED = """
+❌ <b>Publish Request Not Approved</b>
+
+Sorry, your request to publish <b>{pack_name}</b> was not approved.
+
+You can try again with a different keyword or pack.
+"""
+
+PUBLISH_ALREADY_PUBLISHED = """
+ℹ️ <b>Pack Already Published</b>
+
+This pack is already published and searchable via inline mode.
+
+No need to publish it again!
+"""
+
+# Owner notification templates
+PUBLISH_OWNER_NOTIFICATION = """
+📤 <b>New Publish Request</b>
+
+<b>From:</b> {user_name} (<code>{user_id}</code>)
+<b>Pack:</b> {pack_name}
+<b>Keyword:</b> <code>{keyword}</code>
+<b>Pack Link:</b> {pack_link}
+
+<b>Sticker count:</b> {sticker_count}
+<b>Created:</b> {created_date}
+
+Review the pack and approve or reject:
+"""
+
+PUBLISH_OWNER_APPROVED = """
+✅ <b>Publish Request Approved</b>
+
+Pack <b>{pack_name}</b> by user <code>{user_id}</code> has been approved and published to the channel.
+
+<b>Keyword:</b> <code>{keyword}</code>
+"""
+
+PUBLISH_OWNER_REJECTED = """
+❌ <b>Publish Request Rejected</b>
+
+Pack <b>{pack_name}</b> by user <code>{user_id}</code> has been rejected.
+
+User has been notified.
+"""
+
+PUBLISH_CHANNEL_MESSAGE = """
+🎨 <b>New Sticker Pack Published!</b>
+
+<b>Pack:</b> {pack_name}
+<b>Keyword:</b> <code>{keyword}</code>
+
+Search via: <code>@{bot_username} {keyword}</code>
+
+<a href="{pack_link}">Add Pack to Telegram</a>

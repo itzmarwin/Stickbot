@@ -12,7 +12,8 @@ from database import (
     get_user, create_user, update_user_started,
     get_user_packs_paginated, update_pack_name, delete_pack_by_short_name,
     get_pack_by_short_name, create_sticker_pack, increment_sticker_count,
-    get_user_all_packs, update_pack_sticker_count, get_pack_by_name
+    get_user_all_packs, update_pack_sticker_count, get_pack_by_name,
+    is_pack_published  # ✅ ADDED IMPORT
 )
 from templates import (
     START_MESSAGE_WITH_IMAGE, MANAGE_PACKS_MESSAGE, NO_PACKS_MESSAGE,
@@ -22,7 +23,8 @@ from templates import (
     NEW_PACK_CREATED_MULTI, NO_MEDIA_REPLY, VIDEO_TOO_LARGE,
     VIDEO_COMPRESSION_FAILED, ERROR_OCCURRED, PROCESSING_MEDIA,
     RENAME_PACK_INFO, DELETE_PACK_INFO, ADD_STICKER_INFO,
-    RATE_LIMIT_MESSAGE, STICKER_ADDING_IN_PROGRESS
+    RATE_LIMIT_MESSAGE, STICKER_ADDING_IN_PROGRESS,
+    PUBLISH_PACK_INFO  # ✅ ADDED IMPORT
 )
 from utils.fsm_states import PackManagementStates
 from utils.helpers import validate_pack_name, format_pack_name, generate_short_name, get_file_size_mb
@@ -30,6 +32,9 @@ from utils.converters import convert_image_to_webp, convert_video_to_webm, clean
 from utils.html_utils import escape_html
 from handlers.kang import add_sticker_to_pack, get_random_emoji
 from config import BOT_USERNAME, MAX_VIDEO_SIZE_MB, LOG_GROUP_ID
+
+# ✅ ADDED PUBLISH IMPORT
+from handlers.publish import PublishCallback
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -120,21 +125,29 @@ async def get_manage_packs_keyboard(user_id: int, page: int = 0):
     return builder.attach(action_builder).as_markup()
 
 def get_pack_options_keyboard(short_name: str):
-    """Get pack options keyboard"""
+    """Get pack options keyboard with PUBLISH button"""
     builder = InlineKeyboardBuilder()
     
+    # Row 1: Rename Pack
     builder.button(text="✏️ Rename Pack", callback_data=f"{PackManagementCallback.RENAME_PACK}{short_name}")
     builder.button(text="ℹ️", callback_data=f"{PackManagementCallback.PACK_INFO}rename")
     
+    # Row 2: Add Sticker
+    builder.button(text="➕ Add Sticker", callback_data=f"{PackManagementCallback.ADD_STICKER}{short_name}")
+    builder.button(text="ℹ️", callback_data=f"{PackManagementCallback.PACK_INFO}add")
+    
+    # Row 3: Delete Pack
     builder.button(text="🗑️ Delete Pack", callback_data=f"{PackManagementCallback.DELETE_PACK}{short_name}")
     builder.button(text="ℹ️", callback_data=f"{PackManagementCallback.PACK_INFO}delete")
     
-    builder.button(text="🎨 Add Sticker", callback_data=f"{PackManagementCallback.ADD_STICKER}{short_name}")
-    builder.button(text="ℹ️", callback_data=f"{PackManagementCallback.PACK_INFO}add")
+    # ✅ Row 4: Publish Pack (NEW)
+    builder.button(text="📤 Publish Pack", callback_data=f"{PublishCallback.PUBLISH_PACK}{short_name}")
+    builder.button(text="ℹ️", callback_data=f"{PackManagementCallback.PACK_INFO}publish")
     
+    # Row 5: Back
     builder.button(text="⬅️ Back", callback_data=PackManagementCallback.BACK_TO_MANAGE)
     
-    builder.adjust(2, 2, 2, 1)
+    builder.adjust(2, 2, 2, 2, 1)  # ✅ Updated for 4 rows of two buttons + back
     return builder.as_markup()
 
 def get_delete_confirmation_keyboard(short_name: str):
@@ -271,7 +284,7 @@ async def pack_selected_callback(callback: CallbackQuery):
     except Exception as e:
         logger.error(f"Error in pack_selected_callback: {e}")
 
-# Pack info callback (alert popup)
+# Pack info callback (alert popup) - ✅ UPDATED WITH PUBLISH INFO
 @router.callback_query(F.data.startswith(PackManagementCallback.PACK_INFO))
 async def pack_info_callback(callback: CallbackQuery):
     """Show info alert for pack actions"""
@@ -284,6 +297,8 @@ async def pack_info_callback(callback: CallbackQuery):
             message = DELETE_PACK_INFO
         elif info_type == "add":
             message = ADD_STICKER_INFO
+        elif info_type == "publish":  # ✅ ADDED PUBLISH INFO
+            message = PUBLISH_PACK_INFO
         else:
             message = "Information about this action."
         
@@ -880,4 +895,4 @@ async def cancel_pack_management(message: Message, state: FSMContext):
     await message.reply(
         "Operation cancelled.",
         reply_markup=get_main_menu_keyboard()
-)
+    )

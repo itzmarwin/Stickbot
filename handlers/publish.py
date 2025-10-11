@@ -34,14 +34,14 @@ from config import BOT_USERNAME, PUBLISH_OWNER_ID, PUBLISH_CHANNEL_ID
 logger = logging.getLogger(__name__)
 router = Router()
 
-# Callback data patterns
+# Callback data patterns - SHORTENED
 class PublishCallback:
-    PUBLISH_PACK = "publish_pack:"
-    PUBLISH_INFO = "publish_info"
-    PUBLISH_CONFIRM_YES = "publish_confirm_yes:"
-    PUBLISH_CONFIRM_NO = "publish_confirm_no:"
-    OWNER_APPROVE = "owner_approve:"
-    OWNER_REJECT = "owner_reject:"
+    PUBLISH_PACK = "pp:"  # Shorter prefix
+    PUBLISH_INFO = "pi"   # Shorter
+    PUBLISH_CONFIRM_YES = "pcy:"  # Shorter
+    PUBLISH_CONFIRM_NO = "pcn"    # Shorter
+    OWNER_APPROVE = "oa:"  # Shorter
+    OWNER_REJECT = "or:"   # Shorter
 
 def validate_keyword(keyword: str) -> bool:
     """Validate publish keyword"""
@@ -55,7 +55,7 @@ def validate_keyword(keyword: str) -> bool:
     
     return True
 
-# ✅ FIXED: Info button callback - Use F.data for exact match
+# ✅ FIXED: Info button callback
 @router.callback_query(F.data == PublishCallback.PUBLISH_INFO)
 async def publish_info_callback(callback: CallbackQuery):
     """Show publish info popup"""
@@ -164,7 +164,7 @@ async def process_publish_keyword(message: Message, state: FSMContext):
         reply_markup=builder.as_markup()
     )
 
-# ✅ FIXED: Handle publish confirmation - YES (with shorter callback data)
+# ✅ FIXED: Handle publish confirmation - YES (with even shorter callback data)
 @router.callback_query(F.data.startswith(PublishCallback.PUBLISH_CONFIRM_YES))
 async def confirm_publish_yes(callback: CallbackQuery, state: FSMContext, bot: Bot):
     """User confirmed publish - send to owner"""
@@ -225,9 +225,10 @@ async def confirm_publish_yes(callback: CallbackQuery, state: FSMContext, bot: B
             created_date=created_date
         )
         
-        # ✅ FIXED: Create shorter callback data to avoid BUTTON_DATA_INVALID
-        # Use shorter format: user_id:short_name:keyword (without sticker_id)
-        approve_data = f"{PublishCallback.OWNER_APPROVE}{user_id}:{short_name}:{keyword}"
+        # ✅ FIXED: Create even shorter callback data
+        # Use format: user_id:short_name (without keyword)
+        # We'll store the keyword in the message text and extract it from there
+        approve_data = f"{PublishCallback.OWNER_APPROVE}{user_id}:{short_name}"
         reject_data = f"{PublishCallback.OWNER_REJECT}{user_id}:{short_name}"
         
         # Check callback data length (Telegram limit is 64 bytes)
@@ -235,7 +236,7 @@ async def confirm_publish_yes(callback: CallbackQuery, state: FSMContext, bot: B
             logger.error(f"Callback data too long: {len(approve_data)} bytes")
             await callback.message.edit_text(
                 "❌ <b>Error: Data too long for approval.</b>\n\n"
-                "Please try with a shorter pack name or keyword."
+                "Please try with a shorter pack name."
             )
             await state.clear()
             return
@@ -258,7 +259,7 @@ async def confirm_publish_yes(callback: CallbackQuery, state: FSMContext, bot: B
             sticker=first_sticker_id
         )
         
-        # Then send notification
+        # Then send notification with keyword in the message text
         await bot.send_message(
             chat_id=PUBLISH_OWNER_ID,
             text=owner_message,
@@ -291,7 +292,7 @@ async def confirm_publish_no(callback: CallbackQuery, state: FSMContext):
         ]])
     )
 
-# ✅ FIXED: Owner approves publish - fetch sticker_id again
+# ✅ FIXED: Owner approves publish - extract keyword from message text
 @router.callback_query(F.data.startswith(PublishCallback.OWNER_APPROVE))
 async def owner_approve_publish(callback: CallbackQuery, bot: Bot):
     """Owner approved publish request"""
@@ -302,7 +303,16 @@ async def owner_approve_publish(callback: CallbackQuery, bot: Bot):
         data_parts = callback.data.split(":")[1:]
         user_id = int(data_parts[0])
         short_name = data_parts[1]
-        keyword = data_parts[2]
+        
+        # ✅ FIXED: Extract keyword from the message text instead of callback data
+        message_text = callback.message.text
+        keyword_match = re.search(r"Keyword:</b>\s*<code>([a-zA-Z0-9]+)</code>", message_text)
+        
+        if not keyword_match:
+            await callback.answer("Error: Could not find keyword in message.", show_alert=True)
+            return
+        
+        keyword = keyword_match.group(1)
         
         # Get pack info
         pack = await get_pack_by_short_name(short_name)
@@ -313,7 +323,7 @@ async def owner_approve_publish(callback: CallbackQuery, bot: Bot):
         pack_name = pack["pack_name"]
         pack_link = f"https://t.me/addstickers/{short_name}"
         
-        # ✅ FIXED: Get first sticker again (was removed from callback data)
+        # ✅ FIXED: Get first sticker again
         try:
             sticker_set = await bot.get_sticker_set(short_name)
             first_sticker_id = sticker_set.stickers[0].file_id
@@ -337,12 +347,10 @@ async def owner_approve_publish(callback: CallbackQuery, bot: Bot):
         # Post to publish channel - ONLY STICKER, NO MESSAGE
         if PUBLISH_CHANNEL_ID:
             try:
-                # ✅ FIXED: Send only sticker without caption
                 await bot.send_sticker(
                     chat_id=PUBLISH_CHANNEL_ID,
                     sticker=first_sticker_id
                 )
-                # ✅ REMOVED: No message sent to channel, only sticker
             except Exception as e:
                 logger.error(f"Error posting to channel: {e}")
         
@@ -374,7 +382,7 @@ async def owner_approve_publish(callback: CallbackQuery, bot: Bot):
         logger.error(f"Error approving publish: {e}")
         await callback.answer("Error approving publish!", show_alert=True)
 
-# ✅ Owner rejects publish
+# ✅ FIXED: Owner rejects publish
 @router.callback_query(F.data.startswith(PublishCallback.OWNER_REJECT))
 async def owner_reject_publish(callback: CallbackQuery, bot: Bot):
     """Owner rejected publish request"""

@@ -423,3 +423,4 @@ PUBLISH_CHANNEL_MESSAGE = """
 Search via: <code>@{bot_username} {keyword}</code>
 
 <a href="{pack_link}">Add Pack to Telegram</a>
+"""

@@ -11,3 +11,8 @@ class PackManagementStates(StatesGroup):
     waiting_for_sticker_to_add = State()
     confirming_delete_pack = State()
     waiting_for_first_sticker = State()  # NEW STATE ADDED
+
+class PublishStates(StatesGroup):
+    """FSM states for publish pack feature"""
+    waiting_for_keyword = State()
+    confirming_publish = State()

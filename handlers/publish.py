@@ -1,4 +1,4 @@
-cache_time=10)
+
 import logging
 import re
 from aiogram import Router, Bot, F

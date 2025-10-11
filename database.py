@@ -35,8 +35,8 @@ async def init_db():
         await db.afk.create_index("user.id", unique=True)
         await db.gbans.create_index("user_id", unique=True)
         await db.served_chats.create_index("chat_id", unique=True)
-        await db.published_packs.create_index("pack_short_name", unique=True)  # ✅ ADDED INDEX
-        await db.published_packs.create_index("keyword", unique=True)  # ✅ ADDED INDEX
+        await db.published_packs.create_index("pack_short_name", unique=True)  # ✅ Keep unique for pack
+        await db.published_packs.create_index("keyword")  # ✅ REMOVED UNIQUE - multiple keywords allowed!
         
         logger.info("Database initialized successfully")
         return db
@@ -218,7 +218,7 @@ async def get_pack_by_name(pack_name: str) -> Optional[Dict[str, Any]]:
         logger.error(f"Error getting pack by name {pack_name}: {e}")
         return None
 
-# ✅ ADDED PUBLISH FUNCTIONS
+# ✅ PUBLISH FUNCTIONS - MULTIPLE KEYWORDS SUPPORT
 async def is_pack_published(short_name: str) -> bool:
     """Check if pack is already published"""
     try:
@@ -229,12 +229,12 @@ async def is_pack_published(short_name: str) -> bool:
         return False
 
 async def create_published_pack(user_id: int, pack_short_name: str, keyword: str, first_sticker_id: str) -> bool:
-    """Create published pack record"""
+    """Create published pack record - multiple packs can use same keyword"""
     try:
         published_pack_data = {
             "user_id": user_id,
             "pack_short_name": pack_short_name,
-            "keyword": keyword,
+            "keyword": keyword.lower(),  # Store lowercase for case-insensitive search
             "first_sticker_id": first_sticker_id,
             "published_at": datetime.utcnow(),
             "is_active": True
@@ -246,20 +246,20 @@ async def create_published_pack(user_id: int, pack_short_name: str, keyword: str
         return False
 
 async def get_published_pack_by_keyword(keyword: str) -> Optional[Dict[str, Any]]:
-    """Get published pack by keyword"""
+    """Get ONE published pack by keyword (for backward compatibility)"""
     try:
-        return await db.published_packs.find_one({"keyword": keyword, "is_active": True})
+        return await db.published_packs.find_one({"keyword": keyword.lower(), "is_active": True})
     except Exception as e:
         logger.error(f"Error getting published pack by keyword {keyword}: {e}")
         return None
 
 async def search_published_packs(query: str, limit: int = 50) -> List[Dict[str, Any]]:
-    """Search published packs by keyword"""
+    """Search ALL published packs by keyword - returns multiple results"""
     try:
         cursor = db.published_packs.find({
-            "keyword": {"$regex": f"^{query}", "$options": "i"},
+            "keyword": {"$regex": f"^{query.lower()}", "$options": "i"},
             "is_active": True
-        }).limit(limit)
+        }).sort("published_at", -1).limit(limit)  # Sort by newest first
         return await cursor.to_list(length=limit)
     except Exception as e:
         logger.error(f"Error searching published packs for {query}: {e}")

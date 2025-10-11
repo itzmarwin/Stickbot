@@ -701,7 +701,6 @@ async def process_new_pack_name(message: Message, state: FSMContext, bot: Bot):
             output_path = os.path.join(temp_dir, f"{message.from_user.id}_first_output.webp")
             temp_files.extend([input_path, output_path])
             
-            await bot.download_file(file.file_path
             await bot.download_file(file.file_path, input_path)
             
             if await convert_image_to_webp(input_path, output_path):

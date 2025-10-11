@@ -7,13 +7,12 @@ from aiogram.fsm.context import FSMContext
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from datetime import datetime
 from aiogram.exceptions import TelegramBadRequest
-import html
 
 from database import (
     get_user, create_user, update_user_started,
     get_user_packs_paginated, update_pack_name, delete_pack_by_short_name,
     get_pack_by_short_name, create_sticker_pack, increment_sticker_count,
-    get_user_all_packs, update_pack_sticker_count
+    get_user_all_packs, update_pack_sticker_count, get_pack_by_name
 )
 from templates import (
     START_MESSAGE_WITH_IMAGE, MANAGE_PACKS_MESSAGE, NO_PACKS_MESSAGE,
@@ -28,6 +27,7 @@ from templates import (
 from utils.fsm_states import PackManagementStates
 from utils.helpers import validate_pack_name, format_pack_name, generate_short_name, get_file_size_mb
 from utils.converters import convert_image_to_webp, convert_video_to_webm, cleanup_temp_files, create_temp_dir
+from utils.html_utils import escape_html  # NEW IMPORT
 from handlers.kang import add_sticker_to_pack, get_random_emoji
 from config import BOT_USERNAME, MAX_VIDEO_SIZE_MB, LOG_GROUP_ID
 
@@ -229,7 +229,7 @@ async def manage_packs_callback(callback: CallbackQuery):
     
     await callback.answer()
 
-# Pack selected callback
+# Pack selected callback - FIXED: HTML escape
 @router.callback_query(F.data.startswith(PackManagementCallback.PACK_SELECTED))
 async def pack_selected_callback(callback: CallbackQuery):
     """Show options for selected pack"""
@@ -238,9 +238,11 @@ async def pack_selected_callback(callback: CallbackQuery):
     
     if pack:
         pack_name = pack["pack_name"].replace(f" ~ @{BOT_USERNAME}", "")
+        # FIX: Use HTML escape
+        escaped_pack_name = escape_html(pack_name)
         await safe_edit_message(
             callback,
-            PACK_OPTIONS_MESSAGE.format(pack_name=pack_name),
+            PACK_OPTIONS_MESSAGE.format(pack_name=escaped_pack_name),
             get_pack_options_keyboard(short_name)
         )
     else:
@@ -265,7 +267,7 @@ async def pack_info_callback(callback: CallbackQuery):
     
     await callback.answer(message, show_alert=True)
 
-# Rename pack callback
+# Rename pack callback - FIXED: HTML escape
 @router.callback_query(F.data.startswith(PackManagementCallback.RENAME_PACK))
 async def rename_pack_callback(callback: CallbackQuery, state: FSMContext):
     """Start rename pack process"""
@@ -277,9 +279,11 @@ async def rename_pack_callback(callback: CallbackQuery, state: FSMContext):
         await state.update_data(short_name=short_name, old_name=pack["pack_name"])
         
         pack_name = pack["pack_name"].replace(f" ~ @{BOT_USERNAME}", "")
+        # FIX: Use HTML escape
+        escaped_pack_name = escape_html(pack_name)
         await safe_edit_message(
             callback,
-            RENAME_PACK_MESSAGE.format(pack_name=pack_name),
+            RENAME_PACK_MESSAGE.format(pack_name=escaped_pack_name),
             get_back_to_manage_keyboard()
         )
     else:
@@ -331,7 +335,7 @@ async def process_rename_pack_name(message: Message, state: FSMContext, bot: Bot
     
     await state.clear()
 
-# Delete pack callback
+# Delete pack callback - FIXED: HTML escape
 @router.callback_query(F.data.startswith(PackManagementCallback.DELETE_PACK))
 async def delete_pack_callback(callback: CallbackQuery):
     """Show delete confirmation"""
@@ -340,12 +344,14 @@ async def delete_pack_callback(callback: CallbackQuery):
     
     if pack:
         pack_name = pack["pack_name"].replace(f" ~ @{BOT_USERNAME}", "")
+        # FIX: Use HTML escape
+        escaped_pack_name = escape_html(pack_name)
         created_date = pack["created_at"].strftime("%Y-%m-%d") if pack.get("created_at") else "Unknown"
         
         await safe_edit_message(
             callback,
             DELETE_PACK_CONFIRMATION.format(
-                pack_name=pack_name,
+                pack_name=escaped_pack_name,
                 sticker_count=pack.get("sticker_count", 0),
                 created_date=created_date
             ),
@@ -404,7 +410,7 @@ async def cancel_delete_callback(callback: CallbackQuery):
     
     await callback.answer()
 
-# Add sticker callback - FIXED: No stop button, continuous adding
+# Add sticker callback - FIXED: HTML escape
 @router.callback_query(F.data.startswith(PackManagementCallback.ADD_STICKER))
 async def add_sticker_callback(callback: CallbackQuery, state: FSMContext):
     """Start add sticker process - continuous adding without stop button"""
@@ -425,11 +431,13 @@ async def add_sticker_callback(callback: CallbackQuery, state: FSMContext):
         )
         
         pack_name = pack["pack_name"].replace(f" ~ @{BOT_USERNAME}", "")
+        # FIX: Use HTML escape
+        escaped_pack_name = escape_html(pack_name)
         
         # Send new message to start fresh session
         await callback.message.delete()
         await callback.message.answer(
-            f"🎨 <b>Add Stickers to {pack_name}</b>\n\n"
+            f"🎨 <b>Add Stickers to {escaped_pack_name}</b>\n\n"
             f"Send me images, videos, GIFs, or stickers to add to your pack.\n"
             f"I'll keep adding them until the pack is full.\n\n"
             f"<b>Current count:</b> {pack.get('sticker_count', 0)}/120\n"
@@ -608,6 +616,15 @@ async def process_new_pack_name(message: Message, state: FSMContext, bot: Bot):
         await state.clear()
         return
 
+    # Check if pack name already exists
+    existing_pack = await get_pack_by_name(pack_name)
+    if existing_pack:
+        await message.reply(
+            "❌ <b>Sorry, that pack name is already taken.</b>\n"
+            "Please send a different pack name."
+        )
+        return
+
     # Validate pack name length only (allow any characters)
     if len(pack_name) > 64:
         await message.reply("❌ Pack name is too long! Maximum 64 characters.")
@@ -713,8 +730,8 @@ async def process_new_pack_name(message: Message, state: FSMContext, bot: Bot):
         all_packs = await get_user_all_packs(message.from_user.id)
         pack_count = len(all_packs)
         
-        # Escape pack name for HTML
-        escaped_pack_name = html.escape(formatted_name)
+        # FIX: Use the new escape_html function
+        escaped_pack_name = escape_html(formatted_name)
         
         # Success message with clickable pack name
         success_message = (

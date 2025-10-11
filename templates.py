@@ -357,22 +357,20 @@ You will be notified once your pack is reviewed.
 """
 
 PUBLISH_REQUEST_APPROVED = """
-🎉 <b>Publish Request Approved!</b>
+✦ <b>Publish Request Approved!</b>
 
-Your pack <b>{pack_name}</b> has been published!
+Users can now find it in any chat using inline search:
+@{bot_username} {keyword}
 
-Users can now find it using:
-<code>@{bot_username} {keyword}</code>
-
-<a href="{pack_link}">View Your Pack</a>
+➣ Pack has also been added to our official channel: @YourChannelUsername
 """
 
 PUBLISH_REQUEST_REJECTED = """
-❌ <b>Publish Request Not Approved</b>
+✦ <b>Publish Request Not Approved</b>
 
-Sorry, your request to publish <b>{pack_name}</b> was not approved.
+Sorry, your pack "{pack_name}" could not be published.
 
-You can try again with a different keyword or pack.
+➤ You can try again with a different pack.
 """
 
 PUBLISH_ALREADY_PUBLISHED = """

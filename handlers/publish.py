@@ -1,3 +1,4 @@
+cache_time=10)
 import logging
 import re
 from aiogram import Router, Bot, F
@@ -9,6 +10,7 @@ from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from datetime import datetime
+import hashlib
 
 from database import (
     get_pack_by_short_name, 
@@ -36,26 +38,27 @@ router = Router()
 
 # Callback data patterns
 class PublishCallback:
-    PUBLISH_PACK = "publish_pack:"
-    PUBLISH_INFO = "publish_info"
-    PUBLISH_CONFIRM_YES = "publish_confirm_yes:"
-    PUBLISH_CONFIRM_NO = "publish_confirm_no:"
-    OWNER_APPROVE = "owner_approve:"
-    OWNER_REJECT = "owner_reject:"
+    PUBLISH_PACK = "pub:"
+    PUBLISH_INFO = "pub_info"
+    PUBLISH_CONFIRM_YES = "pub_yes:"
+    PUBLISH_CONFIRM_NO = "pub_no"
+    OWNER_APPROVE = "own_app:"
+    OWNER_REJECT = "own_rej:"
 
 def validate_keyword(keyword: str) -> bool:
     """Validate publish keyword"""
-    # Must be 3-20 characters, alphanumeric only, no spaces
     if not keyword or len(keyword) < 3 or len(keyword) > 20:
         return False
-    
-    # Only letters and numbers
     if not re.match(r'^[a-zA-Z0-9]+$', keyword):
         return False
-    
     return True
 
-# ✅ FIXED: Info button callback - Use F.data for exact match
+def create_request_id(user_id: int, short_name: str, keyword: str) -> str:
+    """Create a short unique request ID to avoid long callback data"""
+    data = f"{user_id}:{short_name}:{keyword}"
+    return hashlib.md5(data.encode()).hexdigest()[:8]
+
+# ✅ Info button callback
 @router.callback_query(F.data == PublishCallback.PUBLISH_INFO)
 async def publish_info_callback(callback: CallbackQuery):
     """Show publish info popup"""
@@ -65,7 +68,7 @@ async def publish_info_callback(callback: CallbackQuery):
 @router.callback_query(F.data.startswith(PublishCallback.PUBLISH_PACK))
 async def start_publish_callback(callback: CallbackQuery, state: FSMContext):
     """Start publish pack flow - ask for keyword"""
-    await callback.answer()  # Instant response
+    await callback.answer()
     
     try:
         short_name = callback.data.split(":")[1]
@@ -75,7 +78,6 @@ async def start_publish_callback(callback: CallbackQuery, state: FSMContext):
             await callback.answer("Pack not found!", show_alert=True)
             return
         
-        # Check if already published
         if await is_pack_published(short_name):
             await callback.message.edit_text(
                 PUBLISH_ALREADY_PUBLISHED,
@@ -85,7 +87,6 @@ async def start_publish_callback(callback: CallbackQuery, state: FSMContext):
             )
             return
         
-        # Set state and store pack data
         await state.set_state(PublishStates.waiting_for_keyword)
         await state.update_data(
             pack_short_name=short_name,
@@ -95,7 +96,6 @@ async def start_publish_callback(callback: CallbackQuery, state: FSMContext):
         pack_name = pack["pack_name"].replace(f" ~ @{BOT_USERNAME}", "")
         escaped_pack_name = escape_html(pack_name)
         
-        # Ask for keyword
         await callback.message.edit_text(
             PUBLISH_PACK_ASK_KEYWORD.format(
                 pack_name=escaped_pack_name,
@@ -116,18 +116,15 @@ async def process_publish_keyword(message: Message, state: FSMContext):
     """Process keyword input for publish"""
     keyword = message.text.strip().lower()
     
-    # Validate keyword
     if not validate_keyword(keyword):
         await message.reply(PUBLISH_KEYWORD_INVALID)
         return
     
-    # Check if keyword is already taken
     existing_pack = await get_published_pack_by_keyword(keyword)
     if existing_pack:
         await message.reply(PUBLISH_KEYWORD_TAKEN)
         return
     
-    # Get stored pack data
     data = await state.get_data()
     pack_data = data.get("pack_data")
     
@@ -136,14 +133,12 @@ async def process_publish_keyword(message: Message, state: FSMContext):
         await state.clear()
         return
     
-    # Update state with keyword
     await state.update_data(keyword=keyword)
     await state.set_state(PublishStates.confirming_publish)
     
     pack_name = pack_data["pack_name"].replace(f" ~ @{BOT_USERNAME}", "")
     escaped_pack_name = escape_html(pack_name)
     
-    # Show confirmation
     builder = InlineKeyboardBuilder()
     builder.button(
         text="✅ Yes, Publish",
@@ -171,7 +166,7 @@ async def confirm_publish_yes(callback: CallbackQuery, state: FSMContext, bot: B
     await callback.answer()
     
     try:
-        # Get state data
+        short_name = callback.data.split(":")[1]
         data = await state.get_data()
         keyword = data.get("keyword")
         pack_data = data.get("pack_data")
@@ -181,12 +176,10 @@ async def confirm_publish_yes(callback: CallbackQuery, state: FSMContext, bot: B
             await state.clear()
             return
         
-        short_name = pack_data["short_name"]
         pack_name = pack_data["pack_name"]
         pack_link = f"https://t.me/addstickers/{short_name}"
         user_id = callback.from_user.id
         
-        # Check if publish owner is configured
         if not PUBLISH_OWNER_ID:
             await callback.message.edit_text(
                 "❌ <b>Publish feature is not configured.</b>\n\n"
@@ -211,6 +204,9 @@ async def confirm_publish_yes(callback: CallbackQuery, state: FSMContext, bot: B
         if user and user.get("username"):
             user_name = f"@{user['username']}"
         
+        # Create request ID to shorten callback data
+        request_id = create_request_id(user_id, short_name, keyword)
+        
         # Create owner notification
         escaped_pack_name = escape_html(pack_name.replace(f" ~ @{BOT_USERNAME}", ""))
         created_date = pack_data.get("created_at", datetime.utcnow()).strftime("%Y-%m-%d")
@@ -225,17 +221,31 @@ async def confirm_publish_yes(callback: CallbackQuery, state: FSMContext, bot: B
             created_date=created_date
         )
         
-        # Send sticker + message to owner
+        # Send sticker + message to owner with shortened callback data
         builder = InlineKeyboardBuilder()
         builder.button(
             text="✅ Approve",
-            callback_data=f"{PublishCallback.OWNER_APPROVE}{user_id}:{short_name}:{keyword}:{first_sticker_id}"
+            callback_data=f"{PublishCallback.OWNER_APPROVE}{request_id}"
         )
         builder.button(
             text="❌ Reject",
-            callback_data=f"{PublishCallback.OWNER_REJECT}{user_id}:{short_name}"
+            callback_data=f"{PublishCallback.OWNER_REJECT}{request_id}"
         )
         builder.adjust(2)
+        
+        # Store request data temporarily (in production, use Redis or database)
+        # For now, we'll store it in a simple dict (in production use proper storage)
+        if not hasattr(bot, 'publish_requests'):
+            bot.publish_requests = {}
+        
+        bot.publish_requests[request_id] = {
+            'user_id': user_id,
+            'short_name': short_name,
+            'keyword': keyword,
+            'first_sticker_id': first_sticker_id,
+            'pack_name': pack_name,
+            'timestamp': datetime.utcnow()
+        }
         
         # Send sticker first
         await bot.send_sticker(
@@ -283,12 +293,19 @@ async def owner_approve_publish(callback: CallbackQuery, bot: Bot):
     await callback.answer()
     
     try:
-        # Parse callback data
-        data_parts = callback.data.split(":")[1:]
-        user_id = int(data_parts[0])
-        short_name = data_parts[1]
-        keyword = data_parts[2]
-        first_sticker_id = data_parts[3]
+        request_id = callback.data.split(":")[1]
+        
+        # Get request data from temporary storage
+        if not hasattr(bot, 'publish_requests') or request_id not in bot.publish_requests:
+            await callback.answer("Request not found or expired!", show_alert=True)
+            return
+        
+        request_data = bot.publish_requests[request_id]
+        user_id = request_data['user_id']
+        short_name = request_data['short_name']
+        keyword = request_data['keyword']
+        first_sticker_id = request_data['first_sticker_id']
+        pack_name = request_data['pack_name']
         
         # Get pack info
         pack = await get_pack_by_short_name(short_name)
@@ -296,7 +313,6 @@ async def owner_approve_publish(callback: CallbackQuery, bot: Bot):
             await callback.answer("Pack not found!", show_alert=True)
             return
         
-        pack_name = pack["pack_name"]
         pack_link = f"https://t.me/addstickers/{short_name}"
         
         # Save to database
@@ -358,6 +374,10 @@ async def owner_approve_publish(callback: CallbackQuery, bot: Bot):
             )
         )
         
+        # Clean up temporary storage
+        if hasattr(bot, 'publish_requests') and request_id in bot.publish_requests:
+            del bot.publish_requests[request_id]
+        
     except Exception as e:
         logger.error(f"Error approving publish: {e}")
         await callback.answer("Error approving publish!", show_alert=True)
@@ -369,14 +389,17 @@ async def owner_reject_publish(callback: CallbackQuery, bot: Bot):
     await callback.answer()
     
     try:
-        # Parse callback data
-        data_parts = callback.data.split(":")[1:]
-        user_id = int(data_parts[0])
-        short_name = data_parts[1]
+        request_id = callback.data.split(":")[1]
         
-        # Get pack info
-        pack = await get_pack_by_short_name(short_name)
-        pack_name = pack["pack_name"] if pack else "Unknown Pack"
+        # Get request data from temporary storage
+        if not hasattr(bot, 'publish_requests') or request_id not in bot.publish_requests:
+            await callback.answer("Request not found or expired!", show_alert=True)
+            return
+        
+        request_data = bot.publish_requests[request_id]
+        user_id = request_data['user_id']
+        short_name = request_data['short_name']
+        pack_name = request_data['pack_name']
         
         # Notify user
         try:
@@ -396,6 +419,10 @@ async def owner_reject_publish(callback: CallbackQuery, bot: Bot):
             )
         )
         
+        # Clean up temporary storage
+        if hasattr(bot, 'publish_requests') and request_id in bot.publish_requests:
+            del bot.publish_requests[request_id]
+        
     except Exception as e:
         logger.error(f"Error rejecting publish: {e}")
         await callback.answer("Error rejecting publish!", show_alert=True)
@@ -406,12 +433,10 @@ async def inline_query_handler(inline_query: InlineQuery):
     """Handle inline queries for published packs"""
     query = inline_query.query.strip().lower()
     
-    # If empty query, return nothing or show help
     if not query:
         return
     
     try:
-        # Search for published packs
         results = []
         published_packs = await search_published_packs(query, limit=50)
         
@@ -422,14 +447,12 @@ async def inline_query_handler(inline_query: InlineQuery):
             )
             results.append(result)
         
-        # Return results
         await inline_query.answer(
             results=results,
-            cache_time=300,  # Cache for 5 minutes
+            cache_time=300,
             is_personal=False
         )
         
     except Exception as e:
         logger.error(f"Error handling inline query: {e}")
-        # Return empty results on error
         await inline_query.answer([], cache_time=10)

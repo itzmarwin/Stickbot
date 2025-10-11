@@ -164,7 +164,7 @@ async def process_publish_keyword(message: Message, state: FSMContext):
         reply_markup=builder.as_markup()
     )
 
-# ✅ Handle publish confirmation - YES
+# ✅ FIXED: Handle publish confirmation - YES (with shorter callback data)
 @router.callback_query(F.data.startswith(PublishCallback.PUBLISH_CONFIRM_YES))
 async def confirm_publish_yes(callback: CallbackQuery, state: FSMContext, bot: Bot):
     """User confirmed publish - send to owner"""
@@ -225,15 +225,30 @@ async def confirm_publish_yes(callback: CallbackQuery, state: FSMContext, bot: B
             created_date=created_date
         )
         
+        # ✅ FIXED: Create shorter callback data to avoid BUTTON_DATA_INVALID
+        # Use shorter format: user_id:short_name:keyword (without sticker_id)
+        approve_data = f"{PublishCallback.OWNER_APPROVE}{user_id}:{short_name}:{keyword}"
+        reject_data = f"{PublishCallback.OWNER_REJECT}{user_id}:{short_name}"
+        
+        # Check callback data length (Telegram limit is 64 bytes)
+        if len(approve_data) > 64:
+            logger.error(f"Callback data too long: {len(approve_data)} bytes")
+            await callback.message.edit_text(
+                "❌ <b>Error: Data too long for approval.</b>\n\n"
+                "Please try with a shorter pack name or keyword."
+            )
+            await state.clear()
+            return
+        
         # Send sticker + message to owner
         builder = InlineKeyboardBuilder()
         builder.button(
             text="✅ Approve",
-            callback_data=f"{PublishCallback.OWNER_APPROVE}{user_id}:{short_name}:{keyword}:{first_sticker_id}"
+            callback_data=approve_data
         )
         builder.button(
             text="❌ Reject",
-            callback_data=f"{PublishCallback.OWNER_REJECT}{user_id}:{short_name}"
+            callback_data=reject_data
         )
         builder.adjust(2)
         
@@ -276,7 +291,7 @@ async def confirm_publish_no(callback: CallbackQuery, state: FSMContext):
         ]])
     )
 
-# ✅ FIXED: Owner approves publish - removed caption from sticker
+# ✅ FIXED: Owner approves publish - fetch sticker_id again
 @router.callback_query(F.data.startswith(PublishCallback.OWNER_APPROVE))
 async def owner_approve_publish(callback: CallbackQuery, bot: Bot):
     """Owner approved publish request"""
@@ -288,7 +303,6 @@ async def owner_approve_publish(callback: CallbackQuery, bot: Bot):
         user_id = int(data_parts[0])
         short_name = data_parts[1]
         keyword = data_parts[2]
-        first_sticker_id = data_parts[3]
         
         # Get pack info
         pack = await get_pack_by_short_name(short_name)
@@ -298,6 +312,15 @@ async def owner_approve_publish(callback: CallbackQuery, bot: Bot):
         
         pack_name = pack["pack_name"]
         pack_link = f"https://t.me/addstickers/{short_name}"
+        
+        # ✅ FIXED: Get first sticker again (was removed from callback data)
+        try:
+            sticker_set = await bot.get_sticker_set(short_name)
+            first_sticker_id = sticker_set.stickers[0].file_id
+        except Exception as e:
+            logger.error(f"Error getting sticker set for approval: {e}")
+            await callback.answer("Error getting sticker set!", show_alert=True)
+            return
         
         # Save to database
         success = await create_published_pack(

@@ -16,7 +16,8 @@ from database import (
     get_published_pack_by_keyword,
     search_published_packs,
     is_pack_published,
-    get_user
+    get_user,
+    get_published_pack_by_short_name  # ✅ ADDED THIS IMPORT
 )
 from templates import (
     PUBLISH_PACK_INFO, PUBLISH_PACK_ASK_KEYWORD,
@@ -290,7 +291,7 @@ async def confirm_publish_no(callback: CallbackQuery, state: FSMContext):
         ]])
     )
 
-# ✅ FIXED: Owner approves publish - with SIMPLE keyword extraction
+# ✅ FIXED: Owner approves publish - with DUPLICATE CHECK
 @router.callback_query(F.data.startswith(PublishCallback.OWNER_APPROVE))
 async def owner_approve_publish(callback: CallbackQuery, bot: Bot):
     """Owner approved publish request"""
@@ -310,6 +311,17 @@ async def owner_approve_publish(callback: CallbackQuery, bot: Bot):
         short_name = data_parts[1]
         
         logger.info(f"Processing approval for user_id: {user_id}, short_name: {short_name}")
+        
+        # ✅✅✅ CHECK IF ALREADY PUBLISHED (MAIN FIX) ✅✅✅
+        existing_published = await get_published_pack_by_short_name(short_name)
+        if existing_published:
+            logger.warning(f"Pack {short_name} is already published with keyword: {existing_published['keyword']}")
+            await callback.message.edit_text(
+                f"⚠️ <b>Pack Already Published</b>\n\n"
+                f"This pack is already published with keyword: <code>{existing_published['keyword']}</code>\n\n"
+                f"No action taken. The pack is already live!"
+            )
+            return
         
         # ✅ FIXED: SIMPLE keyword extraction from plain text
         message_text = callback.message.text

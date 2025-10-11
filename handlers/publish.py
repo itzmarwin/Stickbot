@@ -290,7 +290,7 @@ async def confirm_publish_no(callback: CallbackQuery, state: FSMContext):
         ]])
     )
 
-# ✅ FIXED: Owner approves publish - with detailed debugging
+# ✅ FIXED: Owner approves publish - with SIMPLE keyword extraction
 @router.callback_query(F.data.startswith(PublishCallback.OWNER_APPROVE))
 async def owner_approve_publish(callback: CallbackQuery, bot: Bot):
     """Owner approved publish request"""
@@ -311,29 +311,33 @@ async def owner_approve_publish(callback: CallbackQuery, bot: Bot):
         
         logger.info(f"Processing approval for user_id: {user_id}, short_name: {short_name}")
         
-        # ✅ FIXED: Extract keyword from the message text
+        # ✅ FIXED: SIMPLE keyword extraction from plain text
         message_text = callback.message.text
         logger.info(f"Message text: {message_text}")
         
-        # Try different patterns to extract keyword
-        keyword_match = None
-        patterns = [
-            r"Keyword:</b>\s*<code>([a-zA-Z0-9]+)</code>",
-            r"Keyword[^<]*<code>([a-zA-Z0-9]+)</code>",
-            r"keyword[^<]*<code>([a-zA-Z0-9]+)</code>"
-        ]
-        
-        for pattern in patterns:
-            keyword_match = re.search(pattern, message_text, re.IGNORECASE)
-            if keyword_match:
+        # Extract keyword using simple line-by-line parsing
+        keyword = None
+        lines = message_text.split('\n')
+        for line in lines:
+            if line.strip().startswith('Keyword:'):
+                # Extract the keyword after "Keyword:"
+                keyword_part = line.split('Keyword:')[1].strip()
+                # Take the first word (should be the keyword)
+                keyword = keyword_part.split()[0] if keyword_part else None
                 break
         
-        if not keyword_match:
+        if not keyword:
+            logger.error(f"Could not find keyword in message using line parsing.")
+            # Fallback: try regex for plain text
+            keyword_match = re.search(r'Keyword:\s*([a-zA-Z0-9]+)', message_text)
+            if keyword_match:
+                keyword = keyword_match.group(1)
+        
+        if not keyword:
             logger.error(f"Could not find keyword in message. Message: {message_text}")
             await callback.answer("Error: Could not find keyword in message.", show_alert=True)
             return
         
-        keyword = keyword_match.group(1)
         logger.info(f"Extracted keyword: {keyword}")
         
         # Get pack info

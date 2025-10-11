@@ -164,7 +164,7 @@ async def process_publish_keyword(message: Message, state: FSMContext):
         reply_markup=builder.as_markup()
     )
 
-# ✅ FIXED: Handle publish confirmation - YES (with even shorter callback data)
+# ✅ FIXED: Handle publish confirmation - YES
 @router.callback_query(F.data.startswith(PublishCallback.PUBLISH_CONFIRM_YES))
 async def confirm_publish_yes(callback: CallbackQuery, state: FSMContext, bot: Bot):
     """User confirmed publish - send to owner"""
@@ -226,8 +226,6 @@ async def confirm_publish_yes(callback: CallbackQuery, state: FSMContext, bot: B
         )
         
         # ✅ FIXED: Create even shorter callback data
-        # Use format: user_id:short_name (without keyword)
-        # We'll store the keyword in the message text and extract it from there
         approve_data = f"{PublishCallback.OWNER_APPROVE}{user_id}:{short_name}"
         reject_data = f"{PublishCallback.OWNER_REJECT}{user_id}:{short_name}"
         
@@ -292,41 +290,74 @@ async def confirm_publish_no(callback: CallbackQuery, state: FSMContext):
         ]])
     )
 
-# ✅ FIXED: Owner approves publish - extract keyword from message text
+# ✅ FIXED: Owner approves publish - with detailed debugging
 @router.callback_query(F.data.startswith(PublishCallback.OWNER_APPROVE))
 async def owner_approve_publish(callback: CallbackQuery, bot: Bot):
     """Owner approved publish request"""
-    await callback.answer()
+    logger.info(f"Approve button clicked with data: {callback.data}")
+    await callback.answer("Processing approval...")
     
     try:
         # Parse callback data
         data_parts = callback.data.split(":")[1:]
+        logger.info(f"Parsed data parts: {data_parts}")
+        
+        if len(data_parts) < 2:
+            await callback.answer("Error: Invalid callback data format.", show_alert=True)
+            return
+        
         user_id = int(data_parts[0])
         short_name = data_parts[1]
         
-        # ✅ FIXED: Extract keyword from the message text instead of callback data
+        logger.info(f"Processing approval for user_id: {user_id}, short_name: {short_name}")
+        
+        # ✅ FIXED: Extract keyword from the message text
         message_text = callback.message.text
-        keyword_match = re.search(r"Keyword:</b>\s*<code>([a-zA-Z0-9]+)</code>", message_text)
+        logger.info(f"Message text: {message_text}")
+        
+        # Try different patterns to extract keyword
+        keyword_match = None
+        patterns = [
+            r"Keyword:</b>\s*<code>([a-zA-Z0-9]+)</code>",
+            r"Keyword[^<]*<code>([a-zA-Z0-9]+)</code>",
+            r"keyword[^<]*<code>([a-zA-Z0-9]+)</code>"
+        ]
+        
+        for pattern in patterns:
+            keyword_match = re.search(pattern, message_text, re.IGNORECASE)
+            if keyword_match:
+                break
         
         if not keyword_match:
+            logger.error(f"Could not find keyword in message. Message: {message_text}")
             await callback.answer("Error: Could not find keyword in message.", show_alert=True)
             return
         
         keyword = keyword_match.group(1)
+        logger.info(f"Extracted keyword: {keyword}")
         
         # Get pack info
         pack = await get_pack_by_short_name(short_name)
         if not pack:
+            logger.error(f"Pack not found: {short_name}")
             await callback.answer("Pack not found!", show_alert=True)
             return
         
         pack_name = pack["pack_name"]
         pack_link = f"https://t.me/addstickers/{short_name}"
         
-        # ✅ FIXED: Get first sticker again
+        logger.info(f"Found pack: {pack_name}")
+        
+        # ✅ FIXED: Get first sticker again with error handling
         try:
             sticker_set = await bot.get_sticker_set(short_name)
+            if not sticker_set.stickers:
+                logger.error(f"No stickers found in pack: {short_name}")
+                await callback.answer("Error: No stickers in pack!", show_alert=True)
+                return
+            
             first_sticker_id = sticker_set.stickers[0].file_id
+            logger.info(f"Got first sticker ID: {first_sticker_id[:20]}...")
         except Exception as e:
             logger.error(f"Error getting sticker set for approval: {e}")
             await callback.answer("Error getting sticker set!", show_alert=True)
@@ -341,16 +372,21 @@ async def owner_approve_publish(callback: CallbackQuery, bot: Bot):
         )
         
         if not success:
+            logger.error("Failed to save published pack to database")
             await callback.answer("Error saving to database!", show_alert=True)
             return
+        
+        logger.info("Successfully saved to database")
         
         # Post to publish channel - ONLY STICKER, NO MESSAGE
         if PUBLISH_CHANNEL_ID:
             try:
+                logger.info(f"Posting sticker to channel: {PUBLISH_CHANNEL_ID}")
                 await bot.send_sticker(
                     chat_id=PUBLISH_CHANNEL_ID,
                     sticker=first_sticker_id
                 )
+                logger.info("Successfully posted sticker to channel")
             except Exception as e:
                 logger.error(f"Error posting to channel: {e}")
         
@@ -366,6 +402,7 @@ async def owner_approve_publish(callback: CallbackQuery, bot: Bot):
                     pack_link=pack_link
                 )
             )
+            logger.info("Successfully notified user")
         except Exception as e:
             logger.error(f"Error notifying user: {e}")
         
@@ -378,8 +415,10 @@ async def owner_approve_publish(callback: CallbackQuery, bot: Bot):
             )
         )
         
+        logger.info("Approval process completed successfully")
+        
     except Exception as e:
-        logger.error(f"Error approving publish: {e}")
+        logger.error(f"Error approving publish: {e}", exc_info=True)
         await callback.answer("Error approving publish!", show_alert=True)
 
 # ✅ FIXED: Owner rejects publish

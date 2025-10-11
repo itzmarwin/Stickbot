@@ -107,9 +107,6 @@ async def start_publish_callback(callback: CallbackQuery, state: FSMContext):
         )
         
     except Exception as e:
-        logger.error(f"Error handling inline query: {e}")
-        # Return empty results on error
-        await inline_query.answer([], cache_time=10) as e:
         logger.error(f"Error starting publish flow: {e}")
         await callback.answer("Error starting publish flow.", show_alert=True)
 
@@ -432,4 +429,7 @@ async def inline_query_handler(inline_query: InlineQuery):
             is_personal=False
         )
         
-    except Exception
+    except Exception as e:
+        logger.error(f"Error handling inline query: {e}")
+        # Return empty results on error
+        await inline_query.answer([], cache_time=10)

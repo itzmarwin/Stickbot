@@ -61,23 +61,7 @@ class PackManagementCallback:
     EXTRA_CMD_QUOTLY = "extra_quotly"
     EXTRA_CMD_STICKERS = "extra_stickers"
 
-# Function to get random welcome image
-def get_random_welcome_image():
-    """Get random welcome image from assets folder"""
-    try:
-        assets_path = "assets"
-        if not os.path.exists(assets_path):
-            return None
-        
-        welcome_images = [
-            os.path.join(assets_path, f) for f in os.listdir(assets_path) 
-            if f.startswith("welcome") and f.endswith((".jpg1", ".jpeg", ".png"))
-        ]
-        if welcome_images:
-            return random.choice(welcome_images)
-    except Exception as e:
-        logger.error(f"Error getting welcome image: {e}")
-    return None
+
 
 def get_main_menu_keyboard():
     """Get main menu keyboard - NEW LAYOUT"""
@@ -225,10 +209,10 @@ async def safe_edit_message(callback: CallbackQuery, text: str, reply_markup=Non
             logger.error(f"Error editing message: {e}")
             raise
 
-# Start command handler - UPDATED WITH RANDOM IMAGE
+# Start command handler - IMAGE REMOVED
 @router.message(Command("start"))
 async def cmd_start(message: Message, state: FSMContext):
-    """Handle /start command with random welcome image"""
+    """Handle /start command WITHOUT image"""
     user = message.from_user
     await state.clear()
     
@@ -262,23 +246,8 @@ async def cmd_start(message: Message, state: FSMContext):
         first_name=escape_html(user.first_name)
     )
     
-    # Get random welcome image
-    welcome_image = get_random_welcome_image()
-    
-    # Send with image if available
-    if welcome_image and os.path.exists(welcome_image):
-        try:
-            photo = FSInputFile(welcome_image)
-            await message.answer_photo(
-                photo=photo,
-                caption=start_text,
-                reply_markup=get_main_menu_keyboard()
-            )
-        except Exception as e:
-            logger.error(f"Error sending welcome image: {e}")
-            await message.answer(start_text, reply_markup=get_main_menu_keyboard())
-    else:
-        await message.answer(start_text, reply_markup=get_main_menu_keyboard())
+    # Send text message only - NO IMAGE
+    await message.answer(start_text, reply_markup=get_main_menu_keyboard())
 
 # NEW: Extra Commands callback
 @router.callback_query(F.data == PackManagementCallback.EXTRA_COMMANDS)

@@ -12,7 +12,7 @@ from database import (
     get_user, create_user, update_user_started,
     get_user_packs_paginated, update_pack_name, delete_pack_by_short_name,
     get_pack_by_short_name, create_sticker_pack, increment_sticker_count,
-    get_user_all_packs, update_pack_sticker_count, get_pack_by_name,
+    get_user_all_packs, update_pack_sticker_count,
     is_pack_published  # ✅ ADDED IMPORT
 )
 from templates import (
@@ -147,7 +147,7 @@ def get_pack_options_keyboard(short_name: str):
     # Row 5: Back
     builder.button(text="⬅️ Back", callback_data=PackManagementCallback.BACK_TO_MANAGE)
     
-    builder.adjust(2, 2, 2, 2, 1)  # ✅ Updated for 4 rows of two buttons + back
+    builder.adjust(2, 2, 2, 2, 1)
     return builder.as_markup()
 
 def get_delete_confirmation_keyboard(short_name: str):
@@ -162,60 +162,41 @@ def get_delete_confirmation_keyboard(short_name: str):
 async def safe_edit_message(callback: CallbackQuery, text: str, reply_markup=None):
     """Safely edit message, handling photo messages by sending new message"""
     try:
-        # ✅ OPTIMIZATION: Check message type first
         if callback.message.text:
-            # Fast path: Edit text message
-            await callback.message.edit_text(
-                text,
-                reply_markup=reply_markup
-            )
+            await callback.message.edit_text(text, reply_markup=reply_markup)
         else:
-            # Slow path: Photo/media message - delete and send new
             await callback.message.delete()
-            await callback.message.answer(
-                text,
-                reply_markup=reply_markup
-            )
+            await callback.message.answer(text, reply_markup=reply_markup)
     except TelegramBadRequest as e:
         error_msg = str(e).lower()
         if "message is not modified" in error_msg:
-            # Message content is same, ignore
             pass
         elif "no text in the message" in error_msg:
-            # Fallback: Try delete + send
             try:
                 await callback.message.delete()
-                await callback.message.answer(
-                    text,
-                    reply_markup=reply_markup
-                )
+                await callback.message.answer(text, reply_markup=reply_markup)
             except Exception as fallback_error:
                 logger.error(f"Fallback edit failed: {fallback_error}")
         else:
             logger.error(f"Error editing message: {e}")
             raise
 
-# Start command handler - TEXT ONLY to avoid editing issues
+# Start command handler
 @router.message(Command("start"))
 async def cmd_start(message: Message, state: FSMContext):
     """Handle /start command with main menu"""
     user = message.from_user
-    
-    # Clear any existing FSM state
     await state.clear()
     
-    # Check if user exists
     user_data = await get_user(user.id)
     
     if not user_data:
-        # Create new user
         await create_user(
             user_id=user.id,
             username=user.username,
             first_name=user.first_name
         )
         
-        # Send log to logger group if this is a new user
         if LOG_GROUP_ID:
             try:
                 from templates import NEW_USER_LOG
@@ -229,45 +210,30 @@ async def cmd_start(message: Message, state: FSMContext):
             except Exception as e:
                 logger.error(f"Error sending new user log: {e}")
     else:
-        # Update has_started status
         await update_user_started(user.id)
     
-    # Send welcome message as TEXT ONLY to avoid photo editing issues
-    await message.answer(
-        START_MESSAGE_WITH_IMAGE,
-        reply_markup=get_main_menu_keyboard()
-    )
+    await message.answer(START_MESSAGE_WITH_IMAGE, reply_markup=get_main_menu_keyboard())
 
-# ✅ FIXED: Manage Packs callback
 @router.callback_query(F.data == PackManagementCallback.MANAGE_PACKS)
 async def manage_packs_callback(callback: CallbackQuery):
     """Show manage packs panel"""
-    await callback.answer()  # ✅ INSTANT RESPONSE
+    await callback.answer()
     
     try:
         user_id = callback.from_user.id
         packs, total = await get_user_packs_paginated(user_id)
         
         if total == 0:
-            await safe_edit_message(
-                callback,
-                NO_PACKS_MESSAGE,
-                get_no_packs_keyboard()
-            )
+            await safe_edit_message(callback, NO_PACKS_MESSAGE, get_no_packs_keyboard())
         else:
-            await safe_edit_message(
-                callback,
-                MANAGE_PACKS_MESSAGE,
-                await get_manage_packs_keyboard(user_id)
-            )
+            await safe_edit_message(callback, MANAGE_PACKS_MESSAGE, await get_manage_packs_keyboard(user_id))
     except Exception as e:
         logger.error(f"Error in manage_packs_callback: {e}")
 
-# ✅ FIXED: Pack selected callback
 @router.callback_query(F.data.startswith(PackManagementCallback.PACK_SELECTED))
 async def pack_selected_callback(callback: CallbackQuery):
     """Show options for selected pack"""
-    await callback.answer()  # ✅ INSTANT RESPONSE
+    await callback.answer()
     
     try:
         short_name = callback.data.split(":")[1]
@@ -284,7 +250,6 @@ async def pack_selected_callback(callback: CallbackQuery):
     except Exception as e:
         logger.error(f"Error in pack_selected_callback: {e}")
 
-# Pack info callback (alert popup) - ✅ UPDATED WITH PUBLISH INFO
 @router.callback_query(F.data.startswith(PackManagementCallback.PACK_INFO))
 async def pack_info_callback(callback: CallbackQuery):
     """Show info alert for pack actions"""
@@ -297,7 +262,7 @@ async def pack_info_callback(callback: CallbackQuery):
             message = DELETE_PACK_INFO
         elif info_type == "add":
             message = ADD_STICKER_INFO
-        elif info_type == "publish":  # ✅ ADDED PUBLISH INFO
+        elif info_type == "publish":
             message = PUBLISH_PACK_INFO
         else:
             message = "Information about this action."
@@ -307,11 +272,10 @@ async def pack_info_callback(callback: CallbackQuery):
         logger.error(f"Error in pack_info_callback: {e}")
         await callback.answer("Error showing info.", show_alert=True)
 
-# ✅ FIXED: Rename pack callback
 @router.callback_query(F.data.startswith(PackManagementCallback.RENAME_PACK))
 async def rename_pack_callback(callback: CallbackQuery, state: FSMContext):
     """Start rename pack process"""
-    await callback.answer()  # ✅ INSTANT RESPONSE
+    await callback.answer()
     
     try:
         short_name = callback.data.split(":")[1]
@@ -331,7 +295,6 @@ async def rename_pack_callback(callback: CallbackQuery, state: FSMContext):
     except Exception as e:
         logger.error(f"Error in rename_pack_callback: {e}")
 
-# Handle rename pack name input
 @router.message(PackManagementStates.waiting_for_rename_pack_name)
 async def process_rename_pack_name(message: Message, state: FSMContext, bot: Bot):
     """Process new pack name for renaming"""
@@ -341,7 +304,6 @@ async def process_rename_pack_name(message: Message, state: FSMContext, bot: Bot
     
     new_name = message.text.strip()
     
-    # Validate pack name
     is_valid, error = validate_pack_name(new_name)
     
     if not is_valid:
@@ -351,20 +313,12 @@ async def process_rename_pack_name(message: Message, state: FSMContext, bot: Bot
             await message.reply("Invalid pack name!")
         return
     
-    # Format new pack name
     formatted_name = format_pack_name(new_name)
     
-    # Update pack via bot API
     try:
-        await bot.set_sticker_set_title(
-            name=short_name,
-            title=formatted_name
-        )
-        
-        # Update in database
+        await bot.set_sticker_set_title(name=short_name, title=formatted_name)
         await update_pack_name(short_name, formatted_name)
         
-        # Escape HTML in success message
         escaped_old_name = escape_html(old_name.replace(f" ~ @{BOT_USERNAME}", ""))
         escaped_new_name = escape_html(formatted_name.replace(f" ~ @{BOT_USERNAME}", ""))
         
@@ -372,18 +326,16 @@ async def process_rename_pack_name(message: Message, state: FSMContext, bot: Bot
             PACK_RENAMED_SUCCESS.format(old_name=escaped_old_name, new_name=escaped_new_name),
             reply_markup=get_main_menu_keyboard()
         )
-        
     except Exception as e:
         logger.error(f"Error renaming pack: {e}")
         await message.reply(ERROR_OCCURRED)
     
     await state.clear()
 
-# ✅ FIXED: Delete pack callback
 @router.callback_query(F.data.startswith(PackManagementCallback.DELETE_PACK))
 async def delete_pack_callback(callback: CallbackQuery):
     """Show delete confirmation"""
-    await callback.answer()  # ✅ INSTANT RESPONSE
+    await callback.answer()
     
     try:
         short_name = callback.data.split(":")[1]
@@ -406,11 +358,10 @@ async def delete_pack_callback(callback: CallbackQuery):
     except Exception as e:
         logger.error(f"Error in delete_pack_callback: {e}")
 
-# ✅ FIXED: Confirm delete callback
 @router.callback_query(F.data.startswith(PackManagementCallback.CONFIRM_DELETE))
 async def confirm_delete_callback(callback: CallbackQuery, bot: Bot):
     """Confirm and delete pack"""
-    await callback.answer()  # ✅ INSTANT RESPONSE
+    await callback.answer()
     
     try:
         short_name = callback.data.split(":")[1]
@@ -420,13 +371,9 @@ async def confirm_delete_callback(callback: CallbackQuery, bot: Bot):
             pack_name = pack["pack_name"].replace(f" ~ @{BOT_USERNAME}", "")
             
             try:
-                # Delete pack via bot API
                 await bot.delete_sticker_set(short_name)
-                
-                # Delete from database
                 await delete_pack_by_short_name(short_name)
                 
-                # Escape HTML in success message
                 escaped_pack_name = escape_html(pack_name.replace(f" ~ @{BOT_USERNAME}", ""))
                 
                 await safe_edit_message(
@@ -434,18 +381,16 @@ async def confirm_delete_callback(callback: CallbackQuery, bot: Bot):
                     PACK_DELETED_SUCCESS.format(pack_name=escaped_pack_name),
                     get_back_to_manage_keyboard()
                 )
-                
             except Exception as e:
                 logger.error(f"Error deleting pack: {e}")
                 await safe_edit_message(callback, ERROR_OCCURRED)
     except Exception as e:
         logger.error(f"Error in confirm_delete_callback: {e}")
 
-# ✅ FIXED: Cancel delete callback
 @router.callback_query(F.data.startswith(PackManagementCallback.CANCEL_DELETE))
 async def cancel_delete_callback(callback: CallbackQuery):
     """Cancel delete and go back to pack options"""
-    await callback.answer()  # ✅ INSTANT RESPONSE
+    await callback.answer()
     
     try:
         short_name = callback.data.split(":")[1]
@@ -461,20 +406,18 @@ async def cancel_delete_callback(callback: CallbackQuery):
     except Exception as e:
         logger.error(f"Error in cancel_delete_callback: {e}")
 
-# ✅ FIXED: Add sticker callback
 @router.callback_query(F.data.startswith(PackManagementCallback.ADD_STICKER))
 async def add_sticker_callback(callback: CallbackQuery, state: FSMContext):
-    """Start add sticker process - continuous adding without stop button"""
-    await callback.answer()  # ✅ INSTANT RESPONSE
+    """Start add sticker process"""
+    await callback.answer()
     
     try:
         short_name = callback.data.split(":")[1]
         pack = await get_pack_by_short_name(short_name)
         
         if pack:
-            # Check if pack is full
             if pack.get("sticker_count", 0) >= 120:
-                return  # Already answered
+                return
             
             await state.set_state(PackManagementStates.waiting_for_sticker_to_add)
             await state.update_data(
@@ -486,7 +429,6 @@ async def add_sticker_callback(callback: CallbackQuery, state: FSMContext):
             pack_name = pack["pack_name"].replace(f" ~ @{BOT_USERNAME}", "")
             escaped_pack_name = escape_html(pack_name)
             
-            # Send new message to start fresh session
             await callback.message.delete()
             await callback.message.answer(
                 f"🎨 <b>Add Stickers to {escaped_pack_name}</b>\n\n"
@@ -498,27 +440,23 @@ async def add_sticker_callback(callback: CallbackQuery, state: FSMContext):
     except Exception as e:
         logger.error(f"Error in add_sticker_callback: {e}")
 
-# Handle sticker addition - Continuous adding with simple success message
 @router.message(PackManagementStates.waiting_for_sticker_to_add)
 async def process_sticker_addition(message: Message, state: FSMContext, bot: Bot):
-    """Process sticker addition to pack - continuous mode without stop button"""
+    """Process sticker addition to pack"""
     data = await state.get_data()
     short_name = data.get("short_name")
     pack_data = data.get("pack_data")
     current_count = data.get("sticker_count", 0)
     
-    # Check if pack is full
     if current_count >= 120:
         await message.reply("❌ Pack is full! Cannot add more stickers.")
         await state.clear()
         return
     
-    # Check if replying to a message with media
     if not message.photo and not message.sticker and not message.animation and not message.video:
         await message.reply("⚠️ Please send an image, video, GIF, or sticker to add to your pack.")
         return
     
-    # Get media from message
     media = None
     media_type = None
     
@@ -535,7 +473,6 @@ async def process_sticker_addition(message: Message, state: FSMContext, bot: Bot
         media = message.video
         media_type = "video"
     
-    # Check video size
     if media_type == "video":
         file_size_mb = get_file_size_mb(media.file_size)
         if file_size_mb > MAX_VIDEO_SIZE_MB:
@@ -544,7 +481,6 @@ async def process_sticker_addition(message: Message, state: FSMContext, bot: Bot
     
     processing_msg = await message.reply("⌛ Adding sticker to your pack...")
     
-    # REUSE existing function from kang.py
     success, pack_full = await add_sticker_to_pack(
         bot=bot,
         user_id=message.from_user.id,
@@ -557,7 +493,6 @@ async def process_sticker_addition(message: Message, state: FSMContext, bot: Bot
     )
     
     if success:
-        # Update sticker count in state and database
         new_count = current_count + 1
         await state.update_data(sticker_count=new_count)
         await update_pack_sticker_count(short_name, new_count)
@@ -565,14 +500,12 @@ async def process_sticker_addition(message: Message, state: FSMContext, bot: Bot
         pack_name = pack_data["pack_name"].replace(f" ~ @{BOT_USERNAME}", "")
         pack_link = f"https://t.me/addstickers/{short_name}"
         
-        # Simple success message with pack link button
         success_message = "✅ <b>Sticker added successfully!</b>"
         
         await processing_msg.edit_text(
             success_message,
             reply_markup=get_pack_link_keyboard(pack_link)
         )
-        
     elif pack_full:
         await processing_msg.edit_text(
             "❌ <b>Pack is full!</b>\n\n"
@@ -585,11 +518,10 @@ async def process_sticker_addition(message: Message, state: FSMContext, bot: Bot
             "❌ Failed to add sticker. Please try again with a different file."
         )
 
-# ✅ FIXED: Create new pack callback
 @router.callback_query(F.data == PackManagementCallback.CREATE_NEW_PACK)
 async def create_new_pack_callback(callback: CallbackQuery, state: FSMContext):
-    """Start create new pack process - ask for sticker first"""
-    await callback.answer()  # ✅ INSTANT RESPONSE
+    """Start create new pack process"""
+    await callback.answer()
     
     try:
         await state.set_state(PackManagementStates.waiting_for_first_sticker)
@@ -603,11 +535,9 @@ async def create_new_pack_callback(callback: CallbackQuery, state: FSMContext):
     except Exception as e:
         logger.error(f"Error in create_new_pack_callback: {e}")
 
-# Handle first sticker for new pack
 @router.message(PackManagementStates.waiting_for_first_sticker)
 async def process_first_sticker(message: Message, state: FSMContext):
     """Process the first sticker for new pack"""
-    # Check if message has media
     if not message.photo and not message.sticker and not message.animation and not message.video:
         await message.reply(
             "⚠️ <b>That media is not valid.</b> Please send a proper sticker:\n"
@@ -618,7 +548,6 @@ async def process_first_sticker(message: Message, state: FSMContext):
         )
         return
 
-    # Get media from message
     media = None
     media_type = None
     
@@ -635,14 +564,12 @@ async def process_first_sticker(message: Message, state: FSMContext):
         media = message.video
         media_type = "video"
 
-    # Check video size
     if media_type == "video":
         file_size_mb = get_file_size_mb(media.file_size)
         if file_size_mb > MAX_VIDEO_SIZE_MB:
             await message.reply(VIDEO_TOO_LARGE)
             return
 
-    # Store media in state and ask for pack name
     await state.update_data(
         first_sticker=media,
         first_sticker_type=media_type
@@ -654,13 +581,11 @@ async def process_first_sticker(message: Message, state: FSMContext):
     )
     await state.set_state(PackManagementStates.waiting_for_new_pack_name)
 
-# Handle new pack name input
 @router.message(PackManagementStates.waiting_for_new_pack_name)
 async def process_new_pack_name(message: Message, state: FSMContext, bot: Bot):
     """Process new pack name and create pack with first sticker"""
     pack_name = message.text.strip()
     
-    # Get stored sticker data
     data = await state.get_data()
     first_sticker = data.get("first_sticker")
     first_sticker_type = data.get("first_sticker_type")
@@ -670,16 +595,8 @@ async def process_new_pack_name(message: Message, state: FSMContext, bot: Bot):
         await state.clear()
         return
 
-    # Check if pack name already exists
-    existing_pack = await get_pack_by_name(pack_name)
-    if existing_pack:
-        await message.reply(
-            "❌ <b>Sorry, that pack name is already taken.</b>\n"
-            "Please send a different pack name."
-        )
-        return
+    # ✅ REMOVED: Pack name uniqueness check - multiple users can use same name!
 
-    # Validate pack name length only (allow any characters)
     if len(pack_name) > 64:
         await message.reply("❌ Pack name is too long! Maximum 64 characters.")
         return
@@ -688,11 +605,9 @@ async def process_new_pack_name(message: Message, state: FSMContext, bot: Bot):
         await message.reply("❌ Pack name cannot be empty.")
         return
 
-    # Format pack name and generate short name
     formatted_name = format_pack_name(pack_name)
     short_name = generate_short_name(pack_name, message.from_user.id)
     
-    # Create pack with first sticker
     processing_msg = await message.reply(
         "⌛ <b>Creating your sticker pack...</b>\n"
         "Please wait a moment"
@@ -701,7 +616,6 @@ async def process_new_pack_name(message: Message, state: FSMContext, bot: Bot):
     temp_files = []
     
     try:
-        # Prepare sticker based on media type
         sticker_file = None
         sticker_format = None
         
@@ -749,10 +663,8 @@ async def process_new_pack_name(message: Message, state: FSMContext, bot: Bot):
         if not sticker_file:
             raise Exception("Failed to prepare sticker file")
 
-        # Get random emoji
         random_emoji = get_random_emoji()
         
-        # Create sticker pack with first sticker
         sticker = InputSticker(
             sticker=sticker_file,
             emoji_list=[random_emoji],
@@ -766,7 +678,6 @@ async def process_new_pack_name(message: Message, state: FSMContext, bot: Bot):
             stickers=[sticker]
         )
         
-        # Save to database
         pack_link = f"https://t.me/addstickers/{short_name}"
         await create_sticker_pack(
             user_id=message.from_user.id,
@@ -774,20 +685,15 @@ async def process_new_pack_name(message: Message, state: FSMContext, bot: Bot):
             short_name=short_name
         )
         
-        # Update sticker count to 1
         await update_pack_sticker_count(short_name, 1)
         
-        # Clean up temp files
         cleanup_temp_files(*temp_files)
         
-        # Get all user packs count
         all_packs = await get_user_all_packs(message.from_user.id)
         pack_count = len(all_packs)
         
-        # Escape HTML in pack name
         escaped_pack_name = escape_html(formatted_name)
         
-        # Success message with clickable pack name
         success_message = (
             f"✅ <b>Your sticker pack has been created successfully!</b>\n\n"
             f'<a href="{pack_link}">{escaped_pack_name}</a>'
@@ -802,23 +708,21 @@ async def process_new_pack_name(message: Message, state: FSMContext, bot: Bot):
         logger.error(f"Error creating new pack: {e}")
         cleanup_temp_files(*temp_files)
         
-        # Handle specific errors
         error_msg = str(e)
         if "STICKERSET_INVALID" in error_msg or "invalid" in error_msg.lower():
             await processing_msg.edit_text(
-                "❌ <b>Sorry, that pack name is already taken.</b>\n"
-                "Please try again with a different name."
+                "❌ <b>Failed to create pack.</b>\n"
+                "This might be a temporary issue. Please try again."
             )
         else:
             await processing_msg.edit_text(ERROR_OCCURRED)
     
     await state.clear()
 
-# ✅ FIXED: Navigation callbacks
 @router.callback_query(F.data.startswith(PackManagementCallback.NEXT_PAGE))
 async def next_page_callback(callback: CallbackQuery):
     """Show next page of packs"""
-    await callback.answer()  # ✅ INSTANT RESPONSE
+    await callback.answer()
     
     try:
         page = int(callback.data.split(":")[1])
@@ -835,7 +739,7 @@ async def next_page_callback(callback: CallbackQuery):
 @router.callback_query(F.data.startswith(PackManagementCallback.PREV_PAGE))
 async def prev_page_callback(callback: CallbackQuery):
     """Show previous page of packs"""
-    await callback.answer()  # ✅ INSTANT RESPONSE
+    await callback.answer()
     
     try:
         page = int(callback.data.split(":")[1])
@@ -852,47 +756,31 @@ async def prev_page_callback(callback: CallbackQuery):
 @router.callback_query(F.data == PackManagementCallback.BACK_TO_MANAGE)
 async def back_to_manage_callback(callback: CallbackQuery):
     """Go back to manage packs"""
-    await callback.answer()  # ✅ INSTANT RESPONSE
+    await callback.answer()
     
     try:
         user_id = callback.from_user.id
         packs, total = await get_user_packs_paginated(user_id)
         
         if total == 0:
-            await safe_edit_message(
-                callback,
-                NO_PACKS_MESSAGE,
-                get_no_packs_keyboard()
-            )
+            await safe_edit_message(callback, NO_PACKS_MESSAGE, get_no_packs_keyboard())
         else:
-            await safe_edit_message(
-                callback,
-                MANAGE_PACKS_MESSAGE,
-                await get_manage_packs_keyboard(user_id)
-            )
+            await safe_edit_message(callback, MANAGE_PACKS_MESSAGE, await get_manage_packs_keyboard(user_id))
     except Exception as e:
         logger.error(f"Error in back_to_manage_callback: {e}")
 
 @router.callback_query(F.data == PackManagementCallback.BACK_TO_MAIN)
 async def back_to_main_callback(callback: CallbackQuery):
     """Go back to main menu"""
-    await callback.answer()  # ✅ INSTANT RESPONSE
+    await callback.answer()
     
     try:
-        await safe_edit_message(
-            callback,
-            START_MESSAGE_WITH_IMAGE,
-            get_main_menu_keyboard()
-        )
+        await safe_edit_message(callback, START_MESSAGE_WITH_IMAGE, get_main_menu_keyboard())
     except Exception as e:
         logger.error(f"Error in back_to_main_callback: {e}")
 
-# Cancel handlers
 @router.message(StateFilter(PackManagementStates), Command("cancel"))
 async def cancel_pack_management(message: Message, state: FSMContext):
     """Cancel any pack management operation"""
     await state.clear()
-    await message.reply(
-        "Operation cancelled.",
-        reply_markup=get_main_menu_keyboard()
-    )
+    await message.reply("Operation cancelled.", reply_markup=get_main_menu_keyboard())

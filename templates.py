@@ -68,9 +68,9 @@ Please use a shorter name.
 PROCESSING_MEDIA = "⌛ <b>Grabbing your sticker, hold on...</b>"
 
 ERROR_OCCURRED = """
-❌ <b>An error occurred</b>
-
-Please try again later or contact support.
+⚠️ <b>Oops — something went wrong.</b>
+<b>Don't worry, our team is on it.</b>
+If the issue continues, please report it here: <a href="https://t.me/YourSupportGroup"><b>Support Group</b></a>
 """
 
 # Packs command

@@ -59,9 +59,9 @@ class PackManagementCallback:
 def get_main_menu_keyboard():
     """Get main menu keyboard"""
     builder = InlineKeyboardBuilder()
-    builder.button(text="📦 Manage Packs", callback_data=PackManagementCallback.MANAGE_PACKS)
-    builder.button(text="🆘 Support", url="https://t.me/Samurais_Support_chat")
-    builder.button(text="📢 Updates", url="https://t.me/Samurais_network")
+    builder.button(text=" Manage Packs", callback_data=PackManagementCallback.MANAGE_PACKS)
+    builder.button(text=" Support", url="https://t.me/Samurais_Support_chat")
+    builder.button(text=" Updates", url="https://t.me/Samurais_network")
     builder.adjust(1, 2)
     return builder.as_markup()
 
@@ -103,7 +103,7 @@ async def get_manage_packs_keyboard(user_id: int, page: int = 0):
         pack_name = pack["pack_name"].replace(f" ~ @{BOT_USERNAME}", "")
         if len(pack_name) > 20:
             pack_name = pack_name[:17] + "..."
-        builder.button(text=f"📦 {pack_name}", callback_data=f"{PackManagementCallback.PACK_SELECTED}{pack['short_name']}")
+        builder.button(text=f" {pack_name}", callback_data=f"{PackManagementCallback.PACK_SELECTED}{pack['short_name']}")
     
     # Adjust to 1 button per row
     builder.adjust(1)

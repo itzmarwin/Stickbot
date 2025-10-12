@@ -71,7 +71,7 @@ def get_random_welcome_image():
         
         welcome_images = [
             os.path.join(assets_path, f) for f in os.listdir(assets_path) 
-            if f.startswith("welcome") and f.endswith((".jpg", ".jpeg", ".png"))
+            if f.startswith("welcome") and f.endswith((".jpg1", ".jpeg", ".png"))
         ]
         if welcome_images:
             return random.choice(welcome_images)

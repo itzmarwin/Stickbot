@@ -1,5 +1,6 @@
 import logging
 import os
+import random
 from aiogram import Router, F, Bot
 from aiogram.types import Message, CallbackQuery, BufferedInputFile, FSInputFile, InputSticker
 from aiogram.filters import Command, StateFilter
@@ -24,7 +25,8 @@ from templates import (
     VIDEO_COMPRESSION_FAILED, ERROR_OCCURRED, PROCESSING_MEDIA,
     RENAME_PACK_INFO, DELETE_PACK_INFO, ADD_STICKER_INFO,
     RATE_LIMIT_MESSAGE, STICKER_ADDING_IN_PROGRESS,
-    PUBLISH_PACK_INFO
+    PUBLISH_PACK_INFO, EXTRA_COMMANDS_MESSAGE, AFK_INFO_MESSAGE,
+    QUOTLY_INFO_MESSAGE, STICKERS_INFO_MESSAGE
 )
 from utils.fsm_states import PackManagementStates
 from utils.helpers import validate_pack_name, format_pack_name, generate_short_name, get_file_size_mb
@@ -54,14 +56,57 @@ class PackManagementCallback:
     PREV_PAGE = "prev_page:"
     BACK_TO_MANAGE = "back_to_manage"
     BACK_TO_MAIN = "back_to_main"
+    EXTRA_COMMANDS = "extra_commands"
+    EXTRA_CMD_AFK = "extra_afk"
+    EXTRA_CMD_QUOTLY = "extra_quotly"
+    EXTRA_CMD_STICKERS = "extra_stickers"
+
+# Function to get random welcome image
+def get_random_welcome_image():
+    """Get random welcome image from assets folder"""
+    try:
+        assets_path = "assets"
+        if not os.path.exists(assets_path):
+            return None
+        
+        welcome_images = [
+            os.path.join(assets_path, f) for f in os.listdir(assets_path) 
+            if f.startswith("welcome") and f.endswith((".jpg", ".jpeg", ".png"))
+        ]
+        if welcome_images:
+            return random.choice(welcome_images)
+    except Exception as e:
+        logger.error(f"Error getting welcome image: {e}")
+    return None
 
 def get_main_menu_keyboard():
-    """Get main menu keyboard"""
+    """Get main menu keyboard - NEW LAYOUT"""
     builder = InlineKeyboardBuilder()
-    builder.button(text="𝗠𝗮𝗻𝗮𝗴𝗲 𝗣𝗮𝗰𝗸𝘀", callback_data=PackManagementCallback.MANAGE_PACKS)
-    builder.button(text="𝗦𝘂𝗽𝗽𝗼𝗿𝘁", url="https://t.me/Samurais_Support_chat")
-    builder.button(text="𝗨𝗽𝗱𝗮𝘁𝗲𝘀", url="https://t.me/Samurais_network")
-    builder.adjust(1, 2)
+    # Row 1: Add to Group
+    builder.button(text="➕ 𝗔𝗱𝗱 𝗠𝗲 𝗜𝗻 𝗬𝗼𝘂𝗿 𝗚𝗿𝗼𝘂𝗽", url=f"https://t.me/{BOT_USERNAME}?startgroup=true")
+    # Row 2: Extra Commands & Manage Packs
+    builder.button(text="📚 𝗘𝘅𝘁𝗿𝗮 𝗖𝗼𝗺𝗺𝗮𝗻𝗱𝘀", callback_data=PackManagementCallback.EXTRA_COMMANDS)
+    builder.button(text="📦 𝗠𝗮𝗻𝗮𝗴𝗲 𝗣𝗮𝗰𝗸𝘀", callback_data=PackManagementCallback.MANAGE_PACKS)
+    # Row 3: Support & Updates
+    builder.button(text="💬 𝗦𝘂𝗽𝗽𝗼𝗿𝘁", url="https://t.me/Samurais_Support_chat")
+    builder.button(text="📢 𝗨𝗽𝗱𝗮𝘁𝗲𝘀", url="https://t.me/Samurais_network")
+    builder.adjust(1, 2, 2)
+    return builder.as_markup()
+
+def get_extra_commands_keyboard():
+    """Get extra commands keyboard"""
+    builder = InlineKeyboardBuilder()
+    builder.button(text="💤 𝗔𝗙𝗞", callback_data=PackManagementCallback.EXTRA_CMD_AFK)
+    builder.button(text="💬 𝗤𝘂𝗼𝘁𝗹𝘆", callback_data=PackManagementCallback.EXTRA_CMD_QUOTLY)
+    builder.button(text="🎨 𝗦𝘁𝗶𝗰𝗸𝗲𝗿𝘀", callback_data=PackManagementCallback.EXTRA_CMD_STICKERS)
+    builder.button(text="⬅️ 𝗕𝗮𝗰𝗸", callback_data=PackManagementCallback.BACK_TO_MAIN)
+    builder.adjust(3, 1)
+    return builder.as_markup()
+
+def get_back_to_extra_keyboard():
+    """Get back to extra commands keyboard"""
+    builder = InlineKeyboardBuilder()
+    builder.button(text="⬅️ 𝗕𝗮𝗰𝗸", callback_data=PackManagementCallback.EXTRA_COMMANDS)
     return builder.as_markup()
 
 def get_back_to_main_keyboard():
@@ -180,10 +225,10 @@ async def safe_edit_message(callback: CallbackQuery, text: str, reply_markup=Non
             logger.error(f"Error editing message: {e}")
             raise
 
-# Start command handler
+# Start command handler - UPDATED WITH RANDOM IMAGE
 @router.message(Command("start"))
 async def cmd_start(message: Message, state: FSMContext):
-    """Handle /start command with main menu"""
+    """Handle /start command with random welcome image"""
     user = message.from_user
     await state.clear()
     
@@ -211,7 +256,69 @@ async def cmd_start(message: Message, state: FSMContext):
     else:
         await update_user_started(user.id)
     
-    await message.answer(START_MESSAGE_WITH_IMAGE, reply_markup=get_main_menu_keyboard())
+    # Format message with clickable user name
+    start_text = START_MESSAGE_WITH_IMAGE.format(
+        user_id=user.id,
+        first_name=escape_html(user.first_name)
+    )
+    
+    # Get random welcome image
+    welcome_image = get_random_welcome_image()
+    
+    # Send with image if available
+    if welcome_image and os.path.exists(welcome_image):
+        try:
+            photo = FSInputFile(welcome_image)
+            await message.answer_photo(
+                photo=photo,
+                caption=start_text,
+                reply_markup=get_main_menu_keyboard()
+            )
+        except Exception as e:
+            logger.error(f"Error sending welcome image: {e}")
+            await message.answer(start_text, reply_markup=get_main_menu_keyboard())
+    else:
+        await message.answer(start_text, reply_markup=get_main_menu_keyboard())
+
+# NEW: Extra Commands callback
+@router.callback_query(F.data == PackManagementCallback.EXTRA_COMMANDS)
+async def extra_commands_callback(callback: CallbackQuery):
+    """Show extra commands menu"""
+    await callback.answer()
+    try:
+        await safe_edit_message(callback, EXTRA_COMMANDS_MESSAGE, get_extra_commands_keyboard())
+    except Exception as e:
+        logger.error(f"Error in extra_commands_callback: {e}")
+
+# NEW: AFK Info callback
+@router.callback_query(F.data == PackManagementCallback.EXTRA_CMD_AFK)
+async def extra_afk_callback(callback: CallbackQuery):
+    """Show AFK feature info"""
+    await callback.answer()
+    try:
+        await safe_edit_message(callback, AFK_INFO_MESSAGE, get_back_to_extra_keyboard())
+    except Exception as e:
+        logger.error(f"Error in extra_afk_callback: {e}")
+
+# NEW: Quotly Info callback
+@router.callback_query(F.data == PackManagementCallback.EXTRA_CMD_QUOTLY)
+async def extra_quotly_callback(callback: CallbackQuery):
+    """Show Quotly feature info"""
+    await callback.answer()
+    try:
+        await safe_edit_message(callback, QUOTLY_INFO_MESSAGE, get_back_to_extra_keyboard())
+    except Exception as e:
+        logger.error(f"Error in extra_quotly_callback: {e}")
+
+# NEW: Stickers Info callback
+@router.callback_query(F.data == PackManagementCallback.EXTRA_CMD_STICKERS)
+async def extra_stickers_callback(callback: CallbackQuery):
+    """Show Stickers feature info"""
+    await callback.answer()
+    try:
+        await safe_edit_message(callback, STICKERS_INFO_MESSAGE, get_back_to_extra_keyboard())
+    except Exception as e:
+        logger.error(f"Error in extra_stickers_callback: {e}")
 
 @router.callback_query(F.data == PackManagementCallback.MANAGE_PACKS)
 async def manage_packs_callback(callback: CallbackQuery):
@@ -772,7 +879,12 @@ async def back_to_main_callback(callback: CallbackQuery):
     await callback.answer()
     
     try:
-        await safe_edit_message(callback, START_MESSAGE_WITH_IMAGE, get_main_menu_keyboard())
+        user = callback.from_user
+        start_text = START_MESSAGE_WITH_IMAGE.format(
+            user_id=user.id,
+            first_name=escape_html(user.first_name)
+        )
+        await safe_edit_message(callback, start_text, get_main_menu_keyboard())
     except Exception as e:
         logger.error(f"Error in back_to_main_callback: {e}")
 

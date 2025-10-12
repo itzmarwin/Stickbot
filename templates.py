@@ -162,9 +162,7 @@ Use the buttons below to get started!
 """
 
 MANAGE_PACKS_MESSAGE = """
-📦 <b>Your Sticker Packs</b>
-
-Select a pack to manage or create a new one:
+<b>Your Sticker Packs</b>
 """
 
 NO_PACKS_MESSAGE = """

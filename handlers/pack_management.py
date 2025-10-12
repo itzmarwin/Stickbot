@@ -129,19 +129,19 @@ def get_pack_options_keyboard(short_name: str):
     builder = InlineKeyboardBuilder()
     
     # Row 1: Rename Pack
-    builder.button(text="✏️ Rename Pack", callback_data=f"{PackManagementCallback.RENAME_PACK}{short_name}")
+    builder.button(text="✏️ 𝗥𝗲𝗻𝗮𝗺𝗲 𝗣𝗮𝗰𝗸", callback_data=f"{PackManagementCallback.RENAME_PACK}{short_name}")
     builder.button(text="ℹ️", callback_data=f"{PackManagementCallback.PACK_INFO}rename")
     
     # Row 2: Add Sticker
-    builder.button(text="➕ Add Sticker", callback_data=f"{PackManagementCallback.ADD_STICKER}{short_name}")
+    builder.button(text="➕ 𝗔𝗱𝗱 𝗦𝘁𝗶𝗰𝗸𝗲𝗿", callback_data=f"{PackManagementCallback.ADD_STICKER}{short_name}")
     builder.button(text="ℹ️", callback_data=f"{PackManagementCallback.PACK_INFO}add")
     
     # Row 3: Delete Pack
-    builder.button(text="🗑️ Delete Pack", callback_data=f"{PackManagementCallback.DELETE_PACK}{short_name}")
+    builder.button(text="🗑️ 𝗗𝗲𝗹𝗲𝘁𝗲 𝗣𝗮𝗰𝗸", callback_data=f"{PackManagementCallback.DELETE_PACK}{short_name}")
     builder.button(text="ℹ️", callback_data=f"{PackManagementCallback.PACK_INFO}delete")
     
     # ✅ Row 4: Publish Pack (NEW)
-    builder.button(text="📤 Publish Pack", callback_data=f"{PublishCallback.PUBLISH_PACK}{short_name}")
+    builder.button(text="📤 𝗟𝗮𝘂𝗻𝗰𝗵 𝗣𝗮𝗰𝗸", callback_data=f"{PublishCallback.PUBLISH_PACK}{short_name}")
     builder.button(text="ℹ️", callback_data=f"{PackManagementCallback.PACK_INFO}publish")
     
     # Row 5: Back

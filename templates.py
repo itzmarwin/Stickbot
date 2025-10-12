@@ -1,4 +1,91 @@
-START_MESSAGE = "nigga"
+# START MESSAGE - Updated with user's first name (CLICKABLE)
+START_MESSAGE_WITH_IMAGE = """
+────「  ꜱᴛɪᴄᴋᴇʀ ᴋᴀɴɢ 」────
+✦ ʜᴇʏ <a href="tg://user?id={user_id}">{first_name}</a>...  
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌  
+
+ɪ ᴀᴍ ʏᴏᴜʀ ꜱᴛɪᴄᴋᴇʀ ᴄᴏᴍᴘᴀɴɪᴏɴ 💫  
+ᴡɪᴛʜ ᴍᴇ ʏᴏᴜ ᴄᴀɴ:  
+➤ ᴋᴀɴɢ ꜱᴛɪᴄᴋᴇʀꜱ ɪɴ ᴏɴᴇ ᴛᴀᴘ  
+➤ ᴍᴀᴋᴇ ʏᴏᴜʀ ᴏᴡɴ ᴘᴀᴄᴋꜱ  
+➤ ᴍᴀɴᴀɢᴇ & ꜱʜᴀʀᴇ ᴇᴀꜱɪʟʏ  
+
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌  
+ᴘʀᴇꜱꜱ ᴛʜᴇ ʙᴜᴛᴛᴏɴꜱ ʙᴇʟᴏᴡ ᴛᴏ ꜱᴛᴀʀᴛ
+"""
+
+# EXTRA COMMANDS HELP MESSAGE
+EXTRA_COMMANDS_MESSAGE = """
+<b>📚 Extra Commands</b>
+
+Choose a feature to learn more:
+"""
+
+# AFK FEATURE INFO
+AFK_INFO_MESSAGE = """
+<b>💤 AFK (Away From Keyboard)</b>
+
+<b>How it works:</b>
+When you're away, set AFK mode and the bot will automatically reply to people who mention you.
+
+<b>Commands:</b>
+• <code>/afk</code> - Set AFK with optional reason
+• <code>/afk [reason]</code> - Set AFK with custom reason
+
+<b>Example:</b>
+<code>/afk Sleeping 😴</code>
+
+<b>Auto-disable:</b>
+AFK automatically turns off when you send a message.
+"""
+
+# QUOTLY FEATURE INFO
+QUOTLY_INFO_MESSAGE = """
+<b>💬 Quotly - Message to Sticker</b>
+
+<b>How it works:</b>
+Convert any message into a beautiful quote sticker!
+
+<b>Command:</b>
+• <code>/q</code> - Reply to any message
+
+<b>Features:</b>
+• Works with text, images, videos
+• Automatically formats quotes
+• Creates instant stickers
+• Preserves user info & timestamp
+
+<b>Usage:</b>
+Just reply to any message with <code>/q</code>
+"""
+
+# STICKERS FEATURE INFO
+STICKERS_INFO_MESSAGE = """
+<b>🎨 Sticker Features</b>
+
+<b>Available Commands:</b>
+
+<b>1. Kang Stickers</b>
+• <code>/kang</code> - Reply to any sticker/image/video/GIF
+• Adds to your personal sticker pack
+• Auto-creates new pack if needed
+
+<b>2. Get Sticker Files</b>
+• <code>/getsticker</code> - Get static sticker as image
+• <code>/getvidsticker</code> - Get video sticker as MP4
+• <code>/stickerid</code> - Get sticker's file ID
+
+<b>3. Manage Packs</b>
+• Use "Manage Packs" button below
+• Rename, delete, add stickers
+• Publish packs for sharing
+
+<b>Supported formats:</b>
+✦ Images (PNG, JPG, WebP)
+✦ Videos (MP4, WebM - max 4MB)
+✦ GIFs & Animated stickers
+"""
+
 HELP_MESSAGE = "nigga"
 
 # Kang command
@@ -148,18 +235,6 @@ GETVIDSTICKER_PROCESSING = "⏳ <b>Processing your video sticker...</b>"
 # Success messages
 STICKER_CONVERSION_SUCCESS = "✅ <b>Here's your sticker as an image:</b>"
 VIDEO_STICKER_CONVERSION_SUCCESS = "✅ <b>Here's your sticker as a video:</b>"
-
-# Start command templates
-START_MESSAGE_WITH_IMAGE = """
-🎨 <b>Welcome to Sticker Kang Bot!</b>
-
-Create your own sticker packs easily!
-• Convert images, videos, GIFs to stickers
-• Manage multiple packs
-• Publish your creations
-
-Use the buttons below to get started!
-"""
 
 MANAGE_PACKS_MESSAGE = """
 <b>Your Sticker Packs</b>

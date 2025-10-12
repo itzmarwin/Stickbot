@@ -1,5 +1,7 @@
 import re
 import unicodedata
+import time
+import random
 from typing import Tuple
 from config import MAX_PACK_NAME_LENGTH, BOT_USERNAME
 
@@ -35,8 +37,12 @@ def validate_pack_name(name: str) -> Tuple[bool, str]:
 
 def generate_short_name(pack_name: str, user_id: int) -> str:
     """
-    Generate unique short name for sticker pack
-    Format: {cleaned_pack_name}_{user_id}_by_{bot_username}
+    Generate UNIQUE short name for sticker pack with timestamp
+    Format: {cleaned_name}_{timestamp}_{user_id}_by_{bot}
+    
+    This ensures EVERY pack gets a unique short_name even if:
+    - Same user creates multiple packs with same name
+    - Pack names are identical after cleaning
     """
     # Normalize Unicode to extract ASCII equivalents
     normalized = unicodedata.normalize('NFKD', pack_name)
@@ -47,37 +53,44 @@ def generate_short_name(pack_name: str, user_id: int) -> str:
         if char.isalnum() and ord(char) < 128:
             cleaned += char.lower()
     
-    # If nothing left after cleaning, use user_id based default
+    # If nothing left after cleaning, use default
     if not cleaned or len(cleaned) == 0:
-        cleaned = f"pack{str(user_id)[-6:]}"
+        cleaned = "pack"
     
     # Ensure it starts with alphanumeric
     if cleaned and not cleaned[0].isalnum():
         cleaned = 'p' + cleaned
     
-    # Limit length
-    if len(cleaned) > 20:
-        cleaned = cleaned[:20]
+    # Limit cleaned name length to leave room for timestamp
+    if len(cleaned) > 12:
+        cleaned = cleaned[:12]
+    
+    # ✅ ADD TIMESTAMP for uniqueness (last 6 digits of milliseconds)
+    timestamp = int(time.time() * 1000) % 1000000
+    
+    # ✅ ADD RANDOM 3-digit number for extra safety
+    random_suffix = random.randint(100, 999)
     
     # Get bot username without @ and ensure it's lowercase
     bot_user = BOT_USERNAME.replace('@', '').lower()
     
-    # Create short name
-    short_name = f"{cleaned}_{user_id}_by_{bot_user}"
+    # ✅ Create UNIQUE short name with timestamp
+    short_name = f"{cleaned}{timestamp}{random_suffix}_{user_id}_by_{bot_user}"
     
-    # Ensure total length is under 64 characters
+    # Ensure total length is under 64 characters (Telegram limit)
     if len(short_name) > 64:
-        max_cleaned_length = 64 - len(f"_{user_id}_by_{bot_user}")
-        if max_cleaned_length > 0:
-            cleaned = cleaned[:max_cleaned_length]
-            short_name = f"{cleaned}_{user_id}_by_{bot_user}"
-        else:
-            short_name = f"p{user_id}_by_{bot_user}"
+        # Fallback: Use shorter format
+        short_name = f"p{timestamp}{random_suffix}_{user_id}_by_{bot_user}"
     
-    # Final validation
+    # If still too long, use minimal format
+    if len(short_name) > 64:
+        short_name = f"p{timestamp}_{user_id}"[:64]
+    
+    # Final validation - ensure it matches Telegram's pattern
     pattern = r'^[a-z0-9_]+$'
     if not re.match(pattern, short_name):
-        short_name = f"pack{user_id}_by_{bot_user}"
+        # Ultimate fallback with timestamp
+        short_name = f"pack{timestamp}_{user_id}_by_{bot_user}"
     
     return short_name
 

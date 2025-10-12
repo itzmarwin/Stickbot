@@ -16,14 +16,14 @@ START_MESSAGE_WITH_IMAGE = """
 
 # EXTRA COMMANDS HELP MESSAGE
 EXTRA_COMMANDS_MESSAGE = """
-<b>📚 Extra Commands</b>
+<b>Extra Commands</b>
 
 Choose a feature to learn more:
 """
 
 # AFK FEATURE INFO
 AFK_INFO_MESSAGE = """
-<b>💤 AFK (Away From Keyboard)</b>
+<b>AFK (Away From Keyboard)</b>
 
 <b>How it works:</b>
 When you're away, set AFK mode and the bot will automatically reply to people who mention you.
@@ -61,7 +61,7 @@ Just reply to any message with <code>/q</code>
 
 # STICKERS FEATURE INFO
 STICKERS_INFO_MESSAGE = """
-<b>🎨 Sticker Features</b>
+<b>Sticker Features</b>
 
 <b>Available Commands:</b>
 

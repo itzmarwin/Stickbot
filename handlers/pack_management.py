@@ -67,22 +67,22 @@ def get_main_menu_keyboard():
     """Get main menu keyboard - NEW LAYOUT"""
     builder = InlineKeyboardBuilder()
     # Row 1: Add to Group
-    builder.button(text="➕ 𝗔𝗱𝗱 𝗠𝗲 𝗜𝗻 𝗬𝗼𝘂𝗿 𝗚𝗿𝗼𝘂𝗽", url=f"https://t.me/{BOT_USERNAME}?startgroup=true")
+    builder.button(text="𝗔𝗱𝗱 𝗠𝗲 𝗜𝗻 𝗬𝗼𝘂𝗿 𝗚𝗿𝗼𝘂𝗽", url=f"https://t.me/stickerkangbot?startgroup=true")
     # Row 2: Extra Commands & Manage Packs
-    builder.button(text="📚 𝗘𝘅𝘁𝗿𝗮 𝗖𝗼𝗺𝗺𝗮𝗻𝗱𝘀", callback_data=PackManagementCallback.EXTRA_COMMANDS)
-    builder.button(text="📦 𝗠𝗮𝗻𝗮𝗴𝗲 𝗣𝗮𝗰𝗸𝘀", callback_data=PackManagementCallback.MANAGE_PACKS)
+    builder.button(text="𝗘𝘅𝘁𝗿𝗮 𝗖𝗼𝗺𝗺𝗮𝗻𝗱𝘀", callback_data=PackManagementCallback.EXTRA_COMMANDS)
+    builder.button(text="𝗠𝗮𝗻𝗮𝗴𝗲 𝗣𝗮𝗰𝗸𝘀", callback_data=PackManagementCallback.MANAGE_PACKS)
     # Row 3: Support & Updates
-    builder.button(text="💬 𝗦𝘂𝗽𝗽𝗼𝗿𝘁", url="https://t.me/Samurais_Support_chat")
-    builder.button(text="📢 𝗨𝗽𝗱𝗮𝘁𝗲𝘀", url="https://t.me/Samurais_network")
+    builder.button(text="𝗦𝘂𝗽𝗽𝗼𝗿𝘁", url="https://t.me/Samurais_Support_chat")
+    builder.button(text="𝗨𝗽𝗱𝗮𝘁𝗲𝘀", url="https://t.me/Samurais_network")
     builder.adjust(1, 2, 2)
     return builder.as_markup()
 
 def get_extra_commands_keyboard():
     """Get extra commands keyboard"""
     builder = InlineKeyboardBuilder()
-    builder.button(text="💤 𝗔𝗙𝗞", callback_data=PackManagementCallback.EXTRA_CMD_AFK)
-    builder.button(text="💬 𝗤𝘂𝗼𝘁𝗹𝘆", callback_data=PackManagementCallback.EXTRA_CMD_QUOTLY)
-    builder.button(text="🎨 𝗦𝘁𝗶𝗰𝗸𝗲𝗿𝘀", callback_data=PackManagementCallback.EXTRA_CMD_STICKERS)
+    builder.button(text="𝗔𝗙𝗞", callback_data=PackManagementCallback.EXTRA_CMD_AFK)
+    builder.button(text="𝗤𝘂𝗼𝘁𝗹𝘆", callback_data=PackManagementCallback.EXTRA_CMD_QUOTLY)
+    builder.button(text="𝗦𝘁𝗶𝗰𝗸𝗲𝗿𝘀", callback_data=PackManagementCallback.EXTRA_CMD_STICKERS)
     builder.button(text="⬅️ 𝗕𝗮𝗰𝗸", callback_data=PackManagementCallback.BACK_TO_MAIN)
     builder.adjust(3, 1)
     return builder.as_markup()

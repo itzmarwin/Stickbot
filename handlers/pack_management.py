@@ -13,7 +13,7 @@ from database import (
     get_user_packs_paginated, update_pack_name, delete_pack_by_short_name,
     get_pack_by_short_name, create_sticker_pack, increment_sticker_count,
     get_user_all_packs, update_pack_sticker_count,
-    is_pack_published  # ✅ ADDED IMPORT
+    is_pack_published
 )
 from templates import (
     START_MESSAGE_WITH_IMAGE, MANAGE_PACKS_MESSAGE, NO_PACKS_MESSAGE,
@@ -24,7 +24,7 @@ from templates import (
     VIDEO_COMPRESSION_FAILED, ERROR_OCCURRED, PROCESSING_MEDIA,
     RENAME_PACK_INFO, DELETE_PACK_INFO, ADD_STICKER_INFO,
     RATE_LIMIT_MESSAGE, STICKER_ADDING_IN_PROGRESS,
-    PUBLISH_PACK_INFO  # ✅ ADDED IMPORT
+    PUBLISH_PACK_INFO
 )
 from utils.fsm_states import PackManagementStates
 from utils.helpers import validate_pack_name, format_pack_name, generate_short_name, get_file_size_mb
@@ -33,7 +33,6 @@ from utils.html_utils import escape_html
 from handlers.kang import add_sticker_to_pack, get_random_emoji
 from config import BOT_USERNAME, MAX_VIDEO_SIZE_MB, LOG_GROUP_ID
 
-# ✅ ADDED PUBLISH IMPORT
 from handlers.publish import PublishCallback
 
 logger = logging.getLogger(__name__)
@@ -59,36 +58,36 @@ class PackManagementCallback:
 def get_main_menu_keyboard():
     """Get main menu keyboard"""
     builder = InlineKeyboardBuilder()
-    builder.button(text=" Manage Packs", callback_data=PackManagementCallback.MANAGE_PACKS)
-    builder.button(text=" Support", url="https://t.me/Samurais_Support_chat")
-    builder.button(text=" Updates", url="https://t.me/Samurais_network")
+    builder.button(text="𝗠𝗮𝗻𝗮𝗴𝗲 𝗣𝗮𝗰𝗸𝘀", callback_data=PackManagementCallback.MANAGE_PACKS)
+    builder.button(text="𝗦𝘂𝗽𝗽𝗼𝗿𝘁", url="https://t.me/Samurais_Support_chat")
+    builder.button(text="𝗨𝗽𝗱𝗮𝘁𝗲𝘀", url="https://t.me/Samurais_network")
     builder.adjust(1, 2)
     return builder.as_markup()
 
 def get_back_to_main_keyboard():
     """Get back to main menu keyboard"""
     builder = InlineKeyboardBuilder()
-    builder.button(text="⬅️ Back", callback_data=PackManagementCallback.BACK_TO_MAIN)
+    builder.button(text="⬅️ 𝗕𝗮𝗰𝗸", callback_data=PackManagementCallback.BACK_TO_MAIN)
     return builder.as_markup()
 
 def get_back_to_manage_keyboard():
     """Get back to manage packs keyboard"""
     builder = InlineKeyboardBuilder()
-    builder.button(text="⬅️ Back", callback_data=PackManagementCallback.BACK_TO_MANAGE)
+    builder.button(text="⬅️ 𝗕𝗮𝗰𝗸", callback_data=PackManagementCallback.BACK_TO_MANAGE)
     return builder.as_markup()
 
 def get_no_packs_keyboard():
     """Get keyboard for when user has no packs"""
     builder = InlineKeyboardBuilder()
-    builder.button(text="🆕 Create New Pack", callback_data=PackManagementCallback.CREATE_NEW_PACK)
-    builder.button(text="⬅️ Back", callback_data=PackManagementCallback.BACK_TO_MAIN)
+    builder.button(text="🆕 𝗖𝗿𝗲𝗮𝘁𝗲 𝗡𝗲𝘄 𝗣𝗮𝗰𝗸", callback_data=PackManagementCallback.CREATE_NEW_PACK)
+    builder.button(text="⬅️ 𝗕𝗮𝗰𝗸", callback_data=PackManagementCallback.BACK_TO_MAIN)
     builder.adjust(1, 1)
     return builder.as_markup()
 
 def get_pack_link_keyboard(pack_link: str):
     """Get pack link keyboard"""
     builder = InlineKeyboardBuilder()
-    builder.button(text="🔗 Pack Link", url=pack_link)
+    builder.button(text="🔗 𝗣𝗮𝗰𝗸 𝗟𝗶𝗻𝗸", url=pack_link)
     builder.adjust(1)
     return builder.as_markup()
 
@@ -103,7 +102,7 @@ async def get_manage_packs_keyboard(user_id: int, page: int = 0):
         pack_name = pack["pack_name"].replace(f" ~ @{BOT_USERNAME}", "")
         if len(pack_name) > 20:
             pack_name = pack_name[:17] + "..."
-        builder.button(text=f" {pack_name}", callback_data=f"{PackManagementCallback.PACK_SELECTED}{pack['short_name']}")
+        builder.button(text=f"{pack_name}", callback_data=f"{PackManagementCallback.PACK_SELECTED}{pack['short_name']}")
     
     # Adjust to 1 button per row
     builder.adjust(1)
@@ -112,14 +111,14 @@ async def get_manage_packs_keyboard(user_id: int, page: int = 0):
     action_builder = InlineKeyboardBuilder()
     
     if page > 0:
-        action_builder.button(text="⬅️ Previous", callback_data=f"{PackManagementCallback.PREV_PAGE}{page-1}")
+        action_builder.button(text="⬅️ 𝗣𝗿𝗲𝘃𝗶𝗼𝘂𝘀", callback_data=f"{PackManagementCallback.PREV_PAGE}{page-1}")
     
-    action_builder.button(text="🆕 Create New Pack", callback_data=PackManagementCallback.CREATE_NEW_PACK)
+    action_builder.button(text="🆕 𝗖𝗿𝗲𝗮𝘁𝗲 𝗡𝗲𝘄 𝗣𝗮𝗰𝗸", callback_data=PackManagementCallback.CREATE_NEW_PACK)
     
     if (page + 1) * 6 < total:
-        action_builder.button(text="Next ➡️", callback_data=f"{PackManagementCallback.NEXT_PAGE}{page+1}")
+        action_builder.button(text="𝗡𝗲𝘅𝘁 ➡️", callback_data=f"{PackManagementCallback.NEXT_PAGE}{page+1}")
     
-    action_builder.button(text="⬅️ Back", callback_data=PackManagementCallback.BACK_TO_MAIN)
+    action_builder.button(text="⬅️ 𝗕𝗮𝗰𝗸", callback_data=PackManagementCallback.BACK_TO_MAIN)
     action_builder.adjust(2, 1, 1)
     
     return builder.attach(action_builder).as_markup()
@@ -140,12 +139,12 @@ def get_pack_options_keyboard(short_name: str):
     builder.button(text="🗑️ 𝗗𝗲𝗹𝗲𝘁𝗲 𝗣𝗮𝗰𝗸", callback_data=f"{PackManagementCallback.DELETE_PACK}{short_name}")
     builder.button(text="ℹ️", callback_data=f"{PackManagementCallback.PACK_INFO}delete")
     
-    # ✅ Row 4: Publish Pack (NEW)
+    # Row 4: Publish Pack
     builder.button(text="📤 𝗟𝗮𝘂𝗻𝗰𝗵 𝗣𝗮𝗰𝗸", callback_data=f"{PublishCallback.PUBLISH_PACK}{short_name}")
     builder.button(text="ℹ️", callback_data=f"{PackManagementCallback.PACK_INFO}publish")
     
     # Row 5: Back
-    builder.button(text="⬅️ Back", callback_data=PackManagementCallback.BACK_TO_MANAGE)
+    builder.button(text="⬅️ 𝗕𝗮𝗰𝗸", callback_data=PackManagementCallback.BACK_TO_MANAGE)
     
     builder.adjust(2, 2, 2, 2, 1)
     return builder.as_markup()
@@ -153,9 +152,9 @@ def get_pack_options_keyboard(short_name: str):
 def get_delete_confirmation_keyboard(short_name: str):
     """Get delete confirmation keyboard"""
     builder = InlineKeyboardBuilder()
-    builder.button(text="✅ Confirm", callback_data=f"{PackManagementCallback.CONFIRM_DELETE}{short_name}")
-    builder.button(text="❌ Cancel", callback_data=f"{PackManagementCallback.CANCEL_DELETE}{short_name}")
-    builder.button(text="⬅️ Back", callback_data=PackManagementCallback.BACK_TO_MANAGE)
+    builder.button(text="✅ 𝗖𝗼𝗻𝗳𝗶𝗿𝗺", callback_data=f"{PackManagementCallback.CONFIRM_DELETE}{short_name}")
+    builder.button(text="❌ 𝗖𝗮𝗻𝗰𝗲𝗹", callback_data=f"{PackManagementCallback.CANCEL_DELETE}{short_name}")
+    builder.button(text="⬅️ 𝗕𝗮𝗰𝗸", callback_data=PackManagementCallback.BACK_TO_MANAGE)
     builder.adjust(2, 1)
     return builder.as_markup()
 
@@ -454,7 +453,7 @@ async def process_sticker_addition(message: Message, state: FSMContext, bot: Bot
         return
     
     if not message.photo and not message.sticker and not message.animation and not message.video:
-        await message.reply(" Please send an image, video, GIF, or sticker to add to your pack.")
+        await message.reply("⚠️ Please send an image, video, GIF, or sticker to add to your pack.")
         return
     
     media = None
@@ -594,8 +593,6 @@ async def process_new_pack_name(message: Message, state: FSMContext, bot: Bot):
         await message.reply("❌ Sticker data lost. Please start over.")
         await state.clear()
         return
-
-    # ✅ REMOVED: Pack name uniqueness check - multiple users can use same name!
 
     if len(pack_name) > 64:
         await message.reply("❌ Pack name is too long! Maximum 64 characters.")

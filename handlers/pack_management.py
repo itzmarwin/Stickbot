@@ -431,7 +431,7 @@ async def add_sticker_callback(callback: CallbackQuery, state: FSMContext):
             
             await callback.message.delete()
             await callback.message.answer(
-                f"🎨 <b>Add Stickers to {escaped_pack_name}</b>\n\n"
+                f"<b>Add Stickers to {escaped_pack_name}</b>\n\n"
                 f"Send me images, videos, GIFs, or stickers to add to your pack.\n"
                 f"I'll keep adding them until the pack is full.\n\n"
                 f"<b>Current count:</b> {pack.get('sticker_count', 0)}/120\n"
@@ -454,7 +454,7 @@ async def process_sticker_addition(message: Message, state: FSMContext, bot: Bot
         return
     
     if not message.photo and not message.sticker and not message.animation and not message.video:
-        await message.reply("⚠️ Please send an image, video, GIF, or sticker to add to your pack.")
+        await message.reply(" Please send an image, video, GIF, or sticker to add to your pack.")
         return
     
     media = None
@@ -527,7 +527,7 @@ async def create_new_pack_callback(callback: CallbackQuery, state: FSMContext):
         await state.set_state(PackManagementStates.waiting_for_first_sticker)
         await safe_edit_message(
             callback,
-            "🎨 <b>Let's create a new sticker pack!</b>\n\n"
+            "<b>Let's create a new sticker pack!</b>\n\n"
             "<b>First, send me the sticker you want to start your pack with.</b>\n"
             "It can be GIF, video, image or sticker",
             get_back_to_manage_keyboard()

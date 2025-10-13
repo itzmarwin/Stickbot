@@ -7,7 +7,7 @@ from templates import (
     STICKER_ID_RESPONSE,
     STICKER_ID_NO_REPLY,
     STICKER_ID_NOT_STICKER,
-    GENERIC_ERROR_MESSAGE
+    ERROR_OCCURRED
 )
 
 logger = logging.getLogger(__name__)
@@ -44,4 +44,4 @@ async def cmd_stickerid(message: Message):
     except Exception as e:
         logger.error(f"Error in stickerid command: {e}")
         # Send the generic error message from templates
-        await message.reply(GENERIC_ERROR_MESSAGE)
+        await message.reply(ERROR_OCCURRED)

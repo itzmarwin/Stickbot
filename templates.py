@@ -86,52 +86,38 @@ STICKERS_INFO_MESSAGE = """
 
 HELP_MESSAGE = "nigga"
 
-# Kang command
 NEED_TO_START = """
-𝐎𝐨𝐩𝐬! 𝐘𝐨𝐮 𝐧𝐞𝐞𝐝 𝐭𝐨 𝐬𝐭𝐚𝐫𝐭 𝐦𝐞 𝐟𝐢𝐫𝐬𝐭 𝐭𝐨 𝐮𝐬𝐞 𝐭𝐡𝐢𝐬 𝐛𝐨𝐭.
+𝖮𝗈𝗉𝗌! 𝖸𝗈𝗎 𝗇𝖾𝖾𝖽 𝗍𝗈 𝗌𝗍𝖺𝗋𝗍 𝗆𝖾 𝖿𝗂𝗋𝗌𝗍 𝗍𝗈 𝗎𝗌𝖾 𝗍𝗁𝗂𝗌 𝖻𝗈𝗍.
 """
 
-ASK_PACK_NAME = "nigga pack name do"
+ASK_PACK_NAME = "𝖯𝗅𝖾𝖺𝗌𝖾 𝗌𝖾𝗇𝖽 𝗍𝗁𝖾 𝗉𝖺𝖼𝗄 𝗇𝖺𝗆𝖾"
 
 PACK_CREATED = """
-✅ <b>New pack grabbed successfully!</b>
+✅ <b>𝖭𝖾𝗐 𝗉𝖺𝖼𝗄 𝖼𝗋𝖾𝖺𝗍𝖾𝖽!</b>
 
-<b>Pack:</b> {pack_name}
+<b>𝖯𝖺𝖼𝗄:</b> {pack_name}
 
-Your first sticker has been added! 🎉
+𝖸𝗈𝗎𝗋 𝖿𝗂𝗋𝗌𝗍 𝗌𝗍𝗂𝖼𝗄𝖾𝗋 𝗂𝗌 𝖺𝖽𝖽𝖾𝖽 🎉
 """
 
 STICKER_ADDED = """
-✅ <b>Sticker grabbed successfully!</b>
+✅ <b>𝗌𝗍𝗂𝖼𝗄𝖾𝗋 𝖺𝖽𝖽𝖾𝖽!</b>
 """
 
 NO_MEDIA_REPLY = """
-⚠️ <b>Nigga...Please reply to a media message</b>
+⚠️ <b>𝖯𝗅𝖾𝖺𝗌𝖾 𝗋𝖾𝗉𝗅𝗒 𝗍𝗈 𝖺 𝗆𝖾𝖽𝗂𝖺 𝗆𝖾𝗌𝗌𝖺𝗀𝖾</b>
 """
 
 VIDEO_TOO_LARGE = """
-⚠️ <b>This video is too large (over 4MB).</b>
+⚠️ <b>𝖵𝗂𝖽𝖾𝗈 𝗍𝗈𝗈 𝗅𝖺𝗋𝗀𝖾 (𝗈𝗏𝖾𝗋 𝟦𝖬𝖡)</b>
 
-Please send a smaller video file.
-
-<i>Note: Videos are compressed to meet Telegram's 256KB limit for video stickers.</i>
+𝖯𝗅𝖾𝖺𝗌𝖾 𝗌𝖾𝗇𝖽 𝗌𝗆𝖺𝗅𝗅𝖾𝗋 𝗏𝗂𝖽𝖾𝗈
 """
 
 VIDEO_COMPRESSION_FAILED = """
-⚠️ <b>Unable to process this video.</b>
+⚠️ <b>𝗎𝗇𝖺𝖻𝗅𝖾 𝗍𝗈 𝗉𝗋𝗈𝖼𝖾𝗌𝗌 𝗏𝗂𝖽𝖾𝗈</b>
 
-The video couldn't be compressed to meet Telegram's 256KB limit.
-
-<b>This might happen if:</b>
-• Video has very high detail/motion
-• Source quality is too high
-
-<b>Try:</b>
-• Use a shorter or simpler video
-• Use lower quality source
-• Try a GIF instead
-
-Images and other stickers work great! 🎨
+𝖳𝗋𝗒 𝗌𝗁𝗈𝗋𝗍𝖾𝗇𝗂𝗇𝗀 𝗈𝗋 𝗅𝗈𝗐𝖾𝗋𝗂𝗇𝗀 𝗊𝗎𝖺𝗅𝗂𝗍𝗒, 𝗈𝗋 𝗎𝗌𝖾 𝗀𝗂𝖿
 """
 
 PACK_NAME_TOO_LONG = """

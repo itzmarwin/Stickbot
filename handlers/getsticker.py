@@ -14,7 +14,7 @@ from templates import (
     GETSTICKER_VIDEO_NOT_SUPPORTED,
     GETSTICKER_PROCESSING,
     STICKER_CONVERSION_SUCCESS,
-    GENERIC_ERROR_MESSAGE
+    ERROR_OCCURRED
 )
 
 logger = logging.getLogger(__name__)
@@ -95,7 +95,7 @@ async def cmd_getsticker(message: Message, bot: Bot):
         )
         
         if not success or not os.path.exists(png_path):
-            await processing_msg.edit_text(GENERIC_ERROR_MESSAGE)
+            await processing_msg.edit_text(ERROR_OCCURRED)
             await cleanup_files(*temp_files)
             return
         
@@ -126,7 +126,7 @@ async def cmd_getsticker(message: Message, bot: Bot):
             except:
                 pass
         
-        await message.reply(GENERIC_ERROR_MESSAGE)
+        await message.reply(ERROR_OCCURRED)
         
         # Cleanup any temporary files
         await cleanup_files(*temp_files)

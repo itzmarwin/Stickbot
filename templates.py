@@ -121,46 +121,45 @@ VIDEO_COMPRESSION_FAILED = """
 """
 
 PACK_NAME_TOO_LONG = """
-⚠️ <b>Pack name is too long!</b>
+⚠️ <b>𝖯𝖺𝖼𝗄 𝗇𝖺𝗆𝖾 𝗂𝗌 𝗍𝗈𝗈 𝗅𝗈𝗇𝗀!</b>
 
-Please keep it under 64 characters.
-Try a shorter name.
+𝖯𝗅𝖾𝖺𝗌𝖾 𝗄𝖾𝖾𝗉 𝗂𝗍 𝗎𝗇𝖽𝖾𝗋 𝟨𝟦 𝖼𝗁𝖺𝗋𝖺𝖼𝗍𝖾𝗋𝗌.
+𝖳𝗋𝗒 𝖺 𝗌𝗁𝗈𝗋𝗍𝖾𝗋 𝗇𝖺𝗆𝖾.
 """
 
 PACK_NAME_INVALID = """
-⚠️ <b>Pack name is too long!</b>
+⚠️ <b>𝖯𝖺𝖼𝗄 𝗇𝖺𝗆𝖾 𝗂𝗌 𝗂𝗇𝗏𝖺𝗅𝗂𝖽!</b>
 
-Maximum length is 64 characters.
-Your name has {length} characters.
+𝖬𝖺𝗑𝗂𝗆𝗎𝗆 𝗅𝖾𝗇𝗀𝗍𝗁 𝗂𝗌 𝟨𝟦 𝖼𝗁𝖺𝗋𝖺𝖼𝗍𝖾𝗋𝗌.
+𝖸𝗈𝗎𝗋 𝗇𝖺𝗆𝖾 𝗁𝖺𝗌 {length} 𝖼𝗁𝖺𝗋𝖺𝖼𝗍𝖾𝗋𝗌.
 
-Please use a shorter name.
+𝖯𝗅𝖾𝖺𝗌𝖾 𝗎𝗌𝖾 𝖺 𝗌𝗁𝗈𝗋𝗍𝖾𝗋 𝗇𝖺𝗆𝖾.
 """
 
-PROCESSING_MEDIA = "⌛ <b>Grabbing your sticker, hold on...</b>"
+PROCESSING_MEDIA = "<b>𝖦𝗋𝖺𝖻𝖻𝗂𝗇𝗀 𝗒𝗈𝗎𝗋 𝗌𝗍𝗂𝖼𝗄𝖾𝗋, 𝗁𝗈𝗅𝖽 𝗈𝗇...</b>"
 
 ERROR_OCCURRED = """
-⚠️ <b>Oops — something went wrong.</b>
-<b>Don't worry, our team is on it.</b>
-If the issue continues, please report it here: <a href="https://t.me/YourSupportGroup"><b>Support Group</b></a>
+⚠️ <b>𝖮𝗈𝗉𝗌 — 𝗌𝗈𝗆𝖾𝗍𝗁𝗂𝗇𝗀 𝗐𝖾𝗇𝗍 𝗐𝗋𝗈𝗇𝗀.</b>
+<b>𝖣𝗈𝗇'𝗍 𝗐𝗈𝗋𝗋𝗒, 𝗈𝗎𝗋 𝗍𝖾𝖺𝗆 𝗂𝗌 𝗈𝗇 𝗂𝗍.</b>
+𝖨𝖿 𝗍𝗁𝖾 𝗂𝗌𝗌𝗎𝖾 𝖼𝗈𝗇𝗍𝗂𝗇𝗎𝖾𝗌, 𝗉𝗅𝖾𝖺𝗌𝖾 𝗋𝖾𝗉𝗈𝗋𝗍 𝗂𝗍 𝗁𝖾𝗋𝖾: <a href="https://t.me/YourSupportGroup"><b>𝖲𝗎𝗉𝗉𝗈𝗋𝗍 𝖦𝗋𝗈𝗎𝗉</b></a>
 """
 
-# Packs command
 NO_PACK_YET = """
-<b>📦 You don't have a sticker pack yet!</b>
+<b>𝖸𝗈𝗎 𝖽𝗈𝗇'𝗍 𝗁𝖺𝗏𝖾 𝖺 𝗌𝗍𝗂𝖼𝗄𝖾𝗋 𝗉𝖺𝖼𝗄 𝗒𝖾𝗍!</b>
 
-Use /kang on any image, GIF, sticker, or video to create your first pack!
+𝖴𝗌𝖾 /kang 𝗈𝗇 𝖺𝗇𝗒 𝗂𝗆𝖺𝗀𝖾, 𝗀𝗂𝖿, 𝗌𝗍𝗂𝖼𝗄𝖾𝗋 𝗈𝗋 𝗏𝗂𝖽𝖾𝗈 𝗍𝗈 𝖼𝗋𝖾𝖺𝗍𝖾 𝗒𝗈𝗎𝗋 𝖿𝗂𝗋𝗌𝗍 𝗉𝖺𝖼𝗄!
 """
 
 YOUR_PACK_INFO = """
-<b>📦 Your Sticker Pack</b>
+<b>𝖸𝗈𝗎𝗋 𝖲𝗍𝗂𝖼𝗄𝖾𝗋 𝖯𝖺𝖼𝗄</b>
 
-<b>Name:</b> {pack_name}
-<b>Stickers:</b> {sticker_count}
-<b>Created:</b> {created_at}
+<b>𝖭𝖺𝗆𝖾:</b> {pack_name}
+<b>𝖲𝗍𝗂𝖼𝗄𝖾𝗋𝗌:</b> {sticker_count}
+<b>𝖢𝗋𝖾𝖺𝗍𝖾𝖽:</b> {created_at}
 
-<b>Link:</b> {pack_link}
+<b>𝖫𝗂𝗇𝗄:</b> {pack_link}
 
-<a href="{pack_link}">Open Pack</a>
+<a href="{pack_link}">𝖮𝗉𝖾𝗇 𝖯𝖺𝖼𝗄</a>
 """
 
 # Logger messages

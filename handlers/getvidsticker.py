@@ -13,7 +13,7 @@ from templates import (
     GETVIDSTICKER_NOT_VIDEO,
     GETVIDSTICKER_PROCESSING,
     VIDEO_STICKER_CONVERSION_SUCCESS,
-    GENERIC_ERROR_MESSAGE
+    ERROR_OCCURRED
 )
 
 logger = logging.getLogger(__name__)
@@ -72,7 +72,7 @@ async def cmd_getvidsticker(message: Message, bot: Bot):
         
         # Check if file was downloaded successfully
         if not os.path.exists(webm_path):
-            await processing_msg.edit_text(GENERIC_ERROR_MESSAGE)
+            await processing_msg.edit_text(ERROR_OCCURRED)
             await cleanup_files(*temp_files)
             return
         
@@ -106,7 +106,7 @@ async def cmd_getvidsticker(message: Message, bot: Bot):
             except:
                 pass
         
-        await message.reply(GENERIC_ERROR_MESSAGE)
+        await message.reply(ERROR_OCCURRED)
         
         # Cleanup any temporary files
         await cleanup_files(*temp_files)

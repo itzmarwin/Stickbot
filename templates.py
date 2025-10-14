@@ -365,12 +365,12 @@ PUBLISH_REQUEST_SENT = """
 """
 
 PUBLISH_REQUEST_APPROVED = """
-✦ <b>𝖯𝗎𝖻𝗅𝗂𝗌𝗁 𝖱𝖾𝗊𝗎𝖾𝗌𝗍 𝖠𝗉𝗉𝗋𝗈𝗏𝖾𝖽!</b>
+✦ <b>Publish Request Approved!</b>
 
-𝖴𝗌𝖾𝗋𝗌 𝖼𝖺𝗇 𝗇𝗈𝗐 𝗌𝖾𝖺𝗋𝖼𝗁 𝗒𝗈𝗎𝗋 𝗉𝖺𝖼𝗄 𝗂𝗇 𝗂𝗇𝗅𝗂𝗇𝖾 𝗆𝗈𝖽𝖾:
+Users can now find it in any chat using inline search:
 @{bot_username} {keyword}
 
-➣ 𝖠𝗅𝗌𝗈 𝗌𝗁𝗈𝗐𝗇 𝗂𝗇 𝗈𝗎𝗋 𝗈𝖿𝖿𝗂𝖼𝗂𝖺𝗅 𝖼𝗁𝖺𝗇𝗇𝖾𝗅: @YourChannelUsername
+➣ Pack has also been added to our official channel: @YourChannelUsername
 """
 
 PUBLISH_REQUEST_REJECTED = """

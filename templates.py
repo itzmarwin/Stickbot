@@ -190,72 +190,56 @@ BOT_REMOVED_FROM_GROUP = """
 """
 
 STICKER_ID_RESPONSE = """
-<b>Sticker ID:</b> <code>{sticker_id}</code>
-<b>Emoji:</b> {emoji}
+<b>𝖲𝗍𝗂𝖼𝗄𝖾𝗋 𝖨𝖣:</b> <code>{sticker_id}</code>
+<b>𝖤𝗆𝗈𝗃𝗂:</b> {emoji}
 """
 
-STICKER_ID_NO_REPLY = "❌ <b>Please reply to a sticker message to get its ID.</b>"
+STICKER_ID_NO_REPLY = "❌ <b>𝖱𝖾𝗉𝗅𝗒 𝗍𝗈 𝖺 𝗌𝗍𝗂𝖼𝗄𝖾𝗋 𝗍𝗈 𝗀𝖾𝗍 𝗂𝗍𝗌 𝖨𝖣.</b>"
 
-STICKER_ID_NOT_STICKER = "❌ <b>The replied message is not a sticker.</b>"
-
-GENERIC_ERROR_MESSAGE = """
-⚠️ <b>Oops — something went wrong.</b>
-<b>Don't worry, our team is on it.</b>
-If the issue continues, please report it here: <a href="https://t.me/YourSupportGroup"><b>Support Group</b></a>
-"""
+STICKER_ID_NOT_STICKER = "❌ <b>𝖳𝗁𝖺𝗍'𝗌 𝗇𝗈𝗍 𝖺 𝗌𝗍𝗂𝖼𝗄𝖾𝗋.</b>"
 
 # Get Sticker Command Templates
-GETSTICKER_NO_REPLY = "❌ <b>Please reply to a sticker to get its image file.</b>"
-GETSTICKER_NOT_STICKER = "❌ <b>The replied message is not a sticker.</b>"
-GETSTICKER_VIDEO_NOT_SUPPORTED = "❌ <b>This is a video sticker. Use /getvidsticker for video stickers.</b>"
-GETSTICKER_PROCESSING = "⏳ <b>Processing your sticker...</b>"
+GETSTICKER_NO_REPLY = "❌ <b>𝖱𝖾𝗉𝗅𝗒 𝗍𝗈 𝖺 𝗌𝗍𝗂𝖼𝗄𝖾𝗋 𝗍𝗈 𝗀𝖾𝗍 𝗍𝗁𝖾 𝗂𝗆𝖺𝗀𝖾.</b>"
+GETSTICKER_NOT_STICKER = "❌ <b>𝖳𝗁𝖺𝗍 𝗂𝗌𝗇'𝗍 𝖺 𝗌𝗍𝗂𝖼𝗄𝖾𝗋.</b>"
+GETSTICKER_VIDEO_NOT_SUPPORTED = "❌ <b>𝖳𝗁𝗂𝗌 𝗂𝗌 𝖺 𝗏𝗂𝖽𝖾𝗈 𝗌𝗍𝗂𝖼𝗄𝖾𝗋. 𝖴𝗌𝖾 /getvidsticker.</b>"
+GETSTICKER_PROCESSING = "⏳ <b>𝖶𝗈𝗋𝗄𝗂𝗇𝗀 𝗈𝗇 𝗂𝗍...</b>"
 
-GETVIDSTICKER_NO_REPLY = "❌ <b>Please reply to a video sticker to get its video file.</b>"
-GETVIDSTICKER_NOT_STICKER = "❌ <b>The replied message is not a sticker.</b>"
-GETVIDSTICKER_NOT_VIDEO = "❌ <b>This is not a video sticker. Use /getsticker for static stickers.</b>"
-GETVIDSTICKER_PROCESSING = "⏳ <b>Processing your video sticker...</b>"
+GETVIDSTICKER_NO_REPLY = "❌ <b>𝖱𝖾𝗉𝗅𝗒 𝗍𝗈 𝖺 𝗏𝗂𝖽𝖾𝗈 𝗌𝗍𝗂𝖼𝗄𝖾𝗋 𝗍𝗈 𝗀𝖾𝗍 𝗍𝗁𝖾 𝗏𝗂𝖽𝖾𝗈.</b>"
+GETVIDSTICKER_NOT_STICKER = "❌ <b>𝖳𝗁𝖺𝗍 𝗂𝗌𝗇'𝗍 𝖺 𝗌𝗍𝗂𝖼𝗄𝖾𝗋.</b>"
+GETVIDSTICKER_NOT_VIDEO = "❌ <b>𝖭𝗈𝗍 𝖺 𝗏𝗂𝖽𝖾𝗈 𝗌𝗍𝗂𝖼𝗄𝖾𝗋. 𝖴𝗌𝖾 /getsticker.</b>"
+GETVIDSTICKER_PROCESSING = "⏳ <b>𝖯𝗋𝗈𝖼𝖾𝗌𝗌𝗂𝗇𝗀 𝗒𝗈𝗎𝗋 𝗏𝗂𝖽𝖾𝗈...</b>"
 
 # Success messages
-STICKER_CONVERSION_SUCCESS = "✅ <b>Here's your sticker as an image:</b>"
-VIDEO_STICKER_CONVERSION_SUCCESS = "✅ <b>Here's your sticker as a video:</b>"
+STICKER_CONVERSION_SUCCESS = "✅ <b>𝖧𝖾𝗋𝖾'𝗌 𝗒𝗈𝗎𝗋 𝗌𝗍𝗂𝖼𝗄𝖾𝗋 𝖺𝗌 𝖺𝗇 𝗂𝗆𝖺𝗀𝖾.</b>"
+VIDEO_STICKER_CONVERSION_SUCCESS = "✅ <b>𝖧𝖾𝗋𝖾'𝗌 𝗒𝗈𝗎𝗋 𝗌𝗍𝗂𝖼𝗄𝖾𝗋 𝖺𝗌 𝖺 𝗏𝗂𝖽𝖾𝗈.</b>"
 
 MANAGE_PACKS_MESSAGE = """
-<b>Your Sticker Packs</b>
+<b>𝖸𝗈𝗎𝗋 𝖲𝗍𝗂𝖼𝗄𝖾𝗋 𝖯𝖺𝖼𝗄𝗌</b>
 """
 
 NO_PACKS_MESSAGE = """
-📦 <b>You don't have any packs yet!</b>
-
-Create your first sticker pack to get started.
+📦 <b>𝖭𝗈 𝗉𝖺𝖼𝗄𝗌 𝗒𝖾𝗍.</b>
+𝖢𝗋𝖾𝖺𝗍𝖾 𝗒𝗈𝗎𝗋 𝖿𝗂𝗋𝗌𝗍 𝗍𝗈 𝗀𝖾𝗍 𝗌𝗍𝖺𝗋𝗍𝖾𝖽.
 """
 
 PACK_OPTIONS_MESSAGE = """
-🛠️ <b>Pack Options:</b> {pack_name}
-
-Choose an action for this pack:
+🛠️ <b>𝖯𝖺𝖼𝗄 𝖮𝗉𝗍𝗂𝗈𝗇𝗌:</b> {pack_name}
 """
 
 RENAME_PACK_MESSAGE = """
-✏️ <b>Rename Pack</b>
-
-Please send the new name for your pack <b>"{pack_name}"</b>:
-
-• Maximum 64 characters
-• Can include emojis and special characters
-
-Type /cancel to go back.
+✏️ <b>𝖱𝖾𝗇𝖺𝗆𝖾 𝖯𝖺𝖼𝗄</b>
+𝖲𝖾𝗇𝖽 𝖺 𝗇𝖾𝗐 𝗇𝖺𝗆𝖾 𝖿𝗈𝗋 <b>"{pack_name}"</b>.
+(𝖬𝖺𝗑 𝟨𝟦 𝖼𝗁𝖺𝗋𝖺𝖼𝗍𝖾𝗋𝗌, 𝖾𝗆𝗈𝗃𝗂𝗌 𝖺𝗅𝗅𝗈𝗐𝖾𝖽)
 """
 
 DELETE_PACK_CONFIRMATION = """
-🗑️ <b>Delete Pack</b>
+🗑️ <b>𝖣𝖾𝗅𝖾𝗍𝖾 𝖯𝖺𝖼𝗄</b>
+𝖠𝗋𝖾 𝗒𝗈𝗎 𝗌𝗎𝗋𝖾 𝗒𝗈𝗎 𝗐𝖺𝗇𝗍 𝗍𝗈 𝖽𝖾𝗅𝖾𝗍𝖾 <b>"{pack_name}"</b>?
+𝖳𝗁𝗂𝗌 𝖼𝖺𝗇'𝗍 𝖻𝖾 𝗎𝗇𝖽𝗈𝗇𝖾.
 
-Are you sure you want to delete <b>"{pack_name}"</b>?
-
-This action cannot be undone! All stickers in this pack will be lost.
-
-<b>Pack details:</b>
-• Stickers: {sticker_count}
-• Created: {created_date}
+<b>𝖯𝖺𝖼𝗄 𝖣𝖾𝗍𝖺𝗂𝗅𝗌:</b>
+- 𝖲𝗍𝗂𝖼𝗄𝖾𝗋𝗌: {sticker_count}
+- 𝖢𝗋𝖾𝖺𝗍𝖾𝖽: {created_date}
 """
 
 PACK_DELETED_SUCCESS = """

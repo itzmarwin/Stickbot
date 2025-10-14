@@ -404,11 +404,11 @@ PUBLISH_OWNER_NOTIFICATION = """
 """
 
 PUBLISH_OWNER_APPROVED = """
-✅ <b>𝖱𝖾𝗊𝗎𝖾𝗌𝗍 𝖠𝗉𝗉𝗋𝗈𝗏𝖾𝖽</b>
+✅ <b>Publish Request Approved</b>
 
-𝖯𝖺𝖼𝗄 <b>{pack_name}</b> 𝖻𝗒 <code>{user_id}</code> 𝗁𝖺𝗌 𝖻𝖾𝖾𝗇 𝗉𝗎𝖻𝗅𝗂𝗌𝗁𝖾𝖽.
+Pack <b>{pack_name}</b> by user <code>{user_id}</code> has been approved and published to the channel.
 
-<b>𝖪𝖾𝗒𝗐𝗈𝗋𝖽:</b> <code>{keyword}</code>
+<b>Keyword:</b> <code>{keyword}</code>
 """
 
 PUBLISH_OWNER_REJECTED = """
@@ -420,12 +420,12 @@ PUBLISH_OWNER_REJECTED = """
 """
 
 PUBLISH_CHANNEL_MESSAGE = """
-🎨 <b>𝖭𝖾𝗐 𝖲𝗍𝗂𝖼𝗄𝖾𝗋 𝖯𝖺𝖼𝗄 𝖯𝗎𝖻𝗅𝗂𝗌𝗁𝖾𝖽!</b>
+🎨 <b>New Sticker Pack Published!</b>
 
-<b>𝖯𝖺𝖼𝗄:</b> {pack_name}
-<b>𝖪𝖾𝗒𝗐𝗈𝗋𝖽:</b> <code>{keyword}</code>
+<b>Pack:</b> {pack_name}
+<b>Keyword:</b> <code>{keyword}</code>
 
-𝖲𝖾𝖺𝗋𝖼𝗁 𝗏𝗂𝖺: <code>@{bot_username} {keyword}</code>
+Search via: <code>@{bot_username} {keyword}</code>
 
-<a href="{pack_link}">𝖠𝖽𝖽 𝖯𝖺𝖼𝗄 𝗍𝗈 𝖳𝖾𝗅𝖾𝗀𝗋𝖺𝗆</a>
+<a href="{pack_link}">Add Pack to Telegram</a>
 """

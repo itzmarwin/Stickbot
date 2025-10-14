@@ -303,74 +303,61 @@ NEW_PACK_CREATED_MULTI = """
 STICKER_ADDED_SIMPLE = "✅ <b>𝖲𝗍𝗂𝖼𝗄𝖾𝗋 𝖺𝖽𝖽𝖾𝖽!</b>"
 
 PACK_NOT_FOUND_MESSAGE = """
-❌ Your sticker pack was not found.
+❌ 𝖯𝖺𝖼𝗄 𝗇𝗈𝗍 𝖿𝗈𝗎𝗇𝖽.  
 
-Please provide a name for your new sticker pack:
+𝖲𝖾𝗇𝖽 𝖺 𝗇𝖺𝗆𝖾 𝗍𝗈 𝖼𝗋𝖾𝖺𝗍𝖾 𝖺 𝗇𝖾𝗐 𝗉𝖺𝖼𝗄:
 """
 
 # Info popup messages for pack management
-RENAME_PACK_INFO = "Change your pack's name. Click Rename Pack and type the new name!"
-DELETE_PACK_INFO = "Permanently remove this pack. All stickers in it will be deleted too!"
-ADD_STICKER_INFO = "Upload images, videos, GIFs or stickers to this pack. Max 120 stickers per pack!"
+RENAME_PACK_INFO = "✏️ 𝖢𝗁𝖺𝗇𝗀𝖾 𝗒𝗈𝗎𝗋 𝗉𝖺𝖼𝗄’𝗌 𝗇𝖺𝗆𝖾."
+DELETE_PACK_INFO = "🗑️ 𝖣𝖾𝗅𝖾𝗍𝖾 𝗍𝗁𝗂𝗌 𝗉𝖺𝖼𝗄 𝗉𝖾𝗋𝗆𝖺𝗇𝖾𝗇𝗍𝗅𝗒."
+ADD_STICKER_INFO = "🎨 𝖠𝖽𝖽 𝗎𝗉 𝗍𝗈 120 𝗌𝗍𝗂𝖼𝗄𝖾𝗋𝗌 (𝗂𝗆𝖺𝗀𝖾𝗌, 𝗏𝗂𝖽𝖾𝗈𝗌, 𝗀𝗂𝖿𝗌)."
 
 # Rate limiting messages
-RATE_LIMIT_MESSAGE = "⏳ Please wait a few seconds before making another request."
-STICKER_ADDING_IN_PROGRESS = "Please wait for the previous sticker to be added before sending the next one."
-
-
-
-
-
-# Add these templates to your existing templates.py
+RATE_LIMIT_MESSAGE = "⏳ 𝖯𝗅𝖾𝖺𝗌𝖾 𝗐𝖺𝗂𝗍 𝖺 𝗆𝗈𝗆𝖾𝗇𝗍 𝖻𝖾𝖿𝗈𝗋𝖾 𝗍𝗋𝗒𝗂𝗇𝗀 𝖺𝗀𝖺𝗂𝗇."
+STICKER_ADDING_IN_PROGRESS = "⚡ 𝖶𝖺𝗂𝗍 𝗍𝗂𝗅𝗅 𝗍𝗁𝖾 𝗅𝖺𝗌𝗍 𝗌𝗍𝗂𝖼𝗄𝖾𝗋 𝗂𝗌 𝖺𝖽𝖽𝖾𝖽."
 
 # Publish Pack Feature Templates
-PUBLISH_PACK_INFO = "Publish your pack to make it searchable via inline mode. Share it with the world!"
+PUBLISH_PACK_INFO = "📤 𝖯𝗎𝖻𝗅𝗂𝗌𝗁 𝗒𝗈𝗎𝗋 𝗉𝖺𝖼𝗄 𝗍𝗈 𝗆𝖺𝗄𝖾 𝗂𝗍 𝗌𝖾𝖺𝗋𝖼𝗁𝖺𝖻𝗅𝖾 𝗂𝗇 𝗂𝗇𝗅𝗂𝗇𝖾 𝗆𝗈𝖽𝖾."
 
 PUBLISH_PACK_ASK_KEYWORD = """
-📤 <b>Publish Your Pack</b>
+📤 <b>𝖯𝗎𝖻𝗅𝗂𝗌𝗁 𝖯𝖺𝖼𝗄</b>  
 
-<b>Pack:</b> {pack_name}
+<b>𝖯𝖺𝖼𝗄:</b> {pack_name}  
 
-Please send a keyword for your pack. This keyword will be used to find your pack in inline search.
+𝖲𝖾𝗇𝖽 𝖺 𝗄𝖾𝗒𝗐𝗈𝗋𝖽 𝖿𝗈𝗋 𝗒𝗈𝗎𝗋 𝗉𝖺𝖼𝗄.  
 
-<b>Example:</b> If you send "funny", users can search via:
-<code>@{bot_username} funny</code>
+<b>𝖱𝗎𝗅𝖾𝗌:</b>  
+• 𝖮𝗇𝖾 𝗐𝗈𝗋𝖽 (𝗇𝗈 𝗌𝗉𝖺𝖼𝖾𝗌)  
+• 3–20 𝖼𝗁𝖺𝗋𝖺𝖼𝗍𝖾𝗋𝗌  
+• 𝖫𝖾𝗍𝗍𝖾𝗋𝗌 & 𝗇𝗎𝗆𝖻𝖾𝗋𝗌 𝗈𝗇𝗅𝗒  
 
-<b>Rules:</b>
-• One word only (no spaces)
-• 3-20 characters
-• Letters and numbers only
-
-Type /cancel to go back.
+𝖳𝗒𝗉𝖾 /cancel 𝗍𝗈 𝗌𝗍𝗈𝗉.
 """
 
 PUBLISH_KEYWORD_INVALID = """
-❌ <b>Invalid Keyword</b>
+❌ <b>𝖨𝗇𝗏𝖺𝗅𝗂𝖽 𝗄𝖾𝗒𝗐𝗈𝗋𝖽</b>  
 
-Please send a valid keyword:
-• One word only (no spaces)
-• 3-20 characters
-• Letters and numbers only
-
-Try again or type /cancel to go back.
+𝖲𝖾𝗇𝖽 𝖺 𝗏𝖺𝗅𝗂𝖽 𝗄𝖾𝗒𝗐𝗈𝗋𝖽:  
+• 𝖮𝗇𝖾 𝗐𝗈𝗋𝖽 (𝗇𝗈 𝗌𝗉𝖺𝖼𝖾𝗌)  
+• 3–20 𝖼𝗁𝖺𝗋𝖺𝖼𝗍𝖾𝗋𝗌  
+• 𝖮𝗇𝗅𝗒 𝗅𝖾𝗍𝗍𝖾𝗋𝗌/𝗇𝗎𝗆𝖻𝖾𝗋𝗌
 """
 
 PUBLISH_KEYWORD_TAKEN = """
-❌ <b>Keyword Already Taken</b>
+❌ <b>𝖪𝖾𝗒𝗐𝗈𝗋𝖽 𝗍𝖺𝗄𝖾𝗇</b>  
 
-This keyword is already being used by another pack.
-Please choose a different keyword.
+𝖳𝗋𝗒 𝖺 𝖽𝗂𝖿𝖿𝖾𝗋𝖾𝗇𝗍 𝗈𝗇𝖾.
 """
 
 PUBLISH_CONFIRM_REQUEST = """
-📤 <b>Confirm Publish Request</b>
+📤 <b>𝖢𝗈𝗇𝖿𝗂𝗋𝗆 𝗉𝗎𝖻𝗅𝗂𝗌𝗁</b>  
 
-<b>Pack:</b> {pack_name}
-<b>Keyword:</b> <code>{keyword}</code>
+<b>𝖯𝖺𝖼𝗄:</b> {pack_name}  
+<b>𝖪𝖾𝗒𝗐𝗈𝗋𝖽:</b> <code>{keyword}</code>  
 
-Are you sure you want to publish this pack with this keyword?
-
-Users will be able to search for it using:
+𝖠𝗋𝖾 𝗒𝗈𝗎 𝗌𝗎𝗋𝖾?  
+𝖴𝗌𝖾𝗋𝗌 𝖼𝖺𝗇 𝗌𝖾𝖺𝗋𝖼𝗁 𝗂𝗍 𝗏𝗂𝖺:  
 <code>@{bot_username} {keyword}</code>
 """
 

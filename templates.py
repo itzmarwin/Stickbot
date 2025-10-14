@@ -255,13 +255,6 @@ PACK_RENAMED_SUCCESS = """
 <b>𝖭𝖾𝗐:</b> {new_name}
 """
 
-PUBLISH_REQUEST_SENT = """
-📤 <b>𝖯𝗎𝖻𝗅𝗂𝗌𝗁 𝗋𝖾𝗊𝗎𝖾𝗌𝗍 𝗌𝖾𝗇𝗍</b>
-
-𝖸𝗈𝗎𝗋 𝗋𝖾𝗊𝗎𝖾𝗌𝗍 𝖿𝗈𝗋 <b>"{pack_name}"</b> 𝗂𝗌 𝗌𝖾𝗇𝗍 𝗍𝗈 𝗍𝗁𝖾 𝗈𝗐𝗇𝖾𝗋.  
-⏳ 𝖸𝗈𝗎’𝗅𝗅 𝗀𝖾𝗍 𝗇𝗈𝗍𝗂𝖿𝗂𝖾𝖽 𝗈𝗇𝖼𝖾 𝗂𝗍’𝗌 𝗉𝗎𝖻𝗅𝗂𝗌𝗁𝖾𝖽.
-"""
-
 ADD_STICKER_INSTRUCTIONS = """
 🎨 <b>𝖠𝖽𝖽 𝗌𝗍𝗂𝖼𝗄𝖾𝗋 𝗍𝗈 {pack_name}</b>
 
@@ -362,78 +355,77 @@ PUBLISH_CONFIRM_REQUEST = """
 """
 
 PUBLISH_REQUEST_SENT = """
-✅ <b>Publish Request Sent</b>
+✅ <b>𝖯𝗎𝖻𝗅𝗂𝗌𝗁 𝖱𝖾𝗊𝗎𝖾𝗌𝗍 𝖲𝖾𝗇𝗍</b>
 
-Your request to publish <b>{pack_name}</b> has been sent to the owner.
+𝖸𝗈𝗎𝗋 𝗋𝖾𝗊𝗎𝖾𝗌𝗍 𝗍𝗈 𝗉𝗎𝖻𝗅𝗂𝗌𝗁 <b>{pack_name}</b> 𝗁𝖺𝗌 𝖻𝖾𝖾𝗇 𝗌𝖾𝗇𝗍 𝗍𝗈 𝗍𝗁𝖾 𝗈𝗐𝗇𝖾𝗋.
 
-⏳ <b>Approval may take 4-5 hours.</b>
+⏳ <b>𝖠𝗉𝗉𝗋𝗈𝗏𝖺𝗅 𝗆𝖺𝗒 𝗍𝖺𝗄𝖾 𝟦–𝟧 𝗁𝗋𝗌.</b>
 
-You will be notified once your pack is reviewed.
+𝖸𝗈𝗎'𝗅𝗅 𝗀𝖾𝗍 𝖺 𝗇𝗈𝗍𝗂𝖿𝗂𝖼𝖺𝗍𝗂𝗈𝗇 𝗈𝗇𝖼𝖾 𝗋𝖾𝗏𝗂𝖾𝗐𝖾𝖽.
 """
 
 PUBLISH_REQUEST_APPROVED = """
-✦ <b>Publish Request Approved!</b>
+✦ <b>𝖯𝗎𝖻𝗅𝗂𝗌𝗁 𝖱𝖾𝗊𝗎𝖾𝗌𝗍 𝖠𝗉𝗉𝗋𝗈𝗏𝖾𝖽!</b>
 
-Users can now find it in any chat using inline search:
+𝖴𝗌𝖾𝗋𝗌 𝖼𝖺𝗇 𝗇𝗈𝗐 𝗌𝖾𝖺𝗋𝖼𝗁 𝗒𝗈𝗎𝗋 𝗉𝖺𝖼𝗄 𝗂𝗇 𝗂𝗇𝗅𝗂𝗇𝖾 𝗆𝗈𝖽𝖾:
 @{bot_username} {keyword}
 
-➣ Pack has also been added to our official channel: @YourChannelUsername
+➣ 𝖠𝗅𝗌𝗈 𝗌𝗁𝗈𝗐𝗇 𝗂𝗇 𝗈𝗎𝗋 𝗈𝖿𝖿𝗂𝖼𝗂𝖺𝗅 𝖼𝗁𝖺𝗇𝗇𝖾𝗅: @YourChannelUsername
 """
 
 PUBLISH_REQUEST_REJECTED = """
-✦ <b>Publish Request Not Approved</b>
+✦ <b>𝖯𝗎𝖻𝗅𝗂𝗌𝗁 𝖱𝖾𝗊𝗎𝖾𝗌𝗍 𝖭𝗈𝗍 𝖠𝗉𝗉𝗋𝗈𝗏𝖾𝖽</b>
 
-Sorry, your pack "{pack_name}" could not be published.
+𝖲𝗈𝗋𝗋𝗒, 𝗒𝗈𝗎𝗋 𝗉𝖺𝖼𝗄 "{pack_name}" 𝖼𝗈𝗎𝗅𝖽 𝗇𝗈𝗍 𝖻𝖾 𝗉𝗎𝖻𝗅𝗂𝗌𝗁𝖾𝖽.
 
-➤ You can try again with a different pack.
+➤ 𝖳𝗋𝗒 𝖺 𝖽𝗂𝖿𝖿𝖾𝗋𝖾𝗇𝗍 𝗉𝖺𝖼𝗄.
 """
 
 PUBLISH_ALREADY_PUBLISHED = """
-ℹ️ <b>Pack Already Published</b>
+ℹ️ <b>𝖯𝖺𝖼𝗄 𝖠𝗅𝗋𝖾𝖺𝖽𝗒 𝖯𝗎𝖻𝗅𝗂𝗌𝗁𝖾𝖽</b>
 
-This pack is already published and searchable via inline mode.
-
-No need to publish it again!
+𝖳𝗁𝗂𝗌 𝗉𝖺𝖼𝗄 𝗂𝗌 𝖺𝗅𝗋𝖾𝖺𝖽𝗒 𝗌𝖾𝖺𝗋𝖼𝗁𝖺𝖻𝗅𝖾.
+𝖭𝗈 𝗇𝖾𝖾𝖽 𝗍𝗈 𝗉𝗎𝖻𝗅𝗂𝗌𝗁 𝗂𝗍 𝖺𝗀𝖺𝗂𝗇!
 """
 
 # Owner notification templates
 PUBLISH_OWNER_NOTIFICATION = """
-📤 <b>New Publish Request</b>
+📤 <b>𝖭𝖾𝗐 𝖯𝗎𝖻𝗅𝗂𝗌𝗁 𝖱𝖾𝗊𝗎𝖾𝗌𝗍</b>
 
-<b>From:</b> {user_name} (<code>{user_id}</code>)
-<b>Pack:</b> {pack_name}
-<b>Keyword:</b> <code>{keyword}</code>
-<b>Pack Link:</b> {pack_link}
+<b>𝖥𝗋𝗈𝗆:</b> {user_name} (<code>{user_id}</code>)
+<b>𝖯𝖺𝖼𝗄:</b> {pack_name}
+<b>𝖪𝖾𝗒𝗐𝗈𝗋𝖽:</b> <code>{keyword}</code>
+<b>𝖫𝗂𝗇𝗄:</b> {pack_link}
 
-<b>Sticker count:</b> {sticker_count}
-<b>Created:</b> {created_date}
+<b>𝖲𝗍𝗂𝖼𝗄𝖾𝗋𝗌:</b> {sticker_count}
+<b>𝖢𝗋𝖾𝖺𝗍𝖾𝖽:</b> {created_date}
 
-Review the pack and approve or reject:
+𝖱𝖾𝗏𝗂𝖾𝗐 𝗍𝗁𝖾 𝗉𝖺𝖼𝗄, 𝗍𝗁𝖾𝗇 𝖺𝗉𝗉𝗋𝗈𝗏𝖾 𝗈𝗋 𝗋𝖾𝗃𝖾𝖼𝗍.
 """
 
 PUBLISH_OWNER_APPROVED = """
-✅ <b>Publish Request Approved</b>
+✅ <b>𝖱𝖾𝗊𝗎𝖾𝗌𝗍 𝖠𝗉𝗉𝗋𝗈𝗏𝖾𝖽</b>
 
-Pack <b>{pack_name}</b> by user <code>{user_id}</code> has been approved and published to the channel.
+𝖯𝖺𝖼𝗄 <b>{pack_name}</b> 𝖻𝗒 <code>{user_id}</code> 𝗁𝖺𝗌 𝖻𝖾𝖾𝗇 𝗉𝗎𝖻𝗅𝗂𝗌𝗁𝖾𝖽.
 
-<b>Keyword:</b> <code>{keyword}</code>
+<b>𝖪𝖾𝗒𝗐𝗈𝗋𝖽:</b> <code>{keyword}</code>
 """
 
 PUBLISH_OWNER_REJECTED = """
-❌ <b>Publish Request Rejected</b>
+❌ <b>𝖱𝖾𝗊𝗎𝖾𝗌𝗍 𝖱𝖾𝗃𝖾𝖼𝗍𝖾𝖽</b>
 
-Pack <b>{pack_name}</b> by user <code>{user_id}</code> has been rejected.
+𝖯𝖺𝖼𝗄 <b>{pack_name}</b> 𝖻𝗒 <code>{user_id}</code> 𝗁𝖺𝗌 𝖻𝖾𝖾𝗇 𝗋𝖾𝗃𝖾𝖼𝗍𝖾𝖽.
 
-User has been notified.
+𝖴𝗌𝖾𝗋 𝗁𝖺𝗌 𝖻𝖾𝖾𝗇 𝗇𝗈𝗍𝗂𝖿𝗂𝖾𝖽.
 """
 
 PUBLISH_CHANNEL_MESSAGE = """
-🎨 <b>New Sticker Pack Published!</b>
+🎨 <b>𝖭𝖾𝗐 𝖲𝗍𝗂𝖼𝗄𝖾𝗋 𝖯𝖺𝖼𝗄 𝖯𝗎𝖻𝗅𝗂𝗌𝗁𝖾𝖽!</b>
 
-<b>Pack:</b> {pack_name}
-<b>Keyword:</b> <code>{keyword}</code>
+<b>𝖯𝖺𝖼𝗄:</b> {pack_name}
+<b>𝖪𝖾𝗒𝗐𝗈𝗋𝖽:</b> <code>{keyword}</code>
 
-Search via: <code>@{bot_username} {keyword}</code>
+𝖲𝖾𝖺𝗋𝖼𝗁 𝗏𝗂𝖺: <code>@{bot_username} {keyword}</code>
 
-<a href="{pack_link}">Add Pack to Telegram</a>
+<a href="{pack_link}">𝖠𝖽𝖽 𝖯𝖺𝖼𝗄 𝗍𝗈 𝖳𝖾𝗅𝖾𝗀𝗋𝖺𝗆</a>
 """

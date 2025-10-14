@@ -243,76 +243,64 @@ DELETE_PACK_CONFIRMATION = """
 """
 
 PACK_DELETED_SUCCESS = """
-✅ <b>Pack deleted successfully!</b>
+✅ <b>𝖯𝖺𝖼𝗄 𝖽𝖾𝗅𝖾𝗍𝖾𝖽!</b>
 
-Pack <b>"{pack_name}"</b> has been deleted.
+<b>"{pack_name}"</b> 𝗁𝖺𝗌 𝖻𝖾𝖾𝗇 𝗋𝖾𝗆𝗈𝗏𝖾𝖽.
 """
 
 PACK_RENAMED_SUCCESS = """
-✅ <b>Pack renamed successfully!</b>
+✅ <b>𝖯𝖺𝖼𝗄 𝗋𝖾𝗇𝖺𝗆𝖾𝖽!</b>
 
-<b>Old name:</b> {old_name}
-<b>New name:</b> {new_name}
+<b>𝖮𝗅𝖽:</b> {old_name}  
+<b>𝖭𝖾𝗐:</b> {new_name}
 """
 
 PUBLISH_REQUEST_SENT = """
-📤 <b>Publish Request Sent</b>
+📤 <b>𝖯𝗎𝖻𝗅𝗂𝗌𝗁 𝗋𝖾𝗊𝗎𝖾𝗌𝗍 𝗌𝖾𝗇𝗍</b>
 
-Your publish request for <b>"{pack_name}"</b> has been sent to the owner.
-
-⏳ <b>Approval may take 4-5 hours.</b>
-
-You will be notified once your pack is published.
+𝖸𝗈𝗎𝗋 𝗋𝖾𝗊𝗎𝖾𝗌𝗍 𝖿𝗈𝗋 <b>"{pack_name}"</b> 𝗂𝗌 𝗌𝖾𝗇𝗍 𝗍𝗈 𝗍𝗁𝖾 𝗈𝗐𝗇𝖾𝗋.  
+⏳ 𝖸𝗈𝗎’𝗅𝗅 𝗀𝖾𝗍 𝗇𝗈𝗍𝗂𝖿𝗂𝖾𝖽 𝗈𝗇𝖼𝖾 𝗂𝗍’𝗌 𝗉𝗎𝖻𝗅𝗂𝗌𝗁𝖾𝖽.
 """
 
 ADD_STICKER_INSTRUCTIONS = """
-🎨 <b>Add Sticker to {pack_name}</b>
+🎨 <b>𝖠𝖽𝖽 𝗌𝗍𝗂𝖼𝗄𝖾𝗋 𝗍𝗈 {pack_name}</b>
 
-Send me an image, video, GIF, or sticker to add to your pack.
-
-<b>Supported formats:</b>
-• Images (JPEG, PNG, WebP)
-• Videos (MP4, WebM - max 4MB)
-• GIFs
-• Other stickers
-
-Type /cancel to go back.
+𝖲𝖾𝗇𝖽 𝗆𝖾 𝖺𝗇 𝗂𝗆𝖺𝗀𝖾, 𝗏𝗂𝖽𝖾𝗈, 𝗀𝗂𝖿 𝗈𝗋 𝗌𝗍𝗂𝖼𝗄𝖾𝗋 𝗍𝗈 𝖺𝖽𝖽.  
+<b>𝖭𝗈𝗍𝖾:</b> 𝖵𝗂𝖽𝖾𝗈𝗌 𝗆𝗎𝗌𝗍 𝖻𝖾 ≤4MB.
 """
 
 PACK_FULL_MESSAGE = """
-❌ <b>Pack is Full</b>
+❌ <b>𝖯𝖺𝖼𝗄 𝗂𝗌 𝖿𝗎𝗅𝗅</b>
 
-Pack <b>"{pack_name}"</b> has reached the maximum limit of 120 stickers.
-
-Please create a new pack to add more stickers.
+<b>"{pack_name}"</b> 𝗋𝖾𝖺𝖼𝗁𝖾𝖽 𝗍𝗁𝖾 𝗅𝗂𝗆𝗂𝗍 (120 𝗌𝗍𝗂𝖼𝗄𝖾𝗋𝗌).  
+𝖢𝗋𝖾𝖺𝗍𝖾 𝖺 𝗇𝖾𝗐 𝗉𝖺𝖼𝗄 𝗍𝗈 𝖺𝖽𝖽 𝗆𝗈𝗋𝖾.
 """
 
 STICKER_ADDED_TO_PACK = """
-✅ <b>Sticker Added</b>
+✅ <b>𝖲𝗍𝗂𝖼𝗄𝖾𝗋 𝖺𝖽𝖽𝖾𝖽!</b>
 
-Sticker successfully added to <b>"{pack_name}"</b>
-
-Current sticker count: {sticker_count}/120
+𝖠𝖽𝖽𝖾𝖽 𝗍𝗈 <b>"{pack_name}"</b>  
+𝖳𝗈𝗍𝖺𝗅: {sticker_count}/120
 """
 
-# Multiple packs support messages
+# Multiple packs support  
 PACK_FULL_CREATE_NEW = """
-📦 Your current sticker pack is full (120 stickers limit).
+📦 𝖸𝗈𝗎𝗋 𝗉𝖺𝖼𝗄 𝗂𝗌 𝖿𝗎𝗅𝗅 (120 𝗅𝗂𝗆𝗂𝗍).  
 
-You have {pack_count} pack(s) already.
-Please provide a name for your new sticker pack:
+𝖸𝗈𝗎 𝗁𝖺𝗏𝖾 {pack_count} 𝗉𝖺𝖼𝗄(𝗌).  
+𝖲𝖾𝗇𝖽 𝖺 𝗇𝖺𝗆𝖾 𝖿𝗈𝗋 𝗒𝗈𝗎𝗋 𝗇𝖾𝗐 𝗉𝖺𝖼𝗄:
 """
 
 NEW_PACK_CREATED_MULTI = """
-✅ <b>New pack created successfully!</b>
+✅ <b>𝖭𝖾𝗐 𝗉𝖺𝖼𝗄 𝖼𝗋𝖾𝖺𝗍𝖾𝖽!</b>  
 
-<b>Pack:</b> {pack_name}
-<b>Total Packs:</b> {pack_count}
+<b>𝖯𝖺𝖼𝗄:</b> {pack_name}  
+<b>𝖳𝗈𝗍𝖺𝗅 𝗉𝖺𝖼𝗄𝗌:</b> {pack_count}  
 
-Your first sticker has been added! 🎉
+𝖸𝗈𝗎𝗋 𝖿𝗂𝗋𝗌𝗍 𝗌𝗍𝗂𝖼𝗄𝖾𝗋 𝗂𝗌 𝖺𝖽𝖽𝖾𝖽 🎉
 """
 
-STICKER_ADDED_SIMPLE = "✅ <b>Sticker added successfully!</b>"
+STICKER_ADDED_SIMPLE = "✅ <b>𝖲𝗍𝗂𝖼𝗄𝖾𝗋 𝖺𝖽𝖽𝖾𝖽!</b>"
 
 PACK_NOT_FOUND_MESSAGE = """
 ❌ Your sticker pack was not found.

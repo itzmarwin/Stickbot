@@ -397,11 +397,9 @@ async def process_rename_pack_name(message: Message, state: FSMContext, bot: Bot
         escaped_old_name = escape_html(old_name.replace(f" ~ @{BOT_USERNAME}", ""))
         escaped_new_name = escape_html(formatted_name.replace(f" ~ @{BOT_USERNAME}", ""))
         
-        # ✅ FIX: Edit the original message instead of sending new reply
-        # This keeps user in Pack Options menu
-        await message.edit_text(
+        await message.reply(
             PACK_RENAMED_SUCCESS.format(old_name=escaped_old_name, new_name=escaped_new_name),
-            reply_markup=get_pack_options_keyboard(short_name)
+            reply_markup=get_main_menu_keyboard()
         )
     except Exception as e:
         logger.error(f"Error renaming pack: {e}")

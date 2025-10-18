@@ -4,6 +4,7 @@ import time
 import random
 import hashlib
 from typing import Tuple
+from typing import Dict, Any
 from config import MAX_PACK_NAME_LENGTH, BOT_USERNAME
 
 def validate_pack_name(name: str) -> Tuple[bool, str]:

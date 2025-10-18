@@ -8,3 +8,14 @@ aiohttp==3.9.1
 telethon==1.28.5
 pyrogram==2.0.106
 tgcrypto==1.2.5
+# ✅ CRITICAL FIX: Redis for caching (was missing!)
+redis==5.0.1
+
+# Performance & Utilities
+uvloop==0.19.0
+httpx==0.28.0
+cachetools==5.3.3
+
+# Error Tracking (Optional but recommended for 10K users)
+# Uncomment if you want error monitoring:
+# sentry-sdk==1.40.6

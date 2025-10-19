@@ -16,3 +16,7 @@ class PublishStates(StatesGroup):
     """FSM states for publish pack feature"""
     waiting_for_keyword = State()
     confirming_publish = State()
+
+class CopyPackStates(StatesGroup):
+    """FSM states for copypack feature"""
+    waiting_for_pack_name = State()

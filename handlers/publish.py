@@ -11,6 +11,9 @@ from aiogram.fsm.context import FSMContext
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from datetime import datetime
 
+# ✅ NEW IMPORT: Callback manager for fixing BUTTON_DATA_INVALID
+from callback_manager import create_callback, parse_callback
+
 from database import (
     get_pack_by_short_name, 
     create_published_pack, 
@@ -36,14 +39,14 @@ from config import BOT_USERNAME, PUBLISH_OWNER_ID, PUBLISH_CHANNEL_ID
 logger = logging.getLogger(__name__)
 router = Router()
 
-# Callback data patterns - SHORTENED
+# ✅ FIXED: Shortened callback prefixes to prevent BUTTON_DATA_INVALID
 class PublishCallback:
-    PUBLISH_PACK = "pp:"
+    PUBLISH_PACK = "pb:"           # ✅ Shortened (will use hash)
     PUBLISH_INFO = "pi"
-    PUBLISH_CONFIRM_YES = "pcy:"
+    PUBLISH_CONFIRM_YES = "py:"    # ✅ Shortened (will use hash)
     PUBLISH_CONFIRM_NO = "pcn"
-    OWNER_APPROVE = "oa:"
-    OWNER_REJECT = "or:"
+    OWNER_APPROVE = "oa:"          # ✅ Shortened (will use hash)
+    OWNER_REJECT = "or:"           # ✅ Shortened (will use hash)
 
 
 def validate_keyword(keyword: str) -> bool:
@@ -60,141 +63,6 @@ def validate_keyword(keyword: str) -> bool:
     return True
 
 
-def safe_extract_keyword(text: str) -> str:
-    """
-    ✅ PRODUCTION-READY KEYWORD EXTRACTOR with Unicode normalization
-    
-    Extracts keyword from any text (ASCII/Unicode) with multiple fallback methods
-    
-    Returns: 
-        keyword string or None
-    """
-    try:
-        logger.info(f"[KEYWORD_EXTRACT] Starting extraction from text (length: {len(text)})")
-        
-        # ✅ FIX 1: Unicode normalization FIRST
-        # Convert Unicode to ASCII-compatible form before processing
-        try:
-            normalized_text = unicodedata.normalize('NFKD', text)
-            normalized_text = normalized_text.encode('ascii', 'ignore').decode('ascii')
-            logger.debug(f"[KEYWORD_EXTRACT] Normalized text length: {len(normalized_text)}")
-        except Exception as e:
-            logger.warning(f"[KEYWORD_EXTRACT] Unicode normalization failed: {e}")
-            normalized_text = text  # Fallback to original
-        
-        # Method 1: Line-by-line search with colon delimiter
-        # Most reliable method - works with any text structure
-        lines = normalized_text.split('\n')
-        for i, line in enumerate(lines):
-            # Check if line has colon (keyword indicator)
-            if ':' not in line:
-                continue
-            
-            # Split by colon
-            parts = line.split(':', 1)
-            if len(parts) != 2:
-                continue
-            
-            label = parts[0].strip().lower()
-            value = parts[1].strip()
-            
-            # ✅ FIX 2: Look for specific label patterns
-            if any(keyword_label in label for keyword_label in ['keyword', 'ключевое слово', 'キーワード']):
-                # Extract first alphanumeric word after colon
-                words = re.findall(r'[a-zA-Z0-9]+', value)
-                
-                if words:
-                    potential_keyword = words[0].lower()
-                    
-                    # Validate length
-                    if 3 <= len(potential_keyword) <= 20:
-                        logger.info(f"[KEYWORD_EXTRACT] ✅ Found via label match (line {i}): '{potential_keyword}'")
-                        return potential_keyword
-        
-        # Method 2: Code tag extraction (Telegram markdown)
-        # Keywords are often wrapped in <code> tags
-        code_pattern = r'<code>([a-zA-Z0-9]+)</code>'
-        code_matches = re.findall(code_pattern, normalized_text)
-        
-        for match in code_matches:
-            if 3 <= len(match) <= 20:
-                logger.info(f"[KEYWORD_EXTRACT] ✅ Found in <code> tag: '{match.lower()}'")
-                return match.lower()
-        
-        # Method 3: Colon-based extraction (any line with colon)
-        for i, line in enumerate(lines):
-            if ':' not in line:
-                continue
-            
-            # Extract everything after colon
-            parts = line.split(':', 1)
-            if len(parts) != 2:
-                continue
-            
-            after_colon = parts[1].strip()
-            
-            # Extract first alphanumeric word
-            words = re.findall(r'[a-zA-Z0-9]+', after_colon)
-            
-            if not words:
-                continue
-            
-            potential_keyword = words[0].lower()
-            
-            # Validate length
-            if 3 <= len(potential_keyword) <= 20:
-                # ✅ FIX 3: Skip common false positives
-                false_positives = ['user', 'from', 'pack', 'admin', 'name', 'text', 'message', 
-                                  'content', 'time', 'date', 'type', 'users', 'groups', 'total']
-                
-                if potential_keyword not in false_positives:
-                    logger.info(f"[KEYWORD_EXTRACT] ✅ Found via colon search (line {i}): '{potential_keyword}'")
-                    return potential_keyword
-        
-        # Method 4: Regex fallback - extract all alphanumeric words
-        logger.warning("[KEYWORD_EXTRACT] Direct methods failed, trying word extraction")
-        all_words = re.findall(r'[a-zA-Z0-9]+', normalized_text)
-        
-        # Filter valid keyword-length words
-        potential_keywords = [w.lower() for w in all_words if 3 <= len(w) <= 20]
-        
-        if potential_keywords:
-            # ✅ FIX 4: Smart word selection based on position
-            # In publish messages, keyword usually appears in specific positions
-            
-            # Try to find keyword in middle section (after headers, before results)
-            if len(potential_keywords) >= 5:
-                # Check positions 4-8 (most likely keyword positions)
-                for idx in range(4, min(8, len(potential_keywords))):
-                    candidate = potential_keywords[idx]
-                    # Skip false positives
-                    if candidate not in ['user', 'from', 'pack', 'admin', 'name', 'users', 
-                                        'groups', 'text', 'message', 'content', 'time']:
-                        logger.info(f"[KEYWORD_EXTRACT] ⚠️ Found via position {idx}: '{candidate}'")
-                        return candidate
-            
-            # Fallback: last valid word
-            keyword = potential_keywords[-1]
-            logger.info(f"[KEYWORD_EXTRACT] ⚠️ Found via last word: '{keyword}'")
-            return keyword
-        
-        # Method 5: Last resort - look for isolated alphanumeric sequences
-        # This catches keywords that might be surrounded by special characters
-        isolated_words = re.findall(r'\b([a-zA-Z0-9]{3,20})\b', normalized_text)
-        if isolated_words:
-            # Take the last one (usually the keyword in publish messages)
-            keyword = isolated_words[-1].lower()
-            logger.info(f"[KEYWORD_EXTRACT] ⚠️ Found via isolated word: '{keyword}'")
-            return keyword
-        
-        logger.error("[KEYWORD_EXTRACT] ❌ All extraction methods failed")
-        return None
-        
-    except Exception as e:
-        logger.error(f"[KEYWORD_EXTRACT] Exception occurred: {e}", exc_info=True)
-        return None
-
-
 # ✅ Info button callback
 @router.callback_query(F.data == PublishCallback.PUBLISH_INFO)
 async def publish_info_callback(callback: CallbackQuery):
@@ -202,14 +70,20 @@ async def publish_info_callback(callback: CallbackQuery):
     await callback.answer(PUBLISH_PACK_INFO, show_alert=True)
 
 
-# ✅ Start publish flow
+# ✅ FIXED: Start publish flow with callback_manager
 @router.callback_query(F.data.startswith(PublishCallback.PUBLISH_PACK))
 async def start_publish_callback(callback: CallbackQuery, state: FSMContext):
     """Start publish pack flow - ask for keyword"""
     await callback.answer()
     
     try:
-        short_name = callback.data.split(":")[1]
+        # ✅ PARSE CALLBACK DATA from hash
+        short_name = parse_callback(callback.data)
+        
+        if not short_name:
+            await callback.answer("❌ Session expired. Please try again.", show_alert=True)
+            return
+        
         pack = await get_pack_by_short_name(short_name)
         
         if not pack:
@@ -266,7 +140,7 @@ async def process_publish_keyword(message: Message, state: FSMContext):
         await message.reply("❌ Please send a text keyword.")
         return
     
-    # ✅ FIX: Sanitize keyword input
+    # Sanitize keyword input
     keyword = message.text.strip().lower()
     
     # Remove any non-alphanumeric characters
@@ -299,11 +173,11 @@ async def process_publish_keyword(message: Message, state: FSMContext):
     
     logger.info(f"[PUBLISH] Keyword validated, showing confirmation for: {pack_data['short_name']}")
     
-    # Show confirmation
+    # ✅ USE CALLBACK MANAGER for confirmation button
     builder = InlineKeyboardBuilder()
     builder.button(
         text="✅ Yes, Publish",
-        callback_data=f"{PublishCallback.PUBLISH_CONFIRM_YES}{pack_data['short_name']}"
+        callback_data=create_callback("publish_confirm_yes", pack_data['short_name'])
     )
     builder.button(
         text="❌ Cancel",
@@ -321,7 +195,7 @@ async def process_publish_keyword(message: Message, state: FSMContext):
     )
 
 
-# ✅ Handle publish confirmation - YES
+# ✅ FIXED: Handle publish confirmation with callback_manager
 @router.callback_query(F.data.startswith(PublishCallback.PUBLISH_CONFIRM_YES))
 async def confirm_publish_yes(callback: CallbackQuery, state: FSMContext, bot: Bot):
     """User confirmed publish - send to owner"""
@@ -387,32 +261,19 @@ async def confirm_publish_yes(callback: CallbackQuery, state: FSMContext, bot: B
             created_date=created_date
         )
         
-        # ✅ FIX: Store keyword IN CALLBACK DATA with length check
-        approve_data = f"{PublishCallback.OWNER_APPROVE}{user_id}:{short_name}:{keyword}"
-        reject_data = f"{PublishCallback.OWNER_REJECT}{user_id}:{short_name}:{keyword}"
+        # ✅ USE CALLBACK MANAGER for owner buttons
+        # Store data as: "user_id:short_name:keyword"
+        approve_data = f"{user_id}:{short_name}:{keyword}"
+        reject_data = f"{user_id}:{short_name}:{keyword}"
         
-        # Check callback data length (Telegram limit: 64 bytes)
-        if len(approve_data) > 64:
-            # ✅ FIX: Use hash of keyword if too long
-            import hashlib
-            keyword_hash = hashlib.md5(keyword.encode()).hexdigest()[:8]
-            approve_data = f"{PublishCallback.OWNER_APPROVE}{user_id}:{short_name}:{keyword_hash}"
-            reject_data = f"{PublishCallback.OWNER_REJECT}{user_id}:{short_name}:{keyword_hash}"
-            
-            logger.warning(f"[PUBLISH] Callback data too long, using hash: {keyword_hash}")
-            
-            # Store full keyword in message for fallback extraction
-            owner_message += f"\n\n<b>Keyword Hash:</b> <code>{keyword_hash}</code>"
-        
-        # Send sticker + message to owner
         builder = InlineKeyboardBuilder()
         builder.button(
             text="✅ Approve",
-            callback_data=approve_data
+            callback_data=create_callback("owner_approve", approve_data)
         )
         builder.button(
             text="❌ Reject",
-            callback_data=reject_data
+            callback_data=create_callback("owner_reject", reject_data)
         )
         builder.adjust(2)
         
@@ -422,7 +283,7 @@ async def confirm_publish_yes(callback: CallbackQuery, state: FSMContext, bot: B
             sticker=first_sticker_id
         )
         
-        # Then send notification with keyword in callback data
+        # Then send notification
         await bot.send_message(
             chat_id=PUBLISH_OWNER_ID,
             text=owner_message,
@@ -460,50 +321,31 @@ async def confirm_publish_no(callback: CallbackQuery, state: FSMContext):
     )
 
 
-# ✅ Owner approves publish
+# ✅ FIXED: Owner approves publish with callback_manager
 @router.callback_query(F.data.startswith(PublishCallback.OWNER_APPROVE))
 async def owner_approve_publish(callback: CallbackQuery, bot: Bot):
-    """
-    Owner approved publish request with enhanced keyword extraction
-    """
-    logger.info(f"[OWNER_APPROVE] Button clicked with data: {callback.data}")
+    """Owner approved publish request"""
+    logger.info(f"[OWNER_APPROVE] Button clicked")
     await callback.answer("Processing approval...")
     
     try:
-        # Parse callback data: oa:user_id:short_name:keyword
-        data_parts = callback.data.split(":")[1:]
-        logger.info(f"[OWNER_APPROVE] Parsed {len(data_parts)} parts from callback data")
+        # ✅ PARSE CALLBACK DATA from hash
+        data_str = parse_callback(callback.data)
         
-        if len(data_parts) < 2:
-            logger.error(f"[OWNER_APPROVE] Invalid callback data format: {callback.data}")
-            await callback.answer("Error: Invalid callback data format.", show_alert=True)
+        if not data_str:
+            await callback.answer("❌ Session expired. Please ask user to resubmit.", show_alert=True)
             return
         
-        user_id = int(data_parts[0])
-        short_name = data_parts[1]
+        # Parse: "user_id:short_name:keyword"
+        parts = data_str.split(":")
+        if len(parts) != 3:
+            logger.error(f"[OWNER_APPROVE] Invalid data format: {data_str}")
+            await callback.answer("❌ Invalid data format.", show_alert=True)
+            return
         
-        # ✅ Get keyword with multiple fallback methods
-        keyword = None
-        
-        # Method 1: From callback data (most reliable)
-        if len(data_parts) >= 3:
-            keyword = data_parts[2]
-            logger.info(f"[OWNER_APPROVE] ✅ Got keyword from callback data: '{keyword}'")
-        
-        # Method 2: Extract from message text (fallback)
-        if not keyword:
-            logger.warning("[OWNER_APPROVE] Keyword not in callback data, extracting from message...")
-            keyword = safe_extract_keyword(callback.message.text)
-            
-            if keyword:
-                logger.info(f"[OWNER_APPROVE] ✅ Extracted keyword from message: '{keyword}'")
-            else:
-                logger.error("[OWNER_APPROVE] ❌ Failed to extract keyword")
-                await callback.answer(
-                    "Error: Could not find keyword. Please reject and ask user to resubmit.",
-                    show_alert=True
-                )
-                return
+        user_id = int(parts[0])
+        short_name = parts[1]
+        keyword = parts[2]
         
         logger.info(f"[OWNER_APPROVE] Processing: user={user_id}, pack={short_name}, keyword='{keyword}'")
         
@@ -601,7 +443,7 @@ async def owner_approve_publish(callback: CallbackQuery, bot: Bot):
         await callback.answer("Error approving publish!", show_alert=True)
 
 
-# ✅ Owner rejects publish
+# ✅ FIXED: Owner rejects publish with callback_manager
 @router.callback_query(F.data.startswith(PublishCallback.OWNER_REJECT))
 async def owner_reject_publish(callback: CallbackQuery, bot: Bot):
     """Owner rejected publish request"""
@@ -609,10 +451,22 @@ async def owner_reject_publish(callback: CallbackQuery, bot: Bot):
     await callback.answer()
     
     try:
-        # Parse callback data
-        data_parts = callback.data.split(":")[1:]
-        user_id = int(data_parts[0])
-        short_name = data_parts[1]
+        # ✅ PARSE CALLBACK DATA from hash
+        data_str = parse_callback(callback.data)
+        
+        if not data_str:
+            await callback.answer("❌ Session expired.", show_alert=True)
+            return
+        
+        # Parse: "user_id:short_name:keyword"
+        parts = data_str.split(":")
+        if len(parts) < 2:
+            logger.error(f"[OWNER_REJECT] Invalid data format: {data_str}")
+            await callback.answer("❌ Invalid data format.", show_alert=True)
+            return
+        
+        user_id = int(parts[0])
+        short_name = parts[1]
         
         logger.info(f"[OWNER_REJECT] Rejecting pack {short_name} for user {user_id}")
         

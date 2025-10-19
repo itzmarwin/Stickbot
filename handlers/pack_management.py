@@ -9,6 +9,9 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from datetime import datetime
 from aiogram.exceptions import TelegramBadRequest
 
+# ✅ NEW IMPORT: Callback manager for fixing BUTTON_DATA_INVALID
+from callback_manager import create_callback, parse_callback
+
 from database import (
     get_user, create_user, update_user_started,
     get_user_packs_paginated, update_pack_name, delete_pack_by_short_name,
@@ -40,19 +43,20 @@ from handlers.publish import PublishCallback
 logger = logging.getLogger(__name__)
 router = Router()
 
+# ✅ FIXED: Shortened callback prefixes to prevent BUTTON_DATA_INVALID
 class PackManagementCallback:
     MANAGE_PACKS = "manage_packs"
     CREATE_NEW_PACK = "create_new_pack"
-    PACK_SELECTED = "pack_selected:"
-    PACK_OPTIONS = "pack_options:"
-    RENAME_PACK = "rename_pack:"
-    DELETE_PACK = "delete_pack:"
-    ADD_STICKER = "add_sticker:"
-    CONFIRM_DELETE = "confirm_delete:"
-    CANCEL_DELETE = "cancel_delete:"
+    PACK_SELECTED = "ps:"      # ✅ Shortened (will use hash)
+    PACK_OPTIONS = "po:"       # ✅ Shortened (will use hash)
+    RENAME_PACK = "rp:"        # ✅ Shortened (will use hash)
+    DELETE_PACK = "dp:"        # ✅ Shortened (will use hash)
+    ADD_STICKER = "as:"        # ✅ Shortened (will use hash)
+    CONFIRM_DELETE = "cd:"     # ✅ Shortened (will use hash)
+    CANCEL_DELETE = "xd:"      # ✅ Shortened (will use hash)
     PACK_INFO = "pack_info:"
-    NEXT_PAGE = "next_page:"
-    PREV_PAGE = "prev_page:"
+    NEXT_PAGE = "np:"          # ✅ Shortened (will use hash)
+    PREV_PAGE = "pp:"          # ✅ Shortened (will use hash)
     BACK_TO_MANAGE = "back_to_manage"
     BACK_TO_MAIN = "back_to_main"
     EXTRA_COMMANDS = "extra_commands"
@@ -107,6 +111,7 @@ def get_pack_link_keyboard(pack_link: str):
     builder.adjust(1)
     return builder.as_markup()
 
+# ✅ FIXED: Using callback_manager to store long short_names
 async def get_manage_packs_keyboard(user_id: int, page: int = 0):
     builder = InlineKeyboardBuilder()
     packs, total = await get_user_packs_paginated(user_id, page)
@@ -115,42 +120,65 @@ async def get_manage_packs_keyboard(user_id: int, page: int = 0):
         pack_name = pack["pack_name"].replace(f" ~ @{BOT_USERNAME}", "")
         if len(pack_name) > 20:
             pack_name = pack_name[:17] + "..."
-        builder.button(text=f"{pack_name}", callback_data=f"{PackManagementCallback.PACK_SELECTED}{pack['short_name']}")
+        
+        # ✅ USE CALLBACK MANAGER: Stores long short_name, returns short hash
+        callback_data = create_callback("pack_selected", pack['short_name'])
+        builder.button(text=f"{pack_name}", callback_data=callback_data)
     
     builder.adjust(1)
     action_builder = InlineKeyboardBuilder()
     
     if page > 0:
-        action_builder.button(text="⬅️ 𝗣𝗿𝗲𝘃𝗶𝗼𝘂𝘀", callback_data=f"{PackManagementCallback.PREV_PAGE}{page-1}")
+        # ✅ USE CALLBACK MANAGER for page numbers
+        callback_data = create_callback("prev_page", str(page-1))
+        action_builder.button(text="⬅️ 𝗣𝗿𝗲𝘃𝗶𝗼𝘂𝘀", callback_data=callback_data)
     
     action_builder.button(text="🆕 𝗖𝗿𝗲𝗮𝘁𝗲 𝗡𝗲𝘄 𝗣𝗮𝗰𝗸", callback_data=PackManagementCallback.CREATE_NEW_PACK)
     
     if (page + 1) * 6 < total:
-        action_builder.button(text="𝗡𝗲𝘅𝘁 ➡️", callback_data=f"{PackManagementCallback.NEXT_PAGE}{page+1}")
+        # ✅ USE CALLBACK MANAGER for page numbers
+        callback_data = create_callback("next_page", str(page+1))
+        action_builder.button(text="𝗡𝗲𝘅𝘁 ➡️", callback_data=callback_data)
     
     action_builder.button(text="⬅️ 𝗕𝗮𝗰𝗸", callback_data=PackManagementCallback.BACK_TO_MAIN)
     action_builder.adjust(2, 1, 1)
     
     return builder.attach(action_builder).as_markup()
 
+# ✅ FIXED: Using callback_manager for all pack-related buttons
 def get_pack_options_keyboard(short_name: str):
     builder = InlineKeyboardBuilder()
-    builder.button(text="✏️ 𝗥𝗲𝗻𝗮𝗺𝗲 𝗣𝗮𝗰𝗸", callback_data=f"{PackManagementCallback.RENAME_PACK}{short_name}")
+    
+    # ✅ USE CALLBACK MANAGER for each button
+    builder.button(text="✏️ 𝗥𝗲𝗻𝗮𝗺𝗲 𝗣𝗮𝗰𝗸", 
+                   callback_data=create_callback("rename_pack", short_name))
     builder.button(text="ℹ️", callback_data=f"{PackManagementCallback.PACK_INFO}rename")
-    builder.button(text="➕ 𝗔𝗱𝗱 𝗦𝘁𝗶𝗰𝗸𝗲𝗿", callback_data=f"{PackManagementCallback.ADD_STICKER}{short_name}")
+    
+    builder.button(text="➕ 𝗔𝗱𝗱 𝗦𝘁𝗶𝗰𝗸𝗲𝗿", 
+                   callback_data=create_callback("add_sticker", short_name))
     builder.button(text="ℹ️", callback_data=f"{PackManagementCallback.PACK_INFO}add")
-    builder.button(text="🗑️ 𝗗𝗲𝗹𝗲𝘁𝗲 𝗣𝗮𝗰𝗸", callback_data=f"{PackManagementCallback.DELETE_PACK}{short_name}")
+    
+    builder.button(text="🗑️ 𝗗𝗲𝗹𝗲𝘁𝗲 𝗣𝗮𝗰𝗸", 
+                   callback_data=create_callback("delete_pack", short_name))
     builder.button(text="ℹ️", callback_data=f"{PackManagementCallback.PACK_INFO}delete")
-    builder.button(text="📤 𝗟𝗮𝘂𝗻𝗰𝗵 𝗣𝗮𝗰𝗸", callback_data=f"{PublishCallback.PUBLISH_PACK}{short_name}")
+    
+    builder.button(text="📤 𝗟𝗮𝘂𝗻𝗰𝗵 𝗣𝗮𝗰𝗸", 
+                   callback_data=create_callback("publish_pack", short_name))
     builder.button(text="ℹ️", callback_data=f"{PackManagementCallback.PACK_INFO}publish")
+    
     builder.button(text="⬅️ 𝗕𝗮𝗰𝗸", callback_data=PackManagementCallback.BACK_TO_MANAGE)
     builder.adjust(2, 2, 2, 2, 1)
     return builder.as_markup()
 
+# ✅ FIXED: Using callback_manager for delete confirmation
 def get_delete_confirmation_keyboard(short_name: str):
     builder = InlineKeyboardBuilder()
-    builder.button(text="✅ 𝗖𝗼𝗻𝗳𝗶𝗿𝗺", callback_data=f"{PackManagementCallback.CONFIRM_DELETE}{short_name}")
-    builder.button(text="❌ 𝗖𝗮𝗻𝗰𝗲𝗹", callback_data=f"{PackManagementCallback.CANCEL_DELETE}{short_name}")
+    
+    # ✅ USE CALLBACK MANAGER
+    builder.button(text="✅ 𝗖𝗼𝗻𝗳𝗶𝗿𝗺", 
+                   callback_data=create_callback("confirm_delete", short_name))
+    builder.button(text="❌ 𝗖𝗮𝗻𝗰𝗲𝗹", 
+                   callback_data=create_callback("cancel_delete", short_name))
     builder.button(text="⬅️ 𝗕𝗮𝗰𝗸", callback_data=PackManagementCallback.BACK_TO_MANAGE)
     builder.adjust(2, 1)
     return builder.as_markup()
@@ -259,12 +287,19 @@ async def manage_packs_callback(callback: CallbackQuery):
     except Exception as e:
         logger.error(f"Error in manage_packs_callback: {e}")
 
+# ✅ FIXED: Parse callback data using callback_manager
 @router.callback_query(F.data.startswith(PackManagementCallback.PACK_SELECTED))
 async def pack_selected_callback(callback: CallbackQuery):
     await callback.answer()
     
     try:
-        short_name = callback.data.split(":")[1]
+        # ✅ PARSE CALLBACK DATA from hash
+        short_name = parse_callback(callback.data)
+        
+        if not short_name:
+            await callback.answer("❌ Session expired. Please try again.", show_alert=True)
+            return
+        
         pack = await get_pack_by_short_name(short_name)
         
         if pack:
@@ -299,12 +334,19 @@ async def pack_info_callback(callback: CallbackQuery):
         logger.error(f"Error in pack_info_callback: {e}")
         await callback.answer("Error showing info.", show_alert=True)
 
+# ✅ FIXED: Parse callback data using callback_manager
 @router.callback_query(F.data.startswith(PackManagementCallback.RENAME_PACK))
 async def rename_pack_callback(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
     
     try:
-        short_name = callback.data.split(":")[1]
+        # ✅ PARSE CALLBACK DATA from hash
+        short_name = parse_callback(callback.data)
+        
+        if not short_name:
+            await callback.answer("❌ Session expired. Please try again.", show_alert=True)
+            return
+        
         pack = await get_pack_by_short_name(short_name)
         
         if pack:
@@ -361,12 +403,19 @@ async def process_rename_pack_name(message: Message, state: FSMContext, bot: Bot
     
     await state.clear()
 
+# ✅ FIXED: Parse callback data using callback_manager
 @router.callback_query(F.data.startswith(PackManagementCallback.DELETE_PACK))
 async def delete_pack_callback(callback: CallbackQuery):
     await callback.answer()
     
     try:
-        short_name = callback.data.split(":")[1]
+        # ✅ PARSE CALLBACK DATA from hash
+        short_name = parse_callback(callback.data)
+        
+        if not short_name:
+            await callback.answer("❌ Session expired. Please try again.", show_alert=True)
+            return
+        
         pack = await get_pack_by_short_name(short_name)
         
         if pack:
@@ -386,12 +435,19 @@ async def delete_pack_callback(callback: CallbackQuery):
     except Exception as e:
         logger.error(f"Error in delete_pack_callback: {e}")
 
+# ✅ FIXED: Parse callback data using callback_manager
 @router.callback_query(F.data.startswith(PackManagementCallback.CONFIRM_DELETE))
 async def confirm_delete_callback(callback: CallbackQuery, bot: Bot):
     await callback.answer()
     
     try:
-        short_name = callback.data.split(":")[1]
+        # ✅ PARSE CALLBACK DATA from hash
+        short_name = parse_callback(callback.data)
+        
+        if not short_name:
+            await callback.answer("❌ Session expired. Please try again.", show_alert=True)
+            return
+        
         pack = await get_pack_by_short_name(short_name)
         
         if pack:
@@ -414,12 +470,19 @@ async def confirm_delete_callback(callback: CallbackQuery, bot: Bot):
     except Exception as e:
         logger.error(f"Error in confirm_delete_callback: {e}")
 
+# ✅ FIXED: Parse callback data using callback_manager
 @router.callback_query(F.data.startswith(PackManagementCallback.CANCEL_DELETE))
 async def cancel_delete_callback(callback: CallbackQuery):
     await callback.answer()
     
     try:
-        short_name = callback.data.split(":")[1]
+        # ✅ PARSE CALLBACK DATA from hash
+        short_name = parse_callback(callback.data)
+        
+        if not short_name:
+            await callback.answer("❌ Session expired. Please try again.", show_alert=True)
+            return
+        
         pack = await get_pack_by_short_name(short_name)
         
         if pack:
@@ -432,12 +495,19 @@ async def cancel_delete_callback(callback: CallbackQuery):
     except Exception as e:
         logger.error(f"Error in cancel_delete_callback: {e}")
 
+# ✅ FIXED: Parse callback data using callback_manager
 @router.callback_query(F.data.startswith(PackManagementCallback.ADD_STICKER))
 async def add_sticker_callback(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
     
     try:
-        short_name = callback.data.split(":")[1]
+        # ✅ PARSE CALLBACK DATA from hash
+        short_name = parse_callback(callback.data)
+        
+        if not short_name:
+            await callback.answer("❌ Session expired. Please try again.", show_alert=True)
+            return
+        
         pack = await get_pack_by_short_name(short_name)
         
         if pack:
@@ -587,7 +657,7 @@ async def process_first_sticker(message: Message, state: FSMContext):
         media_type = "video"
 
     if media_type == "video":
-        file_size_mb = get_file_mb(media.file_size)
+        file_size_mb = get_file_size_mb(media.file_size)
         if file_size_mb > MAX_VIDEO_SIZE_MB:
             await message.reply(VIDEO_TOO_LARGE)
             return
@@ -742,12 +812,20 @@ async def process_new_pack_name(message: Message, state: FSMContext, bot: Bot):
     
     await state.clear()
 
+# ✅ FIXED: Parse callback data using callback_manager
 @router.callback_query(F.data.startswith(PackManagementCallback.NEXT_PAGE))
 async def next_page_callback(callback: CallbackQuery):
     await callback.answer()
     
     try:
-        page = int(callback.data.split(":")[1])
+        # ✅ PARSE CALLBACK DATA from hash
+        page_str = parse_callback(callback.data)
+        
+        if not page_str:
+            await callback.answer("❌ Session expired. Please try again.", show_alert=True)
+            return
+        
+        page = int(page_str)
         user_id = callback.from_user.id
         
         await safe_edit_message(
@@ -758,12 +836,20 @@ async def next_page_callback(callback: CallbackQuery):
     except Exception as e:
         logger.error(f"Error in next_page_callback: {e}")
 
+# ✅ FIXED: Parse callback data using callback_manager
 @router.callback_query(F.data.startswith(PackManagementCallback.PREV_PAGE))
 async def prev_page_callback(callback: CallbackQuery):
     await callback.answer()
     
     try:
-        page = int(callback.data.split(":")[1])
+        # ✅ PARSE CALLBACK DATA from hash
+        page_str = parse_callback(callback.data)
+        
+        if not page_str:
+            await callback.answer("❌ Session expired. Please try again.", show_alert=True)
+            return
+        
+        page = int(page_str)
         user_id = callback.from_user.id
         
         await safe_edit_message(

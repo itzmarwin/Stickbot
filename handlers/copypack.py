@@ -72,9 +72,12 @@ async def copy_pack_background(
         # Create new pack with first sticker
         first_sticker = source_pack.stickers[0]
         
+        # ✅ FIX: Convert emoji string to list
+        emoji_list = [first_sticker.emoji] if first_sticker.emoji else [get_random_emoji()]
+        
         sticker_input = InputSticker(
             sticker=first_sticker.file_id,  # Reuse existing file_id
-            emoji_list=first_sticker.emoji if first_sticker.emoji else [get_random_emoji()],
+            emoji_list=emoji_list,
             format="static" if not first_sticker.is_video else "video"
         )
         
@@ -109,9 +112,12 @@ async def copy_pack_background(
         # Add remaining stickers
         for i, sticker in enumerate(source_pack.stickers[1:], start=2):
             try:
+                # ✅ FIX: Convert emoji string to list
+                emoji_list = [sticker.emoji] if sticker.emoji else [get_random_emoji()]
+                
                 sticker_input = InputSticker(
                     sticker=sticker.file_id,  # Reuse file_id
-                    emoji_list=sticker.emoji if sticker.emoji else [get_random_emoji()],
+                    emoji_list=emoji_list,
                     format="static" if not sticker.is_video else "video"
                 )
                 

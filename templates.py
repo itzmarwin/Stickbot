@@ -57,7 +57,34 @@ Convert any message into a beautiful quote sticker!
 Just reply to any message with <code>/q</code>
 """
 
-# STICKERS FEATURE INFO
+
+# CopyPack feature messages
+COPYPACK_INFO_MESSAGE = """
+<b>📦 𝖢𝗈𝗉𝗒 𝖯𝖺𝖼𝗄 𝖥𝖾𝖺𝗍𝗎𝗋𝖾</b>
+
+<b>𝖧𝗈𝗐 𝗂𝗍 𝗐𝗈𝗋𝗄𝗌:</b>
+𝖢𝗈𝗉𝗒 𝖺𝗇𝗒 𝖾𝗇𝗍𝗂𝗋𝖾 𝗌𝗍𝗂𝖼𝗄𝖾𝗋 𝗉𝖺𝖼𝗄 𝗍𝗈 𝗒𝗈𝗎𝗋 𝗈𝗐𝗇 𝖼𝗈𝗅𝗅𝖾𝖼𝗍𝗂𝗈𝗇!
+
+<b>𝖲𝗍𝖾𝗉𝗌:</b>
+1. 𝖥𝗂𝗇𝖽 𝖺𝗇𝗒 𝗌𝗍𝗂𝖼𝗄𝖾𝗋 𝖿𝗋𝗈𝗆 𝗍𝗁𝖾 𝗉𝖺𝖼𝗄 𝗒𝗈𝗎 𝗐𝖺𝗇𝗍
+2. 𝖱𝖾𝗉𝗅𝗒 𝗍𝗈 𝗂𝗍 𝗐𝗂𝗍𝗁 <code>/copypack</code>
+3. 𝖲𝖾𝗇𝖽 𝖺 𝗇𝖾𝗐 𝗇𝖺𝗆𝖾 𝖿𝗈𝗋 𝗒𝗈𝗎𝗋 𝖼𝗈𝗉𝗒
+4. 𝖶𝖺𝗂𝗍 𝗐𝗁𝗂𝗅𝖾 𝖨 𝖼𝗈𝗉𝗒 𝖺𝗅𝗅 𝗌𝗍𝗂𝖾𝗄𝖾𝗋𝗌!
+
+<b>𝖥𝖾𝖺𝗍𝗎𝗋𝖾𝗌:</b>
+✦ 𝖢𝗈𝗉𝗒 𝗎𝗉 𝗍𝗈 120 𝗌𝗍𝗂𝖼𝗄𝖾𝗋𝗌
+✦ 𝖯𝗋𝗈𝗀𝗋𝖾𝗌𝗌 𝗎𝗉𝖽𝖺𝗍𝖾𝗌 𝗂𝗇 𝗋𝖾𝖺𝗅-𝗍𝗂𝗆𝖾
+✦ 𝖠𝗎𝗍𝗈𝗆𝖺𝗍𝗂𝖼 𝖾𝗋𝗋𝗈𝗋 𝗁𝖺𝗇𝖽𝗅𝗂𝗇𝗀
+✦ 𝖡𝖺𝖼𝗄𝗀𝗋𝗈𝗎𝗇𝖽 𝗉𝗋𝗈𝖼𝖾𝗌𝗌𝗂𝗇𝗀
+
+<b>𝖤𝗑𝖺𝗆𝗉𝗅𝖾:</b>
+<i>𝖱𝖾𝗉𝗅𝗒 𝗍𝗈 𝖺𝗇𝗒 𝗌𝗍𝗂𝖼𝗄𝖾𝗋:</i> <code>/copypack</code>
+<i>𝖡𝗈𝗍 𝖺𝗌𝗄𝗌:</i> "𝖲𝖾𝗇𝖽 𝗇𝖾𝗐 𝗉𝖺𝖼𝗄 𝗇𝖺𝗆𝖾"
+<i>𝖸𝗈𝗎 𝗌𝖾𝗇𝖽:</i> "𝖬𝗒 𝖢𝗈𝗈𝗅 𝖯𝖺𝖼𝗄"
+<i>𝖡𝗈𝗍 𝖼𝗈𝗉𝗂𝖾𝗌:</i> 𝖠𝗅𝗅 𝗌𝗍𝗂𝖼𝗄𝖾𝗋𝗌 𝗍𝗈 𝗒𝗈𝗎𝗋 𝗇𝖾𝗐 𝗉𝖺𝖼𝗄! ✅
+"""
+
+# Update STICKERS_INFO_MESSAGE to include copypack
 STICKERS_INFO_MESSAGE = """
 <b>Sticker Features</b>
 
@@ -68,12 +95,16 @@ STICKERS_INFO_MESSAGE = """
 • Adds to your personal sticker pack
 • Auto-creates new pack if needed
 
-<b>2. Get Sticker Files</b>
+<b>2. Copy Pack</b>
+• <code>/copypack</code> - Reply to any sticker from a pack
+• Copies entire pack to your collection
+
+<b>3. Get Sticker Files</b>
 • <code>/getsticker</code> - Get static sticker as image
 • <code>/getvidsticker</code> - Get video sticker as MP4
 • <code>/stickerid</code> - Get sticker's file ID
 
-<b>3. Manage Packs</b>
+<b>4. Manage Packs</b>
 • Use "Manage Packs" button below
 • Rename, delete, add stickers
 • Publish packs for sharing
@@ -83,6 +114,10 @@ STICKERS_INFO_MESSAGE = """
 ✦ Videos (MP4, WebM - max 4MB)
 ✦ GIFs & Animated stickers
 """
+
+
+
+
 
 HELP_MESSAGE = "nigga"
 

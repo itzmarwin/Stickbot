@@ -258,7 +258,10 @@ NO_PACKS_MESSAGE = """
 """
 
 PACK_OPTIONS_MESSAGE = """
-🛠️ <b>𝖯𝖺𝖼𝗄 𝖮𝗉𝗍𝗂𝗈𝗇𝗌:</b> {pack_name}
+🛠️ <b>𝖯𝖺𝖼𝗄 𝖮𝗉𝗍𝗂𝗈𝗇𝗌</b>
+
+<a href="{pack_link}">{pack_name}</a>
+<b>𝖲𝗍𝗂𝖼𝗄𝖾𝗋𝗌:</b> {sticker_count}/120
 """
 
 RENAME_PACK_MESSAGE = """

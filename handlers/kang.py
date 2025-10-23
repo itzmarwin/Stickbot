@@ -135,6 +135,10 @@ async def cmd_kang(message: Message, state: FSMContext, bot: Bot):
         if success:
             await increment_sticker_count(user_id)
             
+            # ✅ FIXED: Get updated pack data to show current count
+            updated_pack = await get_user_active_pack(user_id)
+            current_count = updated_pack.get("sticker_count", 0) if updated_pack else 0
+            
             # Create button for pack link
             keyboard = InlineKeyboardMarkup(inline_keyboard=[[
                 InlineKeyboardButton(
@@ -143,7 +147,11 @@ async def cmd_kang(message: Message, state: FSMContext, bot: Bot):
                 )
             ]])
             
-            await processing_msg.edit_text(STICKER_ADDED_SIMPLE, reply_markup=keyboard)
+            # ✅ FIXED: Show sticker count in message
+            await processing_msg.edit_text(
+                STICKER_ADDED_SIMPLE.format(sticker_count=current_count), 
+                reply_markup=keyboard
+            )
             
         elif pack_full:
             # Pack is full, ask for new pack name

@@ -29,7 +29,7 @@ from templates import (
     RENAME_PACK_INFO, DELETE_PACK_INFO, ADD_STICKER_INFO,
     RATE_LIMIT_MESSAGE, STICKER_ADDING_IN_PROGRESS,
     PUBLISH_PACK_INFO, EXTRA_COMMANDS_MESSAGE, AFK_INFO_MESSAGE,
-    QUOTLY_INFO_MESSAGE, STICKERS_INFO_MESSAGE
+    QUOTLY_INFO_MESSAGE, STICKERS_INFO_MESSAGE, STICKER_ADDED_SIMPLE
 )
 from utils.fsm_states import PackManagementStates
 from utils.helpers import validate_pack_name, format_pack_name, generate_short_name, get_file_size_mb
@@ -287,7 +287,7 @@ async def manage_packs_callback(callback: CallbackQuery):
     except Exception as e:
         logger.error(f"Error in manage_packs_callback: {e}")
 
-# ✅ FIXED: Parse callback data using callback_manager
+# ✅ FIXED: Show clickable pack name with full display name and sticker count
 @router.callback_query(F.data.startswith(PackManagementCallback.PACK_SELECTED))
 async def pack_selected_callback(callback: CallbackQuery):
     await callback.answer()
@@ -303,11 +303,21 @@ async def pack_selected_callback(callback: CallbackQuery):
         pack = await get_pack_by_short_name(short_name)
         
         if pack:
-            pack_name = pack["pack_name"].replace(f" ~ @{BOT_USERNAME}", "")
-            escaped_pack_name = escape_html(pack_name)
+            # Get full pack name (with bot username)
+            full_pack_name = pack["pack_name"]
+            pack_link = f"https://t.me/addstickers/{short_name}"
+            sticker_count = pack.get("sticker_count", 0)
+            
+            # Format message with clickable pack name and sticker count
+            message_text = PACK_OPTIONS_MESSAGE.format(
+                pack_link=pack_link,
+                pack_name=escape_html(full_pack_name),
+                sticker_count=sticker_count
+            )
+            
             await safe_edit_message(
                 callback,
-                PACK_OPTIONS_MESSAGE.format(pack_name=escaped_pack_name),
+                message_text,
                 get_pack_options_keyboard(short_name)
             )
     except Exception as e:
@@ -535,6 +545,7 @@ async def add_sticker_callback(callback: CallbackQuery, state: FSMContext):
     except Exception as e:
         logger.error(f"Error in add_sticker_callback: {e}")
 
+# ✅ FIXED: Show sticker count after adding
 @router.message(PackManagementStates.waiting_for_sticker_to_add)
 async def process_sticker_addition(message: Message, state: FSMContext, bot: Bot):
     data = await state.get_data()

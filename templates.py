@@ -408,7 +408,7 @@ PUBLISH_REQUEST_APPROVED = """
 𝖴𝗌𝖾𝗋𝗌 𝖼𝖺𝗇 𝗇𝗈𝗐 𝗌𝖾𝖺𝗋𝖼𝗁 𝗒𝗈𝗎𝗋 𝗉𝖺𝖼𝗄 𝗂𝗇 𝗂𝗇𝗅𝗂𝗇𝖾 𝗆𝗈𝖽𝖾:  
 @{bot_username} {keyword}
 
-➣ 𝗔𝗅𝗌𝗈 𝗌𝗁𝗈𝗐𝗇 𝗂𝗇 𝗈𝗎𝗋 𝗈𝖿𝖿𝗂𝖼𝗂𝖺𝗅 𝖼𝗁𝖺𝗇𝗇𝖾𝗅: @YourChannelUsername
+➣ 𝗔𝗅𝗌𝗈 𝗌𝗁𝗈𝗐𝗇 𝗂𝗇 𝗈𝗎𝗋 𝗈𝖿𝖿𝗂𝖼𝗂𝖺𝗅 𝖼𝗁𝖺𝗇𝗇𝖾𝗅: @TgStickersHome
 """
 
 PUBLISH_REQUEST_REJECTED = """

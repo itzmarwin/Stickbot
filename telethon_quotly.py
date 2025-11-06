@@ -1,6 +1,7 @@
 import os
 import base64
 import logging
+import asyncio
 from random import choice
 from telethon import TelegramClient, events
 from telethon.tl import types
@@ -26,7 +27,10 @@ COLOR_MAP = {
 }
 
 class QuotlyTelethon:
-    _API = "https://bot.lyo.su/quote/generate"
+    # ✅ PRIMARY API with fallback support
+    _PRIMARY_API = "https://bot.lyo.su/quote/generate"
+    _FALLBACK_API = "https://quotly.netorare.codes/generate"  # Alternative API
+    
     _entities = {
         types.MessageEntityPhone: "phone_number",
         types.MessageEntityMention: "mention",
@@ -45,30 +49,57 @@ class QuotlyTelethon:
     }
 
     async def _format_quote(self, event, reply=None, sender=None, type_="private"):
+        """Format message data for quote API"""
         async def telegraph(file_):
-            import aiohttp
-            from PIL import Image
-            file = file_ + ".png"
-            Image.open(file_).save(file, "PNG")
-            files = {"file": open(file, "rb").read()}
-            
-            async with aiohttp.ClientSession() as session:
-                async with session.post("https://telegra.ph/upload", data=files) as resp:
-                    result = await resp.json()
-                    uri = "https://telegra.ph" + result[0]["src"]
-            
-            os.remove(file)
-            os.remove(file_)
-            return uri
+            """Upload image to telegraph"""
+            try:
+                import aiohttp
+                from PIL import Image
+                file = file_ + ".png"
+                Image.open(file_).save(file, "PNG")
+                
+                with open(file, "rb") as f:
+                    files = {"file": f.read()}
+                
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(
+                        "https://telegra.ph/upload", 
+                        data=files,
+                        timeout=aiohttp.ClientTimeout(total=15)
+                    ) as resp:
+                        if resp.status != 200:
+                            raise Exception(f"Telegraph upload failed: {resp.status}")
+                        
+                        result = await resp.json()
+                        uri = "https://telegra.ph" + result[0]["src"]
+                
+                # Cleanup
+                if os.path.exists(file):
+                    os.remove(file)
+                if os.path.exists(file_):
+                    os.remove(file_)
+                
+                return uri
+            except Exception as e:
+                logger.error(f"Telegraph upload error: {e}")
+                # Cleanup on error
+                if os.path.exists(file):
+                    os.remove(file)
+                if os.path.exists(file_):
+                    os.remove(file_)
+                return None
 
         reply_data = {}
         if reply:
-            reply_sender = await reply.get_sender()
-            reply_data = {
-                "name": get_display_name(reply_sender) or "Deleted Account",
-                "text": reply.raw_text,
-                "chatId": reply.chat_id,
-            }
+            try:
+                reply_sender = await reply.get_sender()
+                reply_data = {
+                    "name": get_display_name(reply_sender) or "Deleted Account",
+                    "text": reply.raw_text or "",
+                    "chatId": reply.chat_id,
+                }
+            except Exception as e:
+                logger.error(f"Error getting reply data: {e}")
 
         is_fwd = event.fwd_from
         name, last_name = None, None
@@ -78,8 +109,13 @@ class QuotlyTelethon:
             name = get_display_name(sender)
         elif not is_fwd:
             id_ = event.sender_id
-            sender = await event.get_sender()
-            name = get_display_name(sender)
+            try:
+                sender = await event.get_sender()
+                name = get_display_name(sender)
+            except Exception as e:
+                logger.error(f"Error getting sender: {e}")
+                id_ = event.sender_id
+                name = "User"
         else:
             id_, sender = None, None
             name = is_fwd.from_name
@@ -88,8 +124,8 @@ class QuotlyTelethon:
                 try:
                     sender = await event.client.get_entity(id_)
                     name = get_display_name(sender)
-                except ValueError:
-                    pass
+                except (ValueError, Exception) as e:
+                    logger.debug(f"Could not get forwarded sender: {e}")
         
         if sender and hasattr(sender, "last_name"):
             last_name = sender.last_name
@@ -97,13 +133,16 @@ class QuotlyTelethon:
         entities = []
         if event.entities:
             for entity in event.entities:
-                entity_type = type(entity)
-                if entity_type in self._entities:
-                    entity_dict = {
-                        "type": self._entities[entity_type],
-                        **{k: v for k, v in entity.to_dict().items() if k != "_"},
-                    }
-                    entities.append(entity_dict)
+                try:
+                    entity_type = type(entity)
+                    if entity_type in self._entities:
+                        entity_dict = {
+                            "type": self._entities[entity_type],
+                            **{k: v for k, v in entity.to_dict().items() if k != "_"},
+                        }
+                        entities.append(entity_dict)
+                except Exception as e:
+                    logger.debug(f"Error processing entity: {e}")
 
         message = {
             "entities": entities,
@@ -111,30 +150,39 @@ class QuotlyTelethon:
             "avatar": True,
             "from": {
                 "id": id_,
-                "first_name": (name or (sender.first_name if sender else None)) or "Deleted Account",
+                "first_name": (name or (sender.first_name if sender and hasattr(sender, 'first_name') else None)) or "User",
                 "last_name": last_name,
-                "username": sender.username if sender else None,
+                "username": sender.username if sender and hasattr(sender, 'username') else None,
                 "language_code": "en",
                 "title": name,
                 "name": name or "Unknown",
                 "type": type_,
             },
-            "text": event.raw_text,
+            "text": event.raw_text or "",
             "replyMessage": reply_data,
         }
 
+        # ✅ Handle media with better error handling
         if event.document and event.document.thumbs:
-            file_ = await event.download_media(thumb=-1)
-            uri = await telegraph(file_)
-            message["media"] = {"url": uri}
+            try:
+                file_ = await event.download_media(thumb=-1)
+                if file_:
+                    uri = await telegraph(file_)
+                    if uri:
+                        message["media"] = {"url": uri}
+            except Exception as e:
+                logger.error(f"Error processing media: {e}")
 
         return message
 
     async def create_quotly(self, event, bg=None, reply=None, sender=None, file_name="quote.webp"):
+        """
+        Create quote sticker with fallback support
+        ✅ Tries primary API first, then fallback API
+        """
         if not isinstance(event, list):
             event = [event]
         
-        url = self._API
         bg = bg or "#2a1f3d"
         
         content = {
@@ -150,21 +198,97 @@ class QuotlyTelethon:
             ],
         }
         
+        # ✅ Try primary API first
+        result = await self._try_api(self._PRIMARY_API, content, file_name)
+        if result:
+            return result
+        
+        logger.warning("Primary API failed, trying fallback...")
+        
+        # ✅ Try fallback API
+        result = await self._try_api(self._FALLBACK_API, content, file_name)
+        if result:
+            return result
+        
+        # ✅ Both APIs failed
+        raise Exception(
+            "Quote generation service is currently unavailable. "
+            "Please try again later or use @QuotLyBot."
+        )
+    
+    async def _try_api(self, api_url: str, content: dict, file_name: str):
+        """
+        Try to generate quote using specific API
+        Returns file_name on success, None on failure
+        """
         try:
             import aiohttp
+            
             async with aiohttp.ClientSession() as session:
-                async with session.post(url, json=content) as response:
-                    request = await response.json()
-        except Exception as er:
-            logger.error(f"API Error: {er}")
-            raise er
-
-        if request.get("ok"):
-            with open(file_name, "wb") as file:
-                image = base64.decodebytes(request["result"]["image"].encode("utf-8"))
-                file.write(image)
-            return file_name
-        raise Exception(str(request))
+                async with session.post(
+                    api_url,
+                    json=content,
+                    timeout=aiohttp.ClientTimeout(total=30),
+                    headers={'Content-Type': 'application/json'}
+                ) as response:
+                    
+                    # ✅ Check response status
+                    if response.status != 200:
+                        logger.error(f"API returned status {response.status}")
+                        return None
+                    
+                    # ✅ Check content type
+                    content_type = response.headers.get('Content-Type', '').lower()
+                    
+                    if 'application/json' not in content_type:
+                        response_text = await response.text()
+                        logger.error(
+                            f"API returned non-JSON response.\n"
+                            f"Status: {response.status}\n"
+                            f"Content-Type: {content_type}\n"
+                            f"Preview: {response_text[:200]}"
+                        )
+                        return None
+                    
+                    # ✅ Parse JSON response
+                    try:
+                        request = await response.json()
+                    except Exception as json_err:
+                        logger.error(f"Failed to parse JSON: {json_err}")
+                        return None
+                    
+                    # ✅ Check if API returned success
+                    if not request.get("ok"):
+                        error_msg = request.get("error", request.get("description", "Unknown error"))
+                        logger.error(f"API error: {error_msg}")
+                        return None
+                    
+                    # ✅ Decode and save image
+                    try:
+                        image_data = request["result"]["image"]
+                        decoded_image = base64.b64decode(image_data.encode("utf-8"))
+                        
+                        with open(file_name, "wb") as file:
+                            file.write(decoded_image)
+                        
+                        logger.info(f"Quote generated successfully using {api_url}")
+                        return file_name
+                        
+                    except (KeyError, TypeError, ValueError) as e:
+                        logger.error(f"Failed to decode image: {e}")
+                        return None
+                    
+        except asyncio.TimeoutError:
+            logger.error(f"API timeout: {api_url}")
+            return None
+            
+        except aiohttp.ClientError as e:
+            logger.error(f"API connection error ({api_url}): {e}")
+            return None
+            
+        except Exception as e:
+            logger.error(f"Unexpected error with API ({api_url}): {e}", exc_info=True)
+            return None
 
 # Global instance
 quotly = QuotlyTelethon()
@@ -174,78 +298,157 @@ async def setup_telethon_handlers(client):
     
     @client.on(events.NewMessage(pattern='^/q(?: |$)(.*)'))
     async def quott_(event):
+        """Handle /q command for creating quote stickers"""
         match = event.pattern_match.group(1).strip()
+        
+        # ✅ Check if reply
         if not event.is_reply:
-            return await event.reply("Please reply to a message.")
+            return await event.reply(
+                "💬 <b>Quote Sticker</b>\n\n"
+                "Reply to a message with <code>/q</code> to create a quote sticker.\n\n"
+                "<b>Options:</b>\n"
+                "• <code>/q</code> - Basic quote\n"
+                "• <code>/q [color]</code> - With color (red, blue, green, etc.)\n"
+                "• <code>/q [number]</code> - Quote multiple messages (1-20)\n"
+                "• <code>/q r</code> - Include replied message\n"
+                "• <code>/q random</code> - Random color",
+                parse_mode='html'
+            )
 
-        msg = await event.reply("Creating quote, please wait...")
+        msg = await event.reply("⏳ Creating quote, please wait...")
         reply = await event.get_reply_message()
         replied_to, reply_ = None, None
 
-        if match:
-            spli_ = match.split(maxsplit=1)
-            if (spli_[0] in ["r", "reply"]) or (
-                spli_[0].isdigit() and int(spli_[0]) in range(1, 21)
-            ):
-                if spli_[0].isdigit():
-                    if not event.client.is_bot:
-                        reply_ = await event.client.get_messages(
-                            event.chat_id,
-                            min_id=event.reply_to_msg_id - 1,
-                            reverse=True,
-                            limit=int(spli_[0]),
-                        )
-                    else:
-                        id_ = reply.id
-                        reply_ = []
-                        for msg_ in range(id_, id_ + int(spli_[0])):
-                            msh = await event.client.get_messages(event.chat_id, ids=msg_)
-                            if msh:
-                                reply_.append(msh)
-                else:
-                    replied_to = await reply.get_reply_message()
-                try:
-                    match = spli_[1]
-                except IndexError:
-                    match = None
-
-        user = None
-
-        if not reply_:
-            reply_ = reply
-
-        if match:
-            match = match.split(maxsplit=1)
-
-        if match:
-            if match[0].startswith("@") or match[0].isdigit():
-                try:
-                    match_ = await event.client.parse_id(match[0])
-                    user = await event.client.get_entity(match_)
-                except ValueError:
-                    pass
-                match = match[1] if len(match) == 2 else None
-            else:
-                match = match[0]
-
-        if match == "random":
-            match = choice(list(COLOR_MAP.values()))
-
-        # Handle color mapping
-        bg_color = "#2a1f3d"
-        if match and match in COLOR_MAP:
-            bg_color = COLOR_MAP[match]
-        elif match and match.startswith("#"):
-            bg_color = match
-
+        # ✅ Parse command arguments
         try:
-            file = await quotly.create_quotly(
-                reply_, bg=bg_color, reply=replied_to, sender=user
-            )
-        except Exception as er:
-            return await msg.edit(str(er))
+            if match:
+                spli_ = match.split(maxsplit=1)
+                
+                # Check for reply or multiple messages
+                if (spli_[0] in ["r", "reply"]) or (
+                    spli_[0].isdigit() and int(spli_[0]) in range(1, 21)
+                ):
+                    if spli_[0].isdigit():
+                        # Get multiple messages
+                        try:
+                            if not event.client.is_bot:
+                                reply_ = await event.client.get_messages(
+                                    event.chat_id,
+                                    min_id=event.reply_to_msg_id - 1,
+                                    reverse=True,
+                                    limit=int(spli_[0]),
+                                )
+                            else:
+                                id_ = reply.id
+                                reply_ = []
+                                for msg_ in range(id_, id_ + int(spli_[0])):
+                                    msh = await event.client.get_messages(event.chat_id, ids=msg_)
+                                    if msh:
+                                        reply_.append(msh)
+                        except Exception as e:
+                            logger.error(f"Error getting multiple messages: {e}")
+                            reply_ = reply
+                    else:
+                        # Include replied message
+                        try:
+                            replied_to = await reply.get_reply_message()
+                        except Exception as e:
+                            logger.debug(f"Could not get replied message: {e}")
+                    
+                    try:
+                        match = spli_[1]
+                    except IndexError:
+                        match = None
 
-        message = await reply.reply("", file=file)
-        os.remove(file)
-        await msg.delete()
-        return message
+            user = None
+
+            if not reply_:
+                reply_ = reply
+
+            # ✅ Parse user mention or color
+            if match:
+                match = match.split(maxsplit=1)
+
+            if match:
+                if match[0].startswith("@") or match[0].isdigit():
+                    try:
+                        match_ = await event.client.parse_id(match[0])
+                        user = await event.client.get_entity(match_)
+                    except (ValueError, Exception) as e:
+                        logger.debug(f"Could not parse user: {e}")
+                    match = match[1] if len(match) == 2 else None
+                else:
+                    match = match[0]
+
+            if match == "random":
+                match = choice(list(COLOR_MAP.values()))
+
+            # ✅ Handle color mapping
+            bg_color = "#2a1f3d"
+            if match and match in COLOR_MAP:
+                bg_color = COLOR_MAP[match]
+            elif match and match.startswith("#"):
+                bg_color = match
+
+            # ✅ Create quote with proper error handling
+            try:
+                file = await quotly.create_quotly(
+                    reply_, bg=bg_color, reply=replied_to, sender=user
+                )
+            except Exception as er:
+                error_message = str(er)
+                
+                # ✅ User-friendly error message
+                if "unavailable" in error_message.lower():
+                    await msg.edit(
+                        "❌ <b>Service Unavailable</b>\n\n"
+                        "The quote generation service is currently down.\n\n"
+                        "<b>Alternative:</b>\n"
+                        "• Try @QuotLyBot\n"
+                        "• Try again in a few minutes",
+                        parse_mode='html'
+                    )
+                else:
+                    await msg.edit(
+                        f"❌ <b>Error creating quote</b>\n\n"
+                        f"<code>{error_message}</code>\n\n"
+                        f"Please try again or contact support.",
+                        parse_mode='html'
+                    )
+                return
+
+            # ✅ Send quote sticker
+            try:
+                message = await reply.reply("", file=file)
+                await msg.delete()
+                return message
+                
+            except Exception as e:
+                logger.error(f"Error sending quote: {e}")
+                await msg.edit(
+                    f"❌ <b>Failed to send quote</b>\n\n"
+                    f"Quote was created but couldn't be sent.\n"
+                    f"Error: <code>{str(e)}</code>",
+                    parse_mode='html'
+                )
+                
+            finally:
+                # ✅ Cleanup file
+                if file and os.path.exists(file):
+                    try:
+                        os.remove(file)
+                    except Exception as e:
+                        logger.error(f"Error removing temp file: {e}")
+                        
+        except Exception as e:
+            logger.error(f"Unexpected error in /q command: {e}", exc_info=True)
+            try:
+                await msg.edit(
+                    "❌ <b>Unexpected error</b>\n\n"
+                    "Something went wrong. Please try again.",
+                    parse_mode='html'
+                )
+            except:
+                pass
+    
+    logger.info("✅ Telethon /q command handler setup complete")

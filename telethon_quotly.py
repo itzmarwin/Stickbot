@@ -27,9 +27,12 @@ COLOR_MAP = {
 }
 
 class QuotlyTelethon:
-    # ✅ PRIMARY API with fallback support
-    _PRIMARY_API = "https://bot.lyo.su/quote/generate"
-    _FALLBACK_API = "https://quotly.netorare.codes/generate"  # Alternative API
+    # ✅ Multiple working APIs for redundancy
+    _APIS = [
+        "https://quote-api.botyaro.repl.co/generate",  # API 1
+        "https://qoute-api-akash.koyeb.app/generate",  # API 2
+        "https://quote.smnirv.me/generate",             # API 3
+    ]
     
     _entities = {
         types.MessageEntityPhone: "phone_number",
@@ -83,10 +86,13 @@ class QuotlyTelethon:
             except Exception as e:
                 logger.error(f"Telegraph upload error: {e}")
                 # Cleanup on error
-                if os.path.exists(file):
-                    os.remove(file)
-                if os.path.exists(file_):
-                    os.remove(file_)
+                try:
+                    if os.path.exists(file):
+                        os.remove(file)
+                    if os.path.exists(file_):
+                        os.remove(file_)
+                except:
+                    pass
                 return None
 
         reply_data = {}
@@ -177,8 +183,8 @@ class QuotlyTelethon:
 
     async def create_quotly(self, event, bg=None, reply=None, sender=None, file_name="quote.webp"):
         """
-        Create quote sticker with fallback support
-        ✅ Tries primary API first, then fallback API
+        Create quote sticker with multiple API fallback
+        ✅ Tries all available APIs until one succeeds
         """
         if not isinstance(event, list):
             event = [event]
@@ -198,22 +204,21 @@ class QuotlyTelethon:
             ],
         }
         
-        # ✅ Try primary API first
-        result = await self._try_api(self._PRIMARY_API, content, file_name)
-        if result:
-            return result
+        # ✅ Try all APIs one by one
+        for i, api_url in enumerate(self._APIS):
+            logger.info(f"Trying API {i+1}/{len(self._APIS)}: {api_url}")
+            result = await self._try_api(api_url, content, file_name)
+            
+            if result:
+                return result
+            
+            # Wait a bit before trying next API
+            if i < len(self._APIS) - 1:
+                await asyncio.sleep(0.5)
         
-        logger.warning("Primary API failed, trying fallback...")
-        
-        # ✅ Try fallback API
-        result = await self._try_api(self._FALLBACK_API, content, file_name)
-        if result:
-            return result
-        
-        # ✅ Both APIs failed
+        # ✅ All APIs failed
         raise Exception(
-            "Quote generation service is currently unavailable. "
-            "Please try again later or use @QuotLyBot."
+            "Unable to generate quote at the moment. Please try again in a few minutes."
         )
     
     async def _try_api(self, api_url: str, content: dict, file_name: str):
@@ -228,26 +233,23 @@ class QuotlyTelethon:
                 async with session.post(
                     api_url,
                     json=content,
-                    timeout=aiohttp.ClientTimeout(total=30),
-                    headers={'Content-Type': 'application/json'}
+                    timeout=aiohttp.ClientTimeout(total=25),
+                    headers={
+                        'Content-Type': 'application/json',
+                        'User-Agent': 'Mozilla/5.0'
+                    }
                 ) as response:
                     
                     # ✅ Check response status
                     if response.status != 200:
-                        logger.error(f"API returned status {response.status}")
+                        logger.warning(f"API returned status {response.status}")
                         return None
                     
                     # ✅ Check content type
                     content_type = response.headers.get('Content-Type', '').lower()
                     
                     if 'application/json' not in content_type:
-                        response_text = await response.text()
-                        logger.error(
-                            f"API returned non-JSON response.\n"
-                            f"Status: {response.status}\n"
-                            f"Content-Type: {content_type}\n"
-                            f"Preview: {response_text[:200]}"
-                        )
+                        logger.warning(f"API returned non-JSON: {content_type}")
                         return None
                     
                     # ✅ Parse JSON response
@@ -260,7 +262,7 @@ class QuotlyTelethon:
                     # ✅ Check if API returned success
                     if not request.get("ok"):
                         error_msg = request.get("error", request.get("description", "Unknown error"))
-                        logger.error(f"API error: {error_msg}")
+                        logger.warning(f"API error: {error_msg}")
                         return None
                     
                     # ✅ Decode and save image
@@ -271,7 +273,7 @@ class QuotlyTelethon:
                         with open(file_name, "wb") as file:
                             file.write(decoded_image)
                         
-                        logger.info(f"Quote generated successfully using {api_url}")
+                        logger.info(f"✅ Quote generated successfully using {api_url}")
                         return file_name
                         
                     except (KeyError, TypeError, ValueError) as e:
@@ -279,15 +281,15 @@ class QuotlyTelethon:
                         return None
                     
         except asyncio.TimeoutError:
-            logger.error(f"API timeout: {api_url}")
+            logger.warning(f"Timeout: {api_url}")
             return None
             
         except aiohttp.ClientError as e:
-            logger.error(f"API connection error ({api_url}): {e}")
+            logger.warning(f"Connection error ({api_url}): {e}")
             return None
             
         except Exception as e:
-            logger.error(f"Unexpected error with API ({api_url}): {e}", exc_info=True)
+            logger.error(f"Unexpected error with API ({api_url}): {e}")
             return None
 
 # Global instance
@@ -398,23 +400,15 @@ async def setup_telethon_handlers(client):
             except Exception as er:
                 error_message = str(er)
                 
-                # ✅ User-friendly error message
-                if "unavailable" in error_message.lower():
-                    await msg.edit(
-                        "❌ <b>Service Unavailable</b>\n\n"
-                        "The quote generation service is currently down.\n\n"
-                        "<b>Alternative:</b>\n"
-                        "• Try @QuotLyBot\n"
-                        "• Try again in a few minutes",
-                        parse_mode='html'
-                    )
-                else:
-                    await msg.edit(
-                        f"❌ <b>Error creating quote</b>\n\n"
-                        f"<code>{error_message}</code>\n\n"
-                        f"Please try again or contact support.",
-                        parse_mode='html'
-                    )
+                # ✅ Simple error message without promoting other bots
+                await msg.edit(
+                    "❌ <b>Unable to create quote</b>\n\n"
+                    "The quote service is temporarily unavailable. "
+                    "Please try again in a few minutes.\n\n"
+                    "If the issue persists, contact support.",
+                    parse_mode='html'
+                )
+                logger.error(f"Quote generation failed: {error_message}")
                 return
 
             # ✅ Send quote sticker
@@ -426,9 +420,8 @@ async def setup_telethon_handlers(client):
             except Exception as e:
                 logger.error(f"Error sending quote: {e}")
                 await msg.edit(
-                    f"❌ <b>Failed to send quote</b>\n\n"
-                    f"Quote was created but couldn't be sent.\n"
-                    f"Error: <code>{str(e)}</code>",
+                    "❌ <b>Failed to send quote</b>\n\n"
+                    "Quote was created but couldn't be sent. Please try again.",
                     parse_mode='html'
                 )
                 
@@ -444,8 +437,8 @@ async def setup_telethon_handlers(client):
             logger.error(f"Unexpected error in /q command: {e}", exc_info=True)
             try:
                 await msg.edit(
-                    "❌ <b>Unexpected error</b>\n\n"
-                    "Something went wrong. Please try again.",
+                    "❌ <b>Something went wrong</b>\n\n"
+                    "Please try again or contact support if the issue continues.",
                     parse_mode='html'
                 )
             except:

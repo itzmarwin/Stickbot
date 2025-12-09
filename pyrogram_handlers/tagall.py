@@ -128,8 +128,8 @@ async def setup_tagall_handlers(client: Client):
                     batch = members[i:i + BATCH_SIZE]
                     batch_number = (i // BATCH_SIZE) + 1
                     
-                    # Create blue text mentions (clickable)
-                    mentions = " ".join([
+                    # Create blue text mentions (clickable) with comma separator
+                    mentions = ", ".join([
                         f"[{user.first_name}](tg://user?id={user.id})"
                         for user in batch
                     ])
@@ -165,8 +165,8 @@ async def setup_tagall_handlers(client: Client):
                     batch = members[i:i + BATCH_SIZE]
                     batch_number = (i // BATCH_SIZE) + 1
                     
-                    # Create blue text mentions
-                    mentions = " ".join([
+                    # Create blue text mentions with comma separator
+                    mentions = ", ".join([
                         f"[{user.first_name}](tg://user?id={user.id})"
                         for user in batch
                     ])

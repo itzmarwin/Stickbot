@@ -1,4 +1,3 @@
-
 import logging
 import asyncio
 from pyrogram import Client, filters
@@ -9,9 +8,13 @@ from pyrogram.errors import FloodWait
 logger = logging.getLogger(__name__)
 
 # Configuration
-BATCH_SIZE = 5  # 5 users per message
+BATCH_SIZE = 10  # ✅ CHANGED: 5 → 10 users per message
 DELAY_BETWEEN_BATCHES = 2  # 2 seconds delay (increased to avoid FloodWait)
 MAX_RETRIES = 3  # Maximum retry attempts for FloodWait
+MAX_MESSAGE_LENGTH = 3900  # ✅ NEW: Character limit for direct message mode
+
+# ✅ NEW: Track active tagall processes per chat
+active_tagall = {}
 
 
 async def get_all_members(client: Client, chat_id: int) -> list:
@@ -103,6 +106,32 @@ async def setup_tagall_handlers(client: Client):
                 await message.reply_text("❌ Unable to verify admin status. Please try again.")
                 return
             
+            # ✅ NEW: Check if tagall is already running in this chat
+            if chat_id in active_tagall and active_tagall[chat_id]:
+                await message.reply_text(
+                    "⚠️ **Tagall already running!**\n\n"
+                    "Use /stop or /cancel to stop the current tagall process."
+                )
+                return
+            
+            # Check if replying to a message
+            is_reply = message.reply_to_message is not None
+            
+            # ✅ NEW: Character limit check for direct message mode
+            if not is_reply:
+                command_text = message.text.split(maxsplit=1)
+                if len(command_text) > 1:
+                    header = command_text[1]
+                    # Check if message is too long
+                    if len(header) > MAX_MESSAGE_LENGTH:
+                        await message.reply_text(
+                            f"❌ **Message too long!**\n\n"
+                            f"Your message has **{len(header)} characters**.\n"
+                            f"Maximum allowed: **{MAX_MESSAGE_LENGTH} characters**.\n\n"
+                            f"Please shorten your message and try again."
+                        )
+                        return
+            
             # Fetch group members
             progress_msg = await message.reply_text("🔄 Fetching members...")
             members = await get_all_members(client, chat_id)
@@ -111,8 +140,8 @@ async def setup_tagall_handlers(client: Client):
                 await progress_msg.edit_text("❌ No members found or unable to fetch members!")
                 return
             
-            # Check if replying to a message
-            is_reply = message.reply_to_message is not None
+            # ✅ NEW: Mark tagall as active for this chat
+            active_tagall[chat_id] = True
             
             # Mode 1: Reply to message mode
             if is_reply:
@@ -123,8 +152,14 @@ async def setup_tagall_handlers(client: Client):
                 successful = 0
                 failed = 0
                 
-                # Divide members into batches of 5
+                # ✅ CHANGED: Batches of 10 instead of 5
                 for i in range(0, len(members), BATCH_SIZE):
+                    # ✅ NEW: Check if tagall was stopped
+                    if chat_id not in active_tagall or not active_tagall[chat_id]:
+                        await message.reply_text("⛔ **Tagall stopped by admin.**")
+                        logger.info(f"Tagall stopped in chat {chat_id}")
+                        return
+                    
                     batch = members[i:i + BATCH_SIZE]
                     batch_number = (i // BATCH_SIZE) + 1
                     
@@ -160,8 +195,14 @@ async def setup_tagall_handlers(client: Client):
                 successful = 0
                 failed = 0
                 
-                # Divide members into batches of 5
+                # ✅ CHANGED: Batches of 10 instead of 5
                 for i in range(0, len(members), BATCH_SIZE):
+                    # ✅ NEW: Check if tagall was stopped
+                    if chat_id not in active_tagall or not active_tagall[chat_id]:
+                        await message.reply_text("⛔ **Tagall stopped by admin.**")
+                        logger.info(f"Tagall stopped in chat {chat_id}")
+                        return
+                    
                     batch = members[i:i + BATCH_SIZE]
                     batch_number = (i // BATCH_SIZE) + 1
                     
@@ -194,8 +235,13 @@ async def setup_tagall_handlers(client: Client):
                 else:
                     logger.info(f"✅ Successfully tagged {len(members)} members in {chat_id}")
             
+            # ✅ NEW: Mark tagall as completed
+            active_tagall[chat_id] = False
+            
         except Exception as e:
             logger.error(f"Error in tagall command: {e}", exc_info=True)
+            # ✅ NEW: Mark tagall as stopped on error
+            active_tagall[chat_id] = False
             try:
                 await message.reply_text(
                     "❌ An error occurred while processing the command. "
@@ -203,5 +249,46 @@ async def setup_tagall_handlers(client: Client):
                 )
             except:
                 pass
+    
+    # ✅ NEW: Stop/Cancel command handler
+    @client.on_message(filters.command(["stop", "cancel"]) & filters.group)
+    async def stop_tagall_command(client: Client, message: Message):
+        """
+        Handle /stop and /cancel commands to stop ongoing tagall
+        """
+        try:
+            chat_id = message.chat.id
+            
+            # Check if user is admin
+            try:
+                member = await client.get_chat_member(chat_id, message.from_user.id)
+                if member.status not in [ChatMemberStatus.OWNER, ChatMemberStatus.ADMINISTRATOR]:
+                    await message.reply_text(
+                        "⚠️ **Admin Only Command**\n\n"
+                        "Only group admins can stop tagall."
+                    )
+                    return
+            except Exception as e:
+                logger.error(f"Error checking admin status: {e}")
+                return
+            
+            # Check if tagall is running
+            if chat_id not in active_tagall or not active_tagall[chat_id]:
+                await message.reply_text(
+                    "ℹ️ **No active tagall process.**\n\n"
+                    "There's nothing to stop right now."
+                )
+                return
+            
+            # Stop the tagall
+            active_tagall[chat_id] = False
+            await message.reply_text(
+                "✅ **Tagall stopped successfully!**\n\n"
+                "The ongoing tagall process has been cancelled."
+            )
+            logger.info(f"Tagall stopped by admin in chat {chat_id}")
+            
+        except Exception as e:
+            logger.error(f"Error in stop command: {e}", exc_info=True)
     
     logger.info("✅ TagAll handlers setup complete")

@@ -30,7 +30,7 @@ def create_transparent_webp() -> bytes:
 async def convert_image_to_webp(input_path: str, output_path: str) -> bool:
     """
     Convert image to WebP format for static stickers
-    Target size: 512x512
+    Target size: 512x512 with transparent background
     """
     try:
         with Image.open(input_path) as img:
@@ -41,8 +41,8 @@ async def convert_image_to_webp(input_path: str, output_path: str) -> bool:
             # Resize to 512x512 maintaining aspect ratio
             img.thumbnail((512, 512), Image.Resampling.LANCZOS)
             
-            # Create new image with white background if needed
-            background = Image.new('RGBA', (512, 512), (255, 255, 255, 0))
+            # ✅ FIXED: Create transparent background instead of white
+            background = Image.new('RGBA', (512, 512), (0, 0, 0, 0))
             
             # Calculate position to center the image
             offset = ((512 - img.size[0]) // 2, (512 - img.size[1]) // 2)
@@ -59,6 +59,7 @@ async def convert_image_to_webp(input_path: str, output_path: str) -> bool:
 async def convert_video_to_webm(input_path: str, output_path: str) -> bool:
     """
     Convert video/GIF to WebM format for video stickers
+    Maintains aspect ratio with transparent background
     Automatically adjusts duration to fit 256KB limit
     """
     try:
@@ -74,12 +75,14 @@ async def convert_video_to_webm(input_path: str, output_path: str) -> bool:
             target_bitrate = int((max_size * 8) / duration / 1024 * 0.8)
             target_bitrate = max(100, min(target_bitrate, 500))
             
-            # Use crop and scale to fill entire 512x512 without black borders
+            # ✅ FIXED: Scale with aspect ratio + transparent padding
+            # scale: Resize to fit within 512x512 (maintains aspect ratio)
+            # pad: Add transparent padding to make it exactly 512x512
             cmd = [
                 'ffmpeg',
                 '-i', input_path,
                 '-t', str(duration),
-                '-vf', 'crop=min(iw\\,ih):min(iw\\,ih),scale=512:512,setsar=1',
+                '-vf', 'scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000',
                 '-c:v', 'libvpx-vp9',
                 '-b:v', f'{target_bitrate}k',
                 '-crf', '40',
@@ -128,7 +131,7 @@ async def convert_video_to_webm(input_path: str, output_path: str) -> bool:
             'ffmpeg',
             '-i', input_path,
             '-t', '0.5',
-            '-vf', 'crop=min(iw\\,ih):min(iw\\,ih),scale=512:512,setsar=1',
+            '-vf', 'scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000',
             '-c:v', 'libvpx-vp9',
             '-b:v', '150k',
             '-crf', '50',

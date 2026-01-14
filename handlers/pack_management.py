@@ -69,7 +69,7 @@ def get_main_menu_keyboard():
     builder.button(text="𝗔𝗱𝗱 𝗠𝗲 𝗜𝗻 𝗬𝗼𝘂𝗿 𝗚𝗿𝗼𝘂𝗽", url=f"https://t.me/stickerkangbot?startgroup=true")
     builder.button(text="𝗘𝘅𝘁𝗿𝗮 𝗖𝗼𝗺𝗺𝗮𝗻𝗱𝘀", callback_data=PackManagementCallback.EXTRA_COMMANDS)
     builder.button(text="𝗠𝗮𝗻𝗮𝗴𝗲 𝗣𝗮𝗰𝗸𝘀", callback_data=PackManagementCallback.MANAGE_PACKS)
-    builder.button(text="𝗦𝘂𝗽𝗽𝗼𝗿𝘁", url="https://t.me/Samurais_Support_chat")
+    builder.button(text="𝗦𝘂𝗽𝗽𝗼𝗿𝘁", url="https://t.me/Samurais_Support")
     builder.button(text="𝗨𝗽𝗱𝗮𝘁𝗲𝘀", url="https://t.me/Samurais_network")
     builder.adjust(1, 2, 2)
     return builder.as_markup()

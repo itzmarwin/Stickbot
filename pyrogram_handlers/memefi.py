@@ -12,11 +12,11 @@ logger = logging.getLogger(__name__)
 
 # ✅ MASSIVE font sizes for visibility
 FONT_SIZE_TOP = 50
-FONT_SIZE_CENTER = 80
-FONT_SIZE_BOTTOM = 90
+FONT_SIZE_CENTER = 50
+FONT_SIZE_BOTTOM = 50
 TEXT_COLOR = (255, 255, 255)  # White
 OUTLINE_COLOR = (0, 0, 0)  # Black
-OUTLINE_WIDTH = 3  # Thicker outline
+OUTLINE_WIDTH = 1  # Thicker outline
 
 # Position settings
 TOP_POSITION = 0.1

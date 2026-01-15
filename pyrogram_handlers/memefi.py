@@ -21,7 +21,7 @@ OUTLINE_WIDTH = 1  # Thicker outline
 # Position settings
 TOP_POSITION = 0.01
 CENTER_POSITION = 0.5
-BOTTOM_POSITION = 0.085
+BOTTOM_POSITION = 0.1
 
 
 def check_ffmpeg_installed():

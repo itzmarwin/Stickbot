@@ -36,10 +36,9 @@ def check_ffmpeg_installed():
 
 
 def get_font(size: int):
-    """Get Impact font ONLY - NO FALLBACKS"""
+    """Get Impact (Anton) font ONLY - NO FALLBACKS"""
     font_paths = [
-        "/usr/share/fonts/truetype/impact/Impact.ttf",   # <-- Add this
-        "/usr/share/fonts/truetype/msttcorefonts/Impact.ttf",
+        "/usr/share/fonts/truetype/impact/Impact.ttf",   # Anton renamed as Impact
         "C:/Windows/Fonts/impact.ttf",
     ]
     

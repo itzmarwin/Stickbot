@@ -19,7 +19,7 @@ OUTLINE_COLOR = (0, 0, 0)  # Black
 OUTLINE_WIDTH = 1  # Thicker outline
 
 # Position settings
-TOP_POSITION = 0.1
+TOP_POSITION = 0.01
 CENTER_POSITION = 0.5
 BOTTOM_POSITION = 0.85
 

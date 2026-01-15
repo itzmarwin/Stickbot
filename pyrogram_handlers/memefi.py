@@ -36,27 +36,28 @@ def check_ffmpeg_installed():
 
 
 def get_font(size: int):
-    """Get Impact font or fallback"""
+    """Get Impact font ONLY - NO FALLBACKS"""
     font_paths = [
         "/usr/share/fonts/truetype/msttcorefonts/Impact.ttf",
-        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
         "C:/Windows/Fonts/impact.ttf",
-        "C:/Windows/Fonts/arialbd.ttf",
     ]
     
     for font_path in font_paths:
         if os.path.exists(font_path):
             try:
                 return ImageFont.truetype(font_path, size)
-            except:
+            except Exception as e:
+                logger.error(f"Error loading font {font_path}: {e}")
                 continue
     
-    # Fallback
-    try:
-        return ImageFont.truetype("arial.ttf", size)
-    except:
-        return ImageFont.load_default()
+    # ❌ NO FALLBACK - Raise error if Impact not found
+    logger.error("Impact font not found! Install Microsoft Core Fonts.")
+    raise FileNotFoundError(
+        "Impact.ttf not found. Please install:\n"
+        "Ubuntu/Debian: sudo apt install ttf-mscorefonts-installer\n"
+        "CentOS/RHEL: sudo yum install msttcorefonts\n"
+        "Windows: Font should be in C:/Windows/Fonts/impact.ttf"
+    )
 
 
 def wrap_text(text: str, font, max_width: int):
@@ -246,10 +247,25 @@ async def add_text_to_video_sticker(video_path: str, top_text: str = None,
             logger.error("FFmpeg not installed!")
             return None
         
-        # Build FFmpeg drawtext filters
+        # Build FFmpeg drawtext filters with Impact font
         filters = []
         
-        # ✅ Bigger font for video
+        # ✅ Use Impact font path for FFmpeg
+        impact_font_path = None
+        font_paths = [
+            "/usr/share/fonts/truetype/msttcorefonts/Impact.ttf",
+            "C:/Windows/Fonts/impact.ttf",
+        ]
+        
+        for path in font_paths:
+            if os.path.exists(path):
+                impact_font_path = path.replace(":", "\\:").replace("\\", "/")
+                break
+        
+        if not impact_font_path:
+            logger.error("Impact font not found for FFmpeg!")
+            return None
+        
         fontsize = 70
         fontcolor = "white"
         borderw = 4
@@ -262,7 +278,7 @@ async def add_text_to_video_sticker(video_path: str, top_text: str = None,
         if top_text:
             text_escaped = escape_text(top_text)
             filters.append(
-                f"drawtext=text='{text_escaped}':"
+                f"drawtext=fontfile='{impact_font_path}':text='{text_escaped}':"
                 f"fontsize={fontsize}:fontcolor={fontcolor}:"
                 f"borderw={borderw}:bordercolor=black:"
                 f"x=(w-text_w)/2:y=h*0.1"
@@ -272,7 +288,7 @@ async def add_text_to_video_sticker(video_path: str, top_text: str = None,
         if center_text:
             text_escaped = escape_text(center_text)
             filters.append(
-                f"drawtext=text='{text_escaped}':"
+                f"drawtext=fontfile='{impact_font_path}':text='{text_escaped}':"
                 f"fontsize={fontsize-10}:fontcolor={fontcolor}:"
                 f"borderw={borderw}:bordercolor=black:"
                 f"x=(w-text_w)/2:y=(h-text_h)/2"
@@ -282,7 +298,7 @@ async def add_text_to_video_sticker(video_path: str, top_text: str = None,
         if bottom_text:
             text_escaped = escape_text(bottom_text)
             filters.append(
-                f"drawtext=text='{text_escaped}':"
+                f"drawtext=fontfile='{impact_font_path}':text='{text_escaped}':"
                 f"fontsize={fontsize}:fontcolor={fontcolor}:"
                 f"borderw={borderw}:bordercolor=black:"
                 f"x=(w-text_w)/2:y=h*0.85-text_h"
@@ -302,14 +318,15 @@ async def add_text_to_video_sticker(video_path: str, top_text: str = None,
         cmd = [
             'ffmpeg',
             '-i', video_path,
-            '-vf', f"scale=512:512:force_original_aspect_ratio=decrease,{filter_complex}",
+            '-vf', f"scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000,{filter_complex}",
             '-c:v', 'libvpx-vp9',
             '-pix_fmt', 'yuva420p',
             '-auto-alt-ref', '0',
-            '-vb', '500k',
-            '-crf', '30',
-            '-b:v', '500k',
-            '-fs', '256K',  # Max 256KB file size for stickers
+            '-vb', '400k',
+            '-crf', '35',
+            '-b:v', '400k',
+            '-maxrate', '400k',
+            '-bufsize', '256k',
             '-t', '3',  # Max 3 seconds
             '-an',  # No audio
             '-y',
@@ -331,7 +348,35 @@ async def add_text_to_video_sticker(video_path: str, top_text: str = None,
         if os.path.exists(output_path):
             file_size = os.path.getsize(output_path)
             if file_size > 256 * 1024:  # If larger than 256KB
-                logger.warning(f"Video sticker too large: {file_size} bytes")
+                logger.warning(f"Video sticker too large: {file_size} bytes, retrying with lower quality...")
+                
+                # Retry with even lower quality
+                cmd_retry = [
+                    'ffmpeg',
+                    '-i', video_path,
+                    '-vf', f"scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000,{filter_complex}",
+                    '-c:v', 'libvpx-vp9',
+                    '-pix_fmt', 'yuva420p',
+                    '-auto-alt-ref', '0',
+                    '-crf', '45',
+                    '-b:v', '200k',
+                    '-maxrate', '200k',
+                    '-bufsize', '128k',
+                    '-t', '2',  # Reduce to 2 seconds
+                    '-an',
+                    '-y',
+                    str(output_path)
+                ]
+                
+                process = subprocess.run(
+                    cmd_retry,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    timeout=30
+                )
+                
+                if process.returncode != 0:
+                    return None
         
         return str(output_path)
     
@@ -421,7 +466,7 @@ async def setup_memefi_handlers(client: Client):
                     )
                     return
                 
-                # ✅ Send as VIDEO STICKER (not regular video)
+                # ✅ FIXED: Send as VIDEO STICKER (not file/document)
                 await message.reply_sticker(sticker=result_path)
                 
                 # Cleanup
@@ -463,6 +508,17 @@ async def setup_memefi_handlers(client: Client):
             await processing_msg.delete()
             
             logger.info(f"MemeFi: Created meme for user {message.from_user.id}")
+        
+        except FileNotFoundError as e:
+            # Impact font not found error
+            logger.error(f"Font error: {e}")
+            try:
+                await message.reply_text(
+                    "❌ 𝖨𝗆𝗉𝖺𝖼𝗍 𝖿𝗈𝗇𝗍 𝗇𝗈𝗍 𝗂𝗇𝗌𝗍𝖺𝗅𝗅𝖾𝖽!\n\n"
+                    "𝖯𝗅𝖾𝖺𝗌𝖾 𝖼𝗈𝗇𝗍𝖺𝖼𝗍 𝖻𝗈𝗍 𝗈𝗐𝗇𝖾𝗋."
+                )
+            except:
+                pass
         
         except Exception as e:
             logger.error(f"Error in memefi command: {e}", exc_info=True)

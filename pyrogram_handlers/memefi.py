@@ -38,6 +38,7 @@ def check_ffmpeg_installed():
 def get_font(size: int):
     """Get Impact font ONLY - NO FALLBACKS"""
     font_paths = [
+        "/usr/share/fonts/truetype/impact/Impact.ttf",   # <-- Add this
         "/usr/share/fonts/truetype/msttcorefonts/Impact.ttf",
         "C:/Windows/Fonts/impact.ttf",
     ]
@@ -50,7 +51,6 @@ def get_font(size: int):
                 logger.error(f"Error loading font {font_path}: {e}")
                 continue
     
-    # ❌ NO FALLBACK - Raise error if Impact not found
     logger.error("Impact font not found! Install Microsoft Core Fonts.")
     raise FileNotFoundError(
         "Impact.ttf not found. Please install:\n"

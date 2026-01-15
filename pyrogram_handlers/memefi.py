@@ -11,12 +11,12 @@ from pyrogram.errors import FloodWait
 logger = logging.getLogger(__name__)
 
 # ✅ MASSIVE font sizes for visibility
-FONT_SIZE_TOP = 90
-FONT_SIZE_CENTER = 80
-FONT_SIZE_BOTTOM = 90
+FONT_SIZE_TOP = 60
+FONT_SIZE_CENTER = 60
+FONT_SIZE_BOTTOM = 60
 TEXT_COLOR = (255, 255, 255)  # White
 OUTLINE_COLOR = (0, 0, 0)  # Black
-OUTLINE_WIDTH = 5  # Thicker outline
+OUTLINE_WIDTH = 1  # Thicker outline
 
 # Position settings
 TOP_POSITION = 0.1
@@ -234,11 +234,14 @@ async def add_text_to_static_sticker(sticker_path: str, top_text: str = None,
 
 async def add_text_to_video_sticker(video_path: str, top_text: str = None,
                                     center_text: str = None, bottom_text: str = None):
-    """Add text to video sticker using FFmpeg - Telegram-safe version"""
+    """Add text to video sticker using FFmpeg - Returns proper WEBM sticker"""
     try:
         if not check_ffmpeg_installed():
             logger.error("FFmpeg not installed!")
             return None
+        
+        # Build FFmpeg drawtext filters
+        filters = []
         
         # ✅ Use assets/default.ttf font path for FFmpeg
         font_path = "assets/default.ttf"
@@ -247,10 +250,10 @@ async def add_text_to_video_sticker(video_path: str, top_text: str = None,
             logger.error(f"Font not found: {font_path}")
             return None
         
-        # Escape font path for FFmpeg (absolute path)
-        font_path_escaped = os.path.abspath(font_path).replace(":", "\\:").replace("\\", "/")
+        # Escape font path for FFmpeg
+        font_path_escaped = font_path.replace(":", "\\:").replace("\\", "/")
         
-        fontsize = 64
+        fontsize = 70
         fontcolor = "white"
         borderw = 4
         
@@ -258,13 +261,10 @@ async def add_text_to_video_sticker(video_path: str, top_text: str = None,
         def escape_text(text):
             return text.replace("'", "'\\\\\\''").replace(":", "\\:").replace("%", "\\%")
         
-        # Build drawtext filters
-        drawtext_filters = []
-        
         # TOP text
         if top_text:
             text_escaped = escape_text(top_text)
-            drawtext_filters.append(
+            filters.append(
                 f"drawtext=fontfile='{font_path_escaped}':text='{text_escaped}':"
                 f"fontsize={fontsize}:fontcolor={fontcolor}:"
                 f"borderw={borderw}:bordercolor=black:"
@@ -274,9 +274,9 @@ async def add_text_to_video_sticker(video_path: str, top_text: str = None,
         # CENTER text
         if center_text:
             text_escaped = escape_text(center_text)
-            drawtext_filters.append(
+            filters.append(
                 f"drawtext=fontfile='{font_path_escaped}':text='{text_escaped}':"
-                f"fontsize={fontsize-8}:fontcolor={fontcolor}:"
+                f"fontsize={fontsize-10}:fontcolor={fontcolor}:"
                 f"borderw={borderw}:bordercolor=black:"
                 f"x=(w-text_w)/2:y=(h-text_h)/2"
             )
@@ -284,37 +284,38 @@ async def add_text_to_video_sticker(video_path: str, top_text: str = None,
         # BOTTOM text
         if bottom_text:
             text_escaped = escape_text(bottom_text)
-            drawtext_filters.append(
+            filters.append(
                 f"drawtext=fontfile='{font_path_escaped}':text='{text_escaped}':"
                 f"fontsize={fontsize}:fontcolor={fontcolor}:"
                 f"borderw={borderw}:bordercolor=black:"
                 f"x=(w-text_w)/2:y=h*0.85-text_h"
             )
         
-        if not drawtext_filters:
+        if not filters:
             return None
         
-        # Combine all filters
-        drawtext_chain = ",".join(drawtext_filters)
+        filter_complex = ",".join(filters)
         
         # Output path
         temp_dir = Path("temp")
         temp_dir.mkdir(exist_ok=True)
         output_path = temp_dir / f"meme_video_{os.getpid()}.webm"
         
-        # ✅ TELEGRAM-SAFE FFmpeg command (NO PAD, CORRECT ORDER)
+        # ✅ FFmpeg command for TELEGRAM VIDEO STICKER format
         cmd = [
             'ffmpeg',
             '-i', video_path,
-            '-vf', f"{drawtext_chain},fps=30,scale=512:512",  # ✅ drawtext first, then fps, then scale (NO PAD)
+            '-vf', f"scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000,{filter_complex}",
             '-c:v', 'libvpx-vp9',
             '-pix_fmt', 'yuva420p',
-            '-b:v', '0',
-            '-crf', '41',
-            '-deadline', 'realtime',
-            '-cpu-used', '8',
-            '-an',
-            '-t', '2.9',  # ✅ Under 3 seconds to avoid rejection
+            '-auto-alt-ref', '0',
+            '-vb', '400k',
+            '-crf', '35',
+            '-b:v', '400k',
+            '-maxrate', '400k',
+            '-bufsize', '256k',
+            '-t', '3',  # Max 3 seconds
+            '-an',  # No audio
             '-y',
             str(output_path)
         ]
@@ -330,27 +331,26 @@ async def add_text_to_video_sticker(video_path: str, top_text: str = None,
             logger.error(f"FFmpeg error: {process.stderr.decode()}")
             return None
         
-        # ✅ Check file size (must be under 256KB)
+        # Check file size
         if os.path.exists(output_path):
             file_size = os.path.getsize(output_path)
-            logger.info(f"Video sticker size: {file_size} bytes")
-            
             if file_size > 256 * 1024:  # If larger than 256KB
-                logger.warning(f"Video sticker too large: {file_size} bytes, re-encoding with higher CRF...")
+                logger.warning(f"Video sticker too large: {file_size} bytes, retrying with lower quality...")
                 
-                # ✅ Retry with even more compression (but KEEP fps=30)
+                # Retry with even lower quality
                 cmd_retry = [
                     'ffmpeg',
                     '-i', video_path,
-                    '-vf', f"{drawtext_chain},fps=30,scale=512:512",  # ✅ SAME fps=30, NO PAD
+                    '-vf', f"scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000,{filter_complex}",
                     '-c:v', 'libvpx-vp9',
                     '-pix_fmt', 'yuva420p',
-                    '-b:v', '0',
-                    '-crf', '50',  # Much higher compression
-                    '-deadline', 'realtime',
-                    '-cpu-used', '8',
+                    '-auto-alt-ref', '0',
+                    '-crf', '45',
+                    '-b:v', '200k',
+                    '-maxrate', '200k',
+                    '-bufsize', '128k',
+                    '-t', '2',  # Reduce to 2 seconds
                     '-an',
-                    '-t', '2.5',  # Shorter duration
                     '-y',
                     str(output_path)
                 ]
@@ -363,19 +363,9 @@ async def add_text_to_video_sticker(video_path: str, top_text: str = None,
                 )
                 
                 if process.returncode != 0:
-                    logger.error("Retry encoding failed")
                     return None
-                
-                final_size = os.path.getsize(output_path)
-                logger.info(f"Re-encoded video size: {final_size} bytes")
-                
-                if final_size > 256 * 1024:
-                    logger.error(f"Still too large after retry: {final_size} bytes")
-                    return None
-            
-            return str(output_path)
         
-        return None
+        return str(output_path)
     
     except Exception as e:
         logger.error(f"Error adding text to video sticker: {e}", exc_info=True)
@@ -435,7 +425,7 @@ async def setup_memefi_handlers(client: Client):
             temp_dir = Path("temp")
             temp_dir.mkdir(exist_ok=True)
             
-            is_video = replied_msg.sticker.is_video  # ✅ FIXED: Only check is_video, NOT is_animated (.tgs)
+            is_video = replied_msg.sticker.is_video or replied_msg.sticker.is_animated
             
             if is_video:
                 # ✅ VIDEO STICKER - Send as video sticker, not file
@@ -463,17 +453,26 @@ async def setup_memefi_handlers(client: Client):
                     )
                     return
                 
-                # ✅ Send as VIDEO STICKER
+                # ✅ FIXED: Send as VIDEO STICKER using reply_video_note
+                # Video stickers in Telegram are sent as video_note (round videos)
                 try:
-                    # Direct sticker send - Pyrogram handles video stickers properly
-                    await message.reply_sticker(sticker=result_path)
-                except Exception as e:
-                    logger.error(f"Failed to send video sticker: {e}")
-                    await processing_msg.edit_text(
-                        "❌ 𝖥𝖺𝗂𝗅𝖾𝖽 𝗍𝗈 𝗌𝖾𝗇𝖽 𝗏𝗂𝖽𝖾𝗈 𝗌𝗍𝗂𝖼𝗄𝖾𝗋.\n"
-                        "𝖯𝗅𝖾𝖺𝗌𝖾 𝗍𝗋𝗒 𝖺𝗀𝖺𝗂𝗇."
+                    await message.reply_video_note(
+                        video_note=result_path,
+                        duration=3,
+                        length=512
                     )
-                    return
+                except Exception as e:
+                    # Fallback: try sending as regular sticker
+                    logger.warning(f"Failed to send as video_note, trying as sticker: {e}")
+                    try:
+                        await message.reply_sticker(sticker=result_path)
+                    except Exception as e2:
+                        logger.error(f"Failed to send video sticker: {e2}")
+                        await processing_msg.edit_text(
+                            "❌ 𝖥𝖺𝗂𝗅𝖾𝖽 𝗍𝗈 𝗌𝖾𝗇𝖽 𝗏𝗂𝖽𝖾𝗈 𝗌𝗍𝗂𝖼𝗄𝖾𝗋.\n"
+                            "𝖯𝗅𝖾𝖺𝗌𝖾 𝗍𝗋𝗒 𝖺𝗀𝖺𝗂𝗇."
+                        )
+                        return
                 
                 # Cleanup
                 try:

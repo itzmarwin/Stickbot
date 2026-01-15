@@ -302,11 +302,11 @@ async def add_text_to_video_sticker(video_path: str, top_text: str = None,
         temp_dir.mkdir(exist_ok=True)
         output_path = temp_dir / f"meme_video_{os.getpid()}.webm"
         
-        # ✅ TELEGRAM-SAFE FFmpeg command (TESTED, WORKING)
+        # ✅ TELEGRAM-SAFE FFmpeg command (NO PAD, CORRECT ORDER)
         cmd = [
             'ffmpeg',
             '-i', video_path,
-            '-vf', f"fps=30,scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000@0,{drawtext_chain}",
+            '-vf', f"{drawtext_chain},fps=30,scale=512:512",  # ✅ drawtext first, then fps, then scale (NO PAD)
             '-c:v', 'libvpx-vp9',
             '-pix_fmt', 'yuva420p',
             '-b:v', '0',
@@ -338,11 +338,11 @@ async def add_text_to_video_sticker(video_path: str, top_text: str = None,
             if file_size > 256 * 1024:  # If larger than 256KB
                 logger.warning(f"Video sticker too large: {file_size} bytes, re-encoding with higher CRF...")
                 
-                # ✅ Retry with even more compression
+                # ✅ Retry with even more compression (but KEEP fps=30)
                 cmd_retry = [
                     'ffmpeg',
                     '-i', video_path,
-                    '-vf', f"fps=25,scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000@0,{drawtext_chain}",
+                    '-vf', f"{drawtext_chain},fps=30,scale=512:512",  # ✅ SAME fps=30, NO PAD
                     '-c:v', 'libvpx-vp9',
                     '-pix_fmt', 'yuva420p',
                     '-b:v', '0',

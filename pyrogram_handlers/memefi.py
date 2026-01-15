@@ -16,7 +16,7 @@ FONT_SIZE_CENTER = 80
 FONT_SIZE_BOTTOM = 90
 TEXT_COLOR = (255, 255, 255)  # White
 OUTLINE_COLOR = (0, 0, 0)  # Black
-OUTLINE_WIDTH = 5  # Thicker outline
+OUTLINE_WIDTH = 3  # Thicker outline
 
 # Position settings
 TOP_POSITION = 0.1
@@ -44,23 +44,13 @@ def get_font(size: int):
             return ImageFont.truetype(font_path, size)
         except Exception as e:
             logger.error(f"Error loading font {font_path}: {e}")
-    
-    # Fallback to system Impact fonts if assets font fails
-    font_paths = [
-        "/usr/share/fonts/truetype/impact/Impact.ttf",
-        "C:/Windows/Fonts/impact.ttf",
-    ]
-    
-    for path in font_paths:
-        if os.path.exists(path):
-            try:
-                return ImageFont.truetype(path, size)
-            except Exception as e:
-                logger.error(f"Error loading font {path}: {e}")
-    
-    raise FileNotFoundError(
-        "No suitable font found! Make sure assets/default.ttf exists."
-    )
+            raise FileNotFoundError(
+                f"Font file exists but failed to load: {font_path}"
+            )
+    else:
+        raise FileNotFoundError(
+            "Font not found! Make sure assets/default.ttf exists in your repo."
+        )
 
 
 def wrap_text(text: str, font, max_width: int):
@@ -156,10 +146,10 @@ async def add_text_to_static_sticker(sticker_path: str, top_text: str = None,
         # Max text width (85% of image width for padding)
         max_text_width = int(width * 0.85)
         
-        # ✅ TOP TEXT
+        # ✅ TOP TEXT (NO UPPERCASE - keep original case)
         if top_text:
             font = get_font(FONT_SIZE_TOP)
-            lines = wrap_text(top_text.upper(), font, max_text_width)
+            lines = wrap_text(top_text, font, max_text_width)
             
             line_height = FONT_SIZE_TOP + 15
             y = int(height * TOP_POSITION)
@@ -175,10 +165,10 @@ async def add_text_to_static_sticker(sticker_path: str, top_text: str = None,
                 )
                 y += line_height
         
-        # ✅ CENTER TEXT
+        # ✅ CENTER TEXT (NO UPPERCASE - keep original case)
         if center_text:
             font = get_font(FONT_SIZE_CENTER)
-            lines = wrap_text(center_text.upper(), font, max_text_width)
+            lines = wrap_text(center_text, font, max_text_width)
             
             line_height = FONT_SIZE_CENTER + 15
             total_height = len(lines) * line_height
@@ -195,10 +185,10 @@ async def add_text_to_static_sticker(sticker_path: str, top_text: str = None,
                 )
                 y += line_height
         
-        # ✅ BOTTOM TEXT
+        # ✅ BOTTOM TEXT (NO UPPERCASE - keep original case)
         if bottom_text:
             font = get_font(FONT_SIZE_BOTTOM)
-            lines = wrap_text(bottom_text.upper(), font, max_text_width)
+            lines = wrap_text(bottom_text, font, max_text_width)
             
             line_height = FONT_SIZE_BOTTOM + 15
             total_height = len(lines) * line_height
@@ -250,38 +240,32 @@ async def add_text_to_video_sticker(video_path: str, top_text: str = None,
             logger.error("FFmpeg not installed!")
             return None
         
-        # Build FFmpeg drawtext filters with Impact font
+        # Build FFmpeg drawtext filters
         filters = []
         
-        # ✅ Use Impact font path for FFmpeg
-        impact_font_path = None
-        font_paths = [
-            "/usr/share/fonts/truetype/msttcorefonts/Impact.ttf",
-            "C:/Windows/Fonts/impact.ttf",
-        ]
+        # ✅ Use assets/default.ttf font path for FFmpeg
+        font_path = "assets/default.ttf"
         
-        for path in font_paths:
-            if os.path.exists(path):
-                impact_font_path = path.replace(":", "\\:").replace("\\", "/")
-                break
-        
-        if not impact_font_path:
-            logger.error("Impact font not found for FFmpeg!")
+        if not os.path.exists(font_path):
+            logger.error(f"Font not found: {font_path}")
             return None
+        
+        # Escape font path for FFmpeg
+        font_path_escaped = font_path.replace(":", "\\:").replace("\\", "/")
         
         fontsize = 70
         fontcolor = "white"
         borderw = 4
         
-        # Escape text for FFmpeg
+        # Escape text for FFmpeg (NO UPPERCASE - keep original case)
         def escape_text(text):
-            return text.upper().replace("'", "'\\\\\\''").replace(":", "\\:").replace("%", "\\%")
+            return text.replace("'", "'\\\\\\''").replace(":", "\\:").replace("%", "\\%")
         
         # TOP text
         if top_text:
             text_escaped = escape_text(top_text)
             filters.append(
-                f"drawtext=fontfile='{impact_font_path}':text='{text_escaped}':"
+                f"drawtext=fontfile='{font_path_escaped}':text='{text_escaped}':"
                 f"fontsize={fontsize}:fontcolor={fontcolor}:"
                 f"borderw={borderw}:bordercolor=black:"
                 f"x=(w-text_w)/2:y=h*0.1"
@@ -291,7 +275,7 @@ async def add_text_to_video_sticker(video_path: str, top_text: str = None,
         if center_text:
             text_escaped = escape_text(center_text)
             filters.append(
-                f"drawtext=fontfile='{impact_font_path}':text='{text_escaped}':"
+                f"drawtext=fontfile='{font_path_escaped}':text='{text_escaped}':"
                 f"fontsize={fontsize-10}:fontcolor={fontcolor}:"
                 f"borderw={borderw}:bordercolor=black:"
                 f"x=(w-text_w)/2:y=(h-text_h)/2"
@@ -301,7 +285,7 @@ async def add_text_to_video_sticker(video_path: str, top_text: str = None,
         if bottom_text:
             text_escaped = escape_text(bottom_text)
             filters.append(
-                f"drawtext=fontfile='{impact_font_path}':text='{text_escaped}':"
+                f"drawtext=fontfile='{font_path_escaped}':text='{text_escaped}':"
                 f"fontsize={fontsize}:fontcolor={fontcolor}:"
                 f"borderw={borderw}:bordercolor=black:"
                 f"x=(w-text_w)/2:y=h*0.85-text_h"
@@ -444,7 +428,7 @@ async def setup_memefi_handlers(client: Client):
             is_video = replied_msg.sticker.is_video or replied_msg.sticker.is_animated
             
             if is_video:
-                # ✅ VIDEO STICKER
+                # ✅ VIDEO STICKER - Send as video sticker, not file
                 if not check_ffmpeg_installed():
                     await processing_msg.edit_text(
                         "❌ 𝖵𝗂𝖽𝖾𝗈 𝗌𝗍𝗂𝖼𝗄𝖾𝗋𝗌 𝗇𝖾𝖾𝖽 𝖥𝖥𝗆𝗉𝖾𝗀.\n\n"
@@ -469,8 +453,26 @@ async def setup_memefi_handlers(client: Client):
                     )
                     return
                 
-                # ✅ FIXED: Send as VIDEO STICKER (not file/document)
-                await message.reply_sticker(sticker=result_path)
+                # ✅ FIXED: Send as VIDEO STICKER using reply_video_note
+                # Video stickers in Telegram are sent as video_note (round videos)
+                try:
+                    await message.reply_video_note(
+                        video_note=result_path,
+                        duration=3,
+                        length=512
+                    )
+                except Exception as e:
+                    # Fallback: try sending as regular sticker
+                    logger.warning(f"Failed to send as video_note, trying as sticker: {e}")
+                    try:
+                        await message.reply_sticker(sticker=result_path)
+                    except Exception as e2:
+                        logger.error(f"Failed to send video sticker: {e2}")
+                        await processing_msg.edit_text(
+                            "❌ 𝖥𝖺𝗂𝗅𝖾𝖽 𝗍𝗈 𝗌𝖾𝗇𝖽 𝗏𝗂𝖽𝖾𝗈 𝗌𝗍𝗂𝖼𝗄𝖾𝗋.\n"
+                            "𝖯𝗅𝖾𝖺𝗌𝖾 𝗍𝗋𝗒 𝖺𝗀𝖺𝗂𝗇."
+                        )
+                        return
                 
                 # Cleanup
                 try:
@@ -495,7 +497,7 @@ async def setup_memefi_handlers(client: Client):
                     await processing_msg.edit_text(
                         "❌ 𝖥𝖺𝗂𝗅𝖾𝖽 𝗍𝗈 𝖼𝗋𝖾𝖺𝗍𝖾 𝗆𝖾𝗆𝖾.\n"
                         "𝖯𝗅𝖾𝖺𝗌𝖾 𝗍𝗋𝗒 𝖺𝗀𝖺𝗂𝗇."
-                    )
+                )
                     return
                 
                 # ✅ Send as STICKER
@@ -513,12 +515,12 @@ async def setup_memefi_handlers(client: Client):
             logger.info(f"MemeFi: Created meme for user {message.from_user.id}")
         
         except FileNotFoundError as e:
-            # Impact font not found error
+            # Font not found error
             logger.error(f"Font error: {e}")
             try:
                 await message.reply_text(
-                    "❌ 𝖨𝗆𝗉𝖺𝖼𝗍 𝖿𝗈𝗇𝗍 𝗇𝗈𝗍 𝗂𝗇𝗌𝗍𝖺𝗅𝗅𝖾𝖽!\n\n"
-                    "𝖯𝗅𝖾𝖺𝗌𝖾 𝖼𝗈𝗇𝗍𝖺𝖼𝗍 𝖻𝗈𝗍 𝗈𝗐𝗇𝖾𝗋."
+                    "❌ 𝖥𝗈𝗇𝗍 𝖿𝗂𝗅𝖾 𝗇𝗈𝗍 𝖿𝗈𝗎𝗇𝖽!\n\n"
+                    "𝖯𝗅𝖾𝖺𝗌𝖾 𝗆𝖺𝗄𝖾 𝗌𝗎𝗋𝖾 𝖺𝗌𝗌𝖾𝗍𝗌/𝖽𝖾𝖿𝖺𝗎𝗅𝗍.𝗍𝗍𝖿 𝖾𝗑𝗂𝗌𝗍𝗌."
                 )
             except:
                 pass

@@ -16,7 +16,7 @@ FONT_SIZE_CENTER = 60
 FONT_SIZE_BOTTOM = 60
 TEXT_COLOR = (255, 255, 255)  # White
 OUTLINE_COLOR = (0, 0, 0)  # Black
-OUTLINE_WIDTH = 1.6  # Thicker outline
+OUTLINE_WIDTH = 1  # Thicker outline
 
 # Position settings
 TOP_POSITION = 0.1

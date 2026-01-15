@@ -36,26 +36,30 @@ def check_ffmpeg_installed():
 
 
 def get_font(size: int):
-    """Get Impact (Anton) font ONLY - NO FALLBACKS"""
+    """Get default meme font from assets folder"""
+    font_path = "assets/default.ttf"  # ✅ Your repo's font
+    
+    if os.path.exists(font_path):
+        try:
+            return ImageFont.truetype(font_path, size)
+        except Exception as e:
+            logger.error(f"Error loading font {font_path}: {e}")
+    
+    # Fallback to system Impact fonts if assets font fails
     font_paths = [
-        "/usr/share/fonts/truetype/impact/Impact.ttf",   # Anton renamed as Impact
+        "/usr/share/fonts/truetype/impact/Impact.ttf",
         "C:/Windows/Fonts/impact.ttf",
     ]
     
-    for font_path in font_paths:
-        if os.path.exists(font_path):
+    for path in font_paths:
+        if os.path.exists(path):
             try:
-                return ImageFont.truetype(font_path, size)
+                return ImageFont.truetype(path, size)
             except Exception as e:
-                logger.error(f"Error loading font {font_path}: {e}")
-                continue
+                logger.error(f"Error loading font {path}: {e}")
     
-    logger.error("Impact font not found! Install Microsoft Core Fonts.")
     raise FileNotFoundError(
-        "Impact.ttf not found. Please install:\n"
-        "Ubuntu/Debian: sudo apt install ttf-mscorefonts-installer\n"
-        "CentOS/RHEL: sudo yum install msttcorefonts\n"
-        "Windows: Font should be in C:/Windows/Fonts/impact.ttf"
+        "No suitable font found! Make sure assets/default.ttf exists."
     )
 
 

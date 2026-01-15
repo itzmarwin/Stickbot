@@ -210,8 +210,6 @@ async def setup_memefi_handlers(client: Client):
                     "• /mmf -c Text (center only)\n"
                     "• /mmf Text ; -c Center (top and center)\n"
                     "• /mmf -c Center ; Bottom (center and bottom)\n\n"
-                    "Example:\n"
-                    "/mmf ME ON MONDAY ; NEED COFFEE"
                 )
                 return
             
@@ -251,7 +249,7 @@ async def setup_memefi_handlers(client: Client):
             
             if not result_path:
                 await processing_msg.edit_text(
-                    f"Failed to create your meme. Please try again.\n\n"
+                    f"Failed to create your Sticker. Please try again.\n\n"
                     f"If this issue persists, report it in our support group: {SUPPORT_GROUP}"
                 )
                 return

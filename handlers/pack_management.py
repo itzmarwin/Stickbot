@@ -63,6 +63,7 @@ class PackManagementCallback:
     EXTRA_CMD_AFK = "extra_afk"
     EXTRA_CMD_QUOTLY = "extra_quotly"
     EXTRA_CMD_STICKERS = "extra_stickers"
+    EXTRA_CMD_MEMEFI = "extra_memefi"
 
 def get_main_menu_keyboard():
     builder = InlineKeyboardBuilder()

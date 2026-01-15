@@ -11,7 +11,7 @@ from pyrogram.errors import FloodWait
 logger = logging.getLogger(__name__)
 
 # ✅ MASSIVE font sizes for visibility
-FONT_SIZE_TOP = 90
+FONT_SIZE_TOP = 50
 FONT_SIZE_CENTER = 80
 FONT_SIZE_BOTTOM = 90
 TEXT_COLOR = (255, 255, 255)  # White

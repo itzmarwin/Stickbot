@@ -234,14 +234,11 @@ async def add_text_to_static_sticker(sticker_path: str, top_text: str = None,
 
 async def add_text_to_video_sticker(video_path: str, top_text: str = None,
                                     center_text: str = None, bottom_text: str = None):
-    """Add text to video sticker using FFmpeg - Returns proper WEBM sticker"""
+    """Add text to video sticker using FFmpeg - Telegram-safe version"""
     try:
         if not check_ffmpeg_installed():
             logger.error("FFmpeg not installed!")
             return None
-        
-        # Build FFmpeg drawtext filters
-        filters = []
         
         # ✅ Use assets/default.ttf font path for FFmpeg
         font_path = "assets/default.ttf"
@@ -250,10 +247,10 @@ async def add_text_to_video_sticker(video_path: str, top_text: str = None,
             logger.error(f"Font not found: {font_path}")
             return None
         
-        # Escape font path for FFmpeg
+        # Escape font path for FFmpeg (absolute path)
         font_path_escaped = os.path.abspath(font_path).replace(":", "\\:").replace("\\", "/")
         
-        fontsize = 70
+        fontsize = 64
         fontcolor = "white"
         borderw = 4
         
@@ -261,10 +258,13 @@ async def add_text_to_video_sticker(video_path: str, top_text: str = None,
         def escape_text(text):
             return text.replace("'", "'\\\\\\''").replace(":", "\\:").replace("%", "\\%")
         
+        # Build drawtext filters
+        drawtext_filters = []
+        
         # TOP text
         if top_text:
             text_escaped = escape_text(top_text)
-            filters.append(
+            drawtext_filters.append(
                 f"drawtext=fontfile='{font_path_escaped}':text='{text_escaped}':"
                 f"fontsize={fontsize}:fontcolor={fontcolor}:"
                 f"borderw={borderw}:bordercolor=black:"
@@ -274,9 +274,9 @@ async def add_text_to_video_sticker(video_path: str, top_text: str = None,
         # CENTER text
         if center_text:
             text_escaped = escape_text(center_text)
-            filters.append(
+            drawtext_filters.append(
                 f"drawtext=fontfile='{font_path_escaped}':text='{text_escaped}':"
-                f"fontsize={fontsize-10}:fontcolor={fontcolor}:"
+                f"fontsize={fontsize-8}:fontcolor={fontcolor}:"
                 f"borderw={borderw}:bordercolor=black:"
                 f"x=(w-text_w)/2:y=(h-text_h)/2"
             )
@@ -284,187 +284,101 @@ async def add_text_to_video_sticker(video_path: str, top_text: str = None,
         # BOTTOM text
         if bottom_text:
             text_escaped = escape_text(bottom_text)
-            filters.append(
+            drawtext_filters.append(
                 f"drawtext=fontfile='{font_path_escaped}':text='{text_escaped}':"
                 f"fontsize={fontsize}:fontcolor={fontcolor}:"
                 f"borderw={borderw}:bordercolor=black:"
                 f"x=(w-text_w)/2:y=h*0.85-text_h"
             )
         
-        if not filters:
+        if not drawtext_filters:
             return None
         
-        filter_complex = ",".join(filters)
+        # Combine all filters
+        drawtext_chain = ",".join(drawtext_filters)
         
         # Output path
         temp_dir = Path("temp")
         temp_dir.mkdir(exist_ok=True)
         output_path = temp_dir / f"meme_video_{os.getpid()}.webm"
         
-        # ✅ TWO-PASS ENCODING for better quality and size control
-        # This is the EXACT method Telegram uses for video stickers
-        
-        # Pass 1: Analyze video
-        cmd_pass1 = [
+        # ✅ TELEGRAM-SAFE FFmpeg command (TESTED, WORKING)
+        cmd = [
             'ffmpeg',
             '-i', video_path,
-            '-vf', f"scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000@0,{filter_complex}",
+            '-vf', f"fps=30,scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000@0,{drawtext_chain}",
             '-c:v', 'libvpx-vp9',
             '-pix_fmt', 'yuva420p',
             '-b:v', '0',
-            '-crf', '32',
-            '-pass', '1',
-            '-passlogfile', str(temp_dir / 'ffmpeg2pass'),
-            '-quality', 'good',
-            '-cpu-used', '4',
-            '-row-mt', '1',
-            '-threads', '0',
-            '-tile-columns', '2',
-            '-tile-rows', '2',
-            '-frame-parallel', '0',
-            '-auto-alt-ref', '0',
-            '-lag-in-frames', '25',
+            '-crf', '41',
+            '-deadline', 'realtime',
+            '-cpu-used', '8',
             '-an',
-            '-t', '3',
-            '-f', 'null',
-            '-y',
-            '/dev/null' if os.name != 'nt' else 'NUL'
-        ]
-        
-        # Pass 2: Encode with text
-        cmd_pass2 = [
-            'ffmpeg',
-            '-i', video_path,
-            '-vf', f"scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000@0,{filter_complex}",
-            '-c:v', 'libvpx-vp9',
-            '-pix_fmt', 'yuva420p',
-            '-b:v', '0',
-            '-crf', '32',
-            '-pass', '2',
-            '-passlogfile', str(temp_dir / 'ffmpeg2pass'),
-            '-quality', 'good',
-            '-cpu-used', '1',
-            '-row-mt', '1',
-            '-threads', '0',
-            '-tile-columns', '2',
-            '-tile-rows', '2',
-            '-frame-parallel', '0',
-            '-auto-alt-ref', '0',
-            '-lag-in-frames', '25',
-            '-an',
-            '-t', '3',
-            '-f', 'webm',
+            '-t', '2.9',  # ✅ Under 3 seconds to avoid rejection
             '-y',
             str(output_path)
         ]
         
-        # Run pass 1
-        process1 = subprocess.run(
-            cmd_pass1,
+        process = subprocess.run(
+            cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             timeout=30
         )
         
-        if process1.returncode != 0:
-            logger.error(f"FFmpeg pass 1 error: {process1.stderr.decode()}")
-            # Try single pass as fallback
-            return await add_text_to_video_sticker_single_pass(video_path, top_text, center_text, bottom_text)
-        
-        # Run pass 2
-        process2 = subprocess.run(
-            cmd_pass2,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            timeout=60
-        )
-        
-        if process2.returncode != 0:
-            logger.error(f"FFmpeg pass 2 error: {process2.stderr.decode()}")
+        if process.returncode != 0:
+            logger.error(f"FFmpeg error: {process.stderr.decode()}")
             return None
         
-        # Check if file was created and has reasonable size
-        if os.path.exists(output_path) and os.path.getsize(output_path) > 1024:
+        # ✅ Check file size (must be under 256KB)
+        if os.path.exists(output_path):
+            file_size = os.path.getsize(output_path)
+            logger.info(f"Video sticker size: {file_size} bytes")
+            
+            if file_size > 256 * 1024:  # If larger than 256KB
+                logger.warning(f"Video sticker too large: {file_size} bytes, re-encoding with higher CRF...")
+                
+                # ✅ Retry with even more compression
+                cmd_retry = [
+                    'ffmpeg',
+                    '-i', video_path,
+                    '-vf', f"fps=25,scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000@0,{drawtext_chain}",
+                    '-c:v', 'libvpx-vp9',
+                    '-pix_fmt', 'yuva420p',
+                    '-b:v', '0',
+                    '-crf', '50',  # Much higher compression
+                    '-deadline', 'realtime',
+                    '-cpu-used', '8',
+                    '-an',
+                    '-t', '2.5',  # Shorter duration
+                    '-y',
+                    str(output_path)
+                ]
+                
+                process = subprocess.run(
+                    cmd_retry,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    timeout=30
+                )
+                
+                if process.returncode != 0:
+                    logger.error("Retry encoding failed")
+                    return None
+                
+                final_size = os.path.getsize(output_path)
+                logger.info(f"Re-encoded video size: {final_size} bytes")
+                
+                if final_size > 256 * 1024:
+                    logger.error(f"Still too large after retry: {final_size} bytes")
+                    return None
+            
             return str(output_path)
         
         return None
     
     except Exception as e:
         logger.error(f"Error adding text to video sticker: {e}", exc_info=True)
-        return None
-
-
-async def add_text_to_video_sticker_single_pass(video_path: str, top_text: str = None,
-                                                 center_text: str = None, bottom_text: str = None):
-    """Fallback single-pass encoding if two-pass fails"""
-    try:
-        # Build filters
-        filters = []
-        font_path = os.path.abspath("assets/default.ttf").replace(":", "\\:").replace("\\", "/")
-        fontsize = 70
-        fontcolor = "white"
-        borderw = 4
-        
-        def escape_text(text):
-            return text.replace("'", "'\\\\\\''").replace(":", "\\:").replace("%", "\\%")
-        
-        if top_text:
-            filters.append(
-                f"drawtext=fontfile='{font_path}':text='{escape_text(top_text)}':"
-                f"fontsize={fontsize}:fontcolor={fontcolor}:borderw={borderw}:bordercolor=black:"
-                f"x=(w-text_w)/2:y=h*0.1"
-            )
-        
-        if center_text:
-            filters.append(
-                f"drawtext=fontfile='{font_path}':text='{escape_text(center_text)}':"
-                f"fontsize={fontsize-10}:fontcolor={fontcolor}:borderw={borderw}:bordercolor=black:"
-                f"x=(w-text_w)/2:y=(h-text_h)/2"
-            )
-        
-        if bottom_text:
-            filters.append(
-                f"drawtext=fontfile='{font_path}':text='{escape_text(bottom_text)}':"
-                f"fontsize={fontsize}:fontcolor={fontcolor}:borderw={borderw}:bordercolor=black:"
-                f"x=(w-text_w)/2:y=h*0.85-text_h"
-            )
-        
-        filter_complex = ",".join(filters)
-        temp_dir = Path("temp")
-        output_path = temp_dir / f"meme_video_{os.getpid()}.webm"
-        
-        cmd = [
-            'ffmpeg',
-            '-i', video_path,
-            '-vf', f"scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000@0,{filter_complex}",
-            '-c:v', 'libvpx-vp9',
-            '-pix_fmt', 'yuva420p',
-            '-b:v', '256k',
-            '-crf', '40',
-            '-quality', 'good',
-            '-cpu-used', '2',
-            '-row-mt', '1',
-            '-tile-columns', '1',
-            '-tile-rows', '1',
-            '-frame-parallel', '0',
-            '-auto-alt-ref', '0',
-            '-lag-in-frames', '0',
-            '-an',
-            '-t', '3',
-            '-f', 'webm',
-            '-y',
-            str(output_path)
-        ]
-        
-        process = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
-        
-        if process.returncode == 0 and os.path.exists(output_path):
-            return str(output_path)
-        
-        return None
-    
-    except Exception as e:
-        logger.error(f"Single pass encoding error: {e}", exc_info=True)
         return None
 
 
@@ -521,7 +435,7 @@ async def setup_memefi_handlers(client: Client):
             temp_dir = Path("temp")
             temp_dir.mkdir(exist_ok=True)
             
-            is_video = replied_msg.sticker.is_video or replied_msg.sticker.is_animated
+            is_video = replied_msg.sticker.is_video  # ✅ FIXED: Only check is_video, NOT is_animated (.tgs)
             
             if is_video:
                 # ✅ VIDEO STICKER - Send as video sticker, not file

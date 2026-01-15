@@ -79,8 +79,9 @@ def get_extra_commands_keyboard():
     builder.button(text="𝗔𝗙𝗞", callback_data=PackManagementCallback.EXTRA_CMD_AFK)
     builder.button(text="𝗤𝘂𝗼𝘁𝗹𝘆", callback_data=PackManagementCallback.EXTRA_CMD_QUOTLY)
     builder.button(text="𝗦𝘁𝗶𝗰𝗸𝗲𝗿𝘀", callback_data=PackManagementCallback.EXTRA_CMD_STICKERS)
+    builder.button(text="𝗠𝗲𝗺𝗲𝗙𝗶", callback_data=PackManagementCallback.EXTRA_CMD_MEMEFI) 
     builder.button(text="⬅️ 𝗕𝗮𝗰𝗸", callback_data=PackManagementCallback.BACK_TO_MAIN)
-    builder.adjust(3, 1)
+    builder.adjust(4, 1)
     return builder.as_markup()
 
 def get_back_to_extra_keyboard():
@@ -255,6 +256,15 @@ async def extra_afk_callback(callback: CallbackQuery):
         await safe_edit_message(callback, AFK_INFO_MESSAGE, get_back_to_extra_keyboard())
     except Exception as e:
         logger.error(f"Error in extra_afk_callback: {e}")
+
+@router.callback_query(F.data == PackManagementCallback.EXTRA_CMD_MEMEFI)
+async def extra_memefi_callback(callback: CallbackQuery):
+    await callback.answer()
+    try:
+        from templates import MEMEFI_INFO_MESSAGE
+        await safe_edit_message(callback, MEMEFI_INFO_MESSAGE, get_back_to_extra_keyboard())
+    except Exception as e:
+        logger.error(f"Error in extra_memefi_callback: {e}")
 
 @router.callback_query(F.data == PackManagementCallback.EXTRA_CMD_QUOTLY)
 async def extra_quotly_callback(callback: CallbackQuery):

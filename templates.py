@@ -467,3 +467,58 @@ Search via: <code>@{bot_username} {keyword}</code>
 
 <a href="{pack_link}">Add Pack to Telegram</a>
 """
+
+
+# Add at the end of templates.py
+
+# MemeFi Feature Info
+MEMEFI_INFO_MESSAGE = """
+<b>🎨 MemeFi - Meme Maker</b>
+
+<b>What it does:</b>
+Add custom text to any sticker and create memes!
+
+<b>How to use:</b>
+Reply to any sticker with:
+
+━━━━━━━━━━━━━━━━━━━━
+<b>📝 Basic:</b>
+━━━━━━━━━━━━━━━━━━━━
+- <code>/mmf Your Text</code>
+  Text appears on <b>top</b>
+
+- <code>/mmf Text1 ; Text2</code>
+  Text1 on <b>top</b>, Text2 on <b>bottom</b>
+
+- <code>/mmf -c Your Text</code>
+  Text appears in <b>center</b>
+
+━━━━━━━━━━━━━━━━━━━━
+<b>🎨 Advanced:</b>
+━━━━━━━━━━━━━━━━━━━━
+- <code>/mmf Top Text ; -c Center</code>
+  Top + Center text
+
+- <code>/mmf -c Center ; Bottom Text</code>
+  Center + Bottom text
+
+━━━━━━━━━━━━━━━━━━━━
+<b>💡 Examples:</b>
+━━━━━━━━━━━━━━━━━━━━
+<code>/mmf ME ON MONDAY</code>
+
+<code>/mmf WHEN YOU ; TEXT BOTTOM TEXT</code>
+
+<code>/mmf -c BRUH</code>
+
+<code>/mmf TOP TEXT ; -c CENTER TEXT</code>
+
+━━━━━━━━━━━━━━━━━━━━
+<b>✨ Features:</b>
+- Impact font (classic meme style)
+- White text with black outline
+- Auto text wrapping
+- Works with any sticker!
+
+<b>Also works with:</b> <code>/memefi</code>
+"""

@@ -11,17 +11,17 @@ from pyrogram.errors import FloodWait
 logger = logging.getLogger(__name__)
 
 # ✅ MASSIVE font sizes for visibility
-FONT_SIZE_TOP = 60
-FONT_SIZE_CENTER = 60
-FONT_SIZE_BOTTOM = 60
+FONT_SIZE_TOP = 90
+FONT_SIZE_CENTER = 80
+FONT_SIZE_BOTTOM = 90
 TEXT_COLOR = (255, 255, 255)  # White
 OUTLINE_COLOR = (0, 0, 0)  # Black
-OUTLINE_WIDTH = 1  # Thicker outline
+OUTLINE_WIDTH = 5  # Thicker outline
 
 # Position settings
-TOP_POSITION = 0.01
+TOP_POSITION = 0.1
 CENTER_POSITION = 0.5
-BOTTOM_POSITION = 0.95
+BOTTOM_POSITION = 0.85
 
 
 def check_ffmpeg_installed():
@@ -302,20 +302,28 @@ async def add_text_to_video_sticker(video_path: str, top_text: str = None,
         output_path = temp_dir / f"meme_video_{os.getpid()}.webm"
         
         # ✅ FFmpeg command for TELEGRAM VIDEO STICKER format
+        # Telegram video stickers must be:
+        # - VP9 codec with alpha channel
+        # - Max 512x512 px
+        # - Max 3 seconds
+        # - Max 256KB file size
+        # - No audio
         cmd = [
             'ffmpeg',
             '-i', video_path,
-            '-vf', f"scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000,{filter_complex}",
+            '-vf', f"scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000,{filter_complex},format=yuva420p",
             '-c:v', 'libvpx-vp9',
             '-pix_fmt', 'yuva420p',
             '-auto-alt-ref', '0',
-            '-vb', '400k',
-            '-crf', '35',
-            '-b:v', '400k',
-            '-maxrate', '400k',
-            '-bufsize', '256k',
+            '-metadata:s:v:0', 'alpha_mode="1"',
+            '-b:v', '256k',
+            '-crf', '40',
+            '-maxrate', '256k',
+            '-bufsize', '128k',
+            '-r', '30',  # Frame rate
             '-t', '3',  # Max 3 seconds
             '-an',  # No audio
+            '-f', 'webm',  # Force webm format
             '-y',
             str(output_path)
         ]
@@ -341,16 +349,19 @@ async def add_text_to_video_sticker(video_path: str, top_text: str = None,
                 cmd_retry = [
                     'ffmpeg',
                     '-i', video_path,
-                    '-vf', f"scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000,{filter_complex}",
+                    '-vf', f"scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000,{filter_complex},format=yuva420p",
                     '-c:v', 'libvpx-vp9',
                     '-pix_fmt', 'yuva420p',
                     '-auto-alt-ref', '0',
-                    '-crf', '45',
-                    '-b:v', '200k',
-                    '-maxrate', '200k',
-                    '-bufsize', '128k',
+                    '-metadata:s:v:0', 'alpha_mode="1"',
+                    '-crf', '50',
+                    '-b:v', '150k',
+                    '-maxrate', '150k',
+                    '-bufsize', '100k',
+                    '-r', '25',
                     '-t', '2',  # Reduce to 2 seconds
                     '-an',
+                    '-f', 'webm',
                     '-y',
                     str(output_path)
                 ]
@@ -453,26 +464,18 @@ async def setup_memefi_handlers(client: Client):
                     )
                     return
                 
-                # ✅ FIXED: Send as VIDEO STICKER using reply_video_note
-                # Video stickers in Telegram are sent as video_note (round videos)
+                # ✅ FIXED: Send as VIDEO STICKER (animated sticker)
+                # Video stickers are actually sent as animated stickers in .webm format
                 try:
-                    await message.reply_video_note(
-                        video_note=result_path,
-                        duration=3,
-                        length=512
-                    )
+                    # First, try to send directly as sticker (Pyrogram auto-detects video stickers)
+                    await message.reply_sticker(sticker=result_path)
                 except Exception as e:
-                    # Fallback: try sending as regular sticker
-                    logger.warning(f"Failed to send as video_note, trying as sticker: {e}")
-                    try:
-                        await message.reply_sticker(sticker=result_path)
-                    except Exception as e2:
-                        logger.error(f"Failed to send video sticker: {e2}")
-                        await processing_msg.edit_text(
-                            "❌ 𝖥𝖺𝗂𝗅𝖾𝖽 𝗍𝗈 𝗌𝖾𝗇𝖽 𝗏𝗂𝖽𝖾𝗈 𝗌𝗍𝗂𝖼𝗄𝖾𝗋.\n"
-                            "𝖯𝗅𝖾𝖺𝗌𝖾 𝗍𝗋𝗒 𝖺𝗀𝖺𝗂𝗇."
-                        )
-                        return
+                    logger.error(f"Failed to send video sticker: {e}")
+                    await processing_msg.edit_text(
+                        "❌ 𝖥𝖺𝗂𝗅𝖾𝖽 𝗍𝗈 𝗌𝖾𝗇𝖽 𝗏𝗂𝖽𝖾𝗈 𝗌𝗍𝗂𝖼𝗄𝖾𝗋.\n"
+                        "𝖯𝗅𝖾𝖺𝗌𝖾 𝗍𝗋𝗒 𝖺𝗀𝖺𝗂𝗇."
+                    )
+                    return
                 
                 # Cleanup
                 try:

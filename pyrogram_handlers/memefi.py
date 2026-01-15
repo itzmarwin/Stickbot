@@ -302,28 +302,32 @@ async def add_text_to_video_sticker(video_path: str, top_text: str = None,
         output_path = temp_dir / f"meme_video_{os.getpid()}.webm"
         
         # ✅ FFmpeg command for TELEGRAM VIDEO STICKER format
-        # Telegram video stickers must be:
-        # - VP9 codec with alpha channel
-        # - Max 512x512 px
-        # - Max 3 seconds
-        # - Max 256KB file size
-        # - No audio
+        # Telegram video stickers EXACT requirements:
+        # - WEBM container
+        # - VP9 video codec
+        # - Transparent background (yuva420p pixel format)
+        # - Exactly 512x512 or less
+        # - Max 3 seconds, 30 FPS
+        # - Max 256 KB
         cmd = [
             'ffmpeg',
             '-i', video_path,
-            '-vf', f"scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000,{filter_complex},format=yuva420p",
+            '-vf', f"{filter_complex},scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000,fps=30",
             '-c:v', 'libvpx-vp9',
             '-pix_fmt', 'yuva420p',
-            '-auto-alt-ref', '0',
-            '-metadata:s:v:0', 'alpha_mode="1"',
-            '-b:v', '256k',
-            '-crf', '40',
+            '-b:v', '200k',
+            '-minrate', '100k',
             '-maxrate', '256k',
-            '-bufsize', '128k',
-            '-r', '30',  # Frame rate
-            '-t', '3',  # Max 3 seconds
+            '-crf', '40',
+            '-quality', 'good',
+            '-speed', '4',
+            '-tile-columns', '0',
+            '-frame-parallel', '0',
+            '-auto-alt-ref', '0',
+            '-lag-in-frames', '0',
             '-an',  # No audio
-            '-f', 'webm',  # Force webm format
+            '-t', '3',  # Max 3 seconds
+            '-f', 'webm',
             '-y',
             str(output_path)
         ]
@@ -349,18 +353,21 @@ async def add_text_to_video_sticker(video_path: str, top_text: str = None,
                 cmd_retry = [
                     'ffmpeg',
                     '-i', video_path,
-                    '-vf', f"scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000,{filter_complex},format=yuva420p",
+                    '-vf', f"{filter_complex},scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000,fps=25",
                     '-c:v', 'libvpx-vp9',
                     '-pix_fmt', 'yuva420p',
-                    '-auto-alt-ref', '0',
-                    '-metadata:s:v:0', 'alpha_mode="1"',
-                    '-crf', '50',
-                    '-b:v', '150k',
+                    '-b:v', '128k',
+                    '-minrate', '64k',
                     '-maxrate', '150k',
-                    '-bufsize', '100k',
-                    '-r', '25',
-                    '-t', '2',  # Reduce to 2 seconds
+                    '-crf', '50',
+                    '-quality', 'good',
+                    '-speed', '5',
+                    '-tile-columns', '0',
+                    '-frame-parallel', '0',
+                    '-auto-alt-ref', '0',
+                    '-lag-in-frames', '0',
                     '-an',
+                    '-t', '2',  # Reduce to 2 seconds
                     '-f', 'webm',
                     '-y',
                     str(output_path)
@@ -464,18 +471,30 @@ async def setup_memefi_handlers(client: Client):
                     )
                     return
                 
-                # ✅ FIXED: Send as VIDEO STICKER (animated sticker)
-                # Video stickers are actually sent as animated stickers in .webm format
+                # ✅ FIXED: Send as ANIMATION (which Telegram treats as video sticker)
                 try:
-                    # First, try to send directly as sticker (Pyrogram auto-detects video stickers)
-                    await message.reply_sticker(sticker=result_path)
-                except Exception as e:
-                    logger.error(f"Failed to send video sticker: {e}")
-                    await processing_msg.edit_text(
-                        "❌ 𝖥𝖺𝗂𝗅𝖾𝖽 𝗍𝗈 𝗌𝖾𝗇𝖽 𝗏𝗂𝖽𝖾𝗈 𝗌𝗍𝗂𝖼𝗄𝖾𝗋.\n"
-                        "𝖯𝗅𝖾𝖺𝗌𝖾 𝗍𝗋𝗒 𝖺𝗀𝖺𝗂𝗇."
+                    # Send as animation - Telegram will treat properly formatted webm as video sticker
+                    await message.reply_animation(
+                        animation=result_path,
+                        width=512,
+                        height=512,
+                        duration=3
                     )
-                    return
+                except Exception as e:
+                    logger.error(f"Failed to send as animation: {e}")
+                    # Fallback: Send as document with note
+                    try:
+                        await message.reply_document(
+                            document=result_path,
+                            caption="✅ Meme created! (Long press and 'Add to Stickers' to use as video sticker)"
+                        )
+                    except Exception as e2:
+                        logger.error(f"Failed to send video sticker at all: {e2}")
+                        await processing_msg.edit_text(
+                            "❌ 𝖥𝖺𝗂𝗅𝖾𝖽 𝗍𝗈 𝗌𝖾𝗇𝖽 𝗏𝗂𝖽𝖾𝗈 𝗌𝗍𝗂𝖼𝗄𝖾𝗋.\n"
+                            "𝖯𝗅𝖾𝖺𝗌𝖾 𝗍𝗋𝗒 𝖺𝗀𝖺𝗂𝗇."
+                        )
+                        return
                 
                 # Cleanup
                 try:

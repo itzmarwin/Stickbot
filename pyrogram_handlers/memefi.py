@@ -9,13 +9,13 @@ from pyrogram.errors import FloodWait
 
 logger = logging.getLogger(__name__)
 
-# Font settings
-FONT_SIZE_TOP = 60
-FONT_SIZE_CENTER = 50
-FONT_SIZE_BOTTOM = 60
+# ✅ UPDATED: Bigger font sizes
+FONT_SIZE_TOP = 80  # Increased from 60
+FONT_SIZE_CENTER = 70  # Increased from 50
+FONT_SIZE_BOTTOM = 80  # Increased from 60
 TEXT_COLOR = (255, 255, 255)  # White
 OUTLINE_COLOR = (0, 0, 0)  # Black
-OUTLINE_WIDTH = 3
+OUTLINE_WIDTH = 4  # Increased from 3 for bolder outline
 
 # Position settings
 TOP_POSITION = 0.1  # 10% from top
@@ -80,15 +80,16 @@ def wrap_text(text: str, font, max_width: int):
 def draw_text_with_outline(draw, position, text, font, text_color, outline_color, outline_width):
     """
     Draw text with outline (stroke effect)
+    NO background box - just text with outline
     """
     x, y = position
     
-    # Draw outline
+    # Draw outline (black)
     for adj_x in range(-outline_width, outline_width + 1):
         for adj_y in range(-outline_width, outline_width + 1):
             draw.text((x + adj_x, y + adj_y), text, font=font, fill=outline_color)
     
-    # Draw main text
+    # Draw main text (white)
     draw.text(position, text, font=font, fill=text_color)
 
 
@@ -146,17 +147,18 @@ def parse_mmf_command(text: str):
 async def add_text_to_sticker(sticker_path: str, top_text: str = None, 
                                center_text: str = None, bottom_text: str = None):
     """
-    Add text to sticker image
+    Add text to sticker image and return as WEBP sticker
     
-    Returns: path to new image
+    Returns: BytesIO object with WEBP sticker
     """
     try:
-        # Open image
+        # Open image and ensure RGBA mode (for transparency)
         img = Image.open(sticker_path).convert("RGBA")
         width, height = img.size
         
-        # Create drawing context
-        draw = ImageDraw.Draw(img)
+        # ✅ Create a transparent overlay for text (no background box)
+        text_layer = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(text_layer)
         
         # Calculate max text width (90% of image width)
         max_text_width = int(width * 0.9)
@@ -231,9 +233,22 @@ async def add_text_to_sticker(sticker_path: str, top_text: str = None,
                 
                 y += line_height
         
-        # Save to bytes
+        # ✅ Composite text layer over original image
+        final_image = Image.alpha_composite(img, text_layer)
+        
+        # ✅ Resize to 512x512 (Telegram sticker requirement)
+        final_image.thumbnail((512, 512), Image.Resampling.LANCZOS)
+        
+        # Create new 512x512 canvas with transparency
+        sticker_canvas = Image.new('RGBA', (512, 512), (0, 0, 0, 0))
+        
+        # Center the image on canvas
+        offset = ((512 - final_image.size[0]) // 2, (512 - final_image.size[1]) // 2)
+        sticker_canvas.paste(final_image, offset)
+        
+        # ✅ Save as WEBP format for sticker
         output = io.BytesIO()
-        img.save(output, format='PNG')
+        sticker_canvas.save(output, format='WEBP', quality=95)
         output.seek(0)
         
         return output
@@ -293,7 +308,7 @@ async def setup_memefi_handlers(client: Client):
                 )
                 return
             
-            # Check if video sticker
+            # ✅ Check if video sticker (not supported)
             if replied_msg.sticker.is_video:
                 await message.reply_text(
                     "⚠️ 𝖵𝗂𝖽𝖾𝗈 𝗌𝗍𝗂𝖼𝗄𝖾𝗋𝗌 𝖺𝗋𝖾 𝗇𝗈𝗍 𝗌𝗎𝗉𝗉𝗈𝗋𝗍𝖾𝖽.\n\n"
@@ -313,25 +328,22 @@ async def setup_memefi_handlers(client: Client):
             await client.download_media(replied_msg.sticker.file_id, file_name=str(sticker_path))
             
             # Add text to sticker
-            result_image = await add_text_to_sticker(
+            result_sticker = await add_text_to_sticker(
                 str(sticker_path),
                 top_text=top_text,
                 center_text=center_text,
                 bottom_text=bottom_text
             )
             
-            if not result_image:
+            if not result_sticker:
                 await processing_msg.edit_text(
                     "❌ 𝖥𝖺𝗂𝗅𝖾𝖽 𝗍𝗈 𝖼𝗋𝖾𝖺𝗍𝖾 𝗆𝖾𝗆𝖾.\n"
                     "𝖯𝗅𝖾𝖺𝗌𝖾 𝗍𝗋𝗒 𝖺𝗀𝖺𝗂𝗇."
                 )
                 return
             
-            # Send result
-            await message.reply_photo(
-                photo=result_image,
-                caption="✨ 𝖸𝗈𝗎𝗋 𝗆𝖾𝗆𝖾 𝗂𝗌 𝗋𝖾𝖺𝖽𝗒!"
-            )
+            # ✅ Send result as STICKER (not photo)
+            await message.reply_sticker(sticker=result_sticker)
             
             # Delete processing message
             await processing_msg.delete()
@@ -343,7 +355,7 @@ async def setup_memefi_handlers(client: Client):
             except:
                 pass
             
-            logger.info(f"MemeFi: Created meme for user {message.from_user.id}")
+            logger.info(f"MemeFi: Created meme sticker for user {message.from_user.id}")
         
         except Exception as e:
             logger.error(f"Error in memefi command: {e}", exc_info=True)

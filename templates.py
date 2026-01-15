@@ -473,52 +473,25 @@ Search via: <code>@{bot_username} {keyword}</code>
 
 # MemeFi Feature Info
 MEMEFI_INFO_MESSAGE = """
-<b>🎨 MemeFi - Meme Maker</b>
+<b>MemeFi</b>
 
-<b>What it does:</b>
-Add custom text to any sticker and create memes!
+MemeFi allows you to add custom text to stickers.
 
-<b>How to use:</b>
-Reply to any sticker with:
+Reply to a sticker and use the <code>/mmf</code> command.
 
-━━━━━━━━━━━━━━━━━━━━
-<b>📝 Basic:</b>
-━━━━━━━━━━━━━━━━━━━━
-- <code>/mmf Your Text</code>
-  Text appears on <b>top</b>
+<code>/mmf Your Text</code>
+Adds text to the top of the sticker.
 
-- <code>/mmf Text1 ; Text2</code>
-  Text1 on <b>top</b>, Text2 on <b>bottom</b>
+<code>/mmf Top Text ; Bottom Text</code>
+Adds text to the top and bottom. Use <code>;</code> to separate the text.
 
-- <code>/mmf -c Your Text</code>
-  Text appears in <b>center</b>
+<code>/mmf -c Your Text</code>
+Adds text in the center.
 
-━━━━━━━━━━━━━━━━━━━━
-<b>🎨 Advanced:</b>
-━━━━━━━━━━━━━━━━━━━━
-- <code>/mmf Top Text ; -c Center</code>
-  Top + Center text
+You can combine top, center, and bottom text in a single sticker by using <code>;</code> and <code>-c</code>.
 
-- <code>/mmf -c Center ; Bottom Text</code>
-  Center + Bottom text
+Text is displayed in a classic meme-style font with automatic wrapping.
+Works with any sticker.
 
-━━━━━━━━━━━━━━━━━━━━
-<b>💡 Examples:</b>
-━━━━━━━━━━━━━━━━━━━━
-<code>/mmf ME ON MONDAY</code>
-
-<code>/mmf WHEN YOU ; TEXT BOTTOM TEXT</code>
-
-<code>/mmf -c BRUH</code>
-
-<code>/mmf TOP TEXT ; -c CENTER TEXT</code>
-
-━━━━━━━━━━━━━━━━━━━━
-<b>✨ Features:</b>
-- Impact font (classic meme style)
-- White text with black outline
-- Auto text wrapping
-- Works with any sticker!
-
-<b>Also works with:</b> <code>/memefi</code>
+Alternate command: <code>/memefi</code>
 """

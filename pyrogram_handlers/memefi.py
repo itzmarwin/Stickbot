@@ -1,60 +1,40 @@
 import logging
 import os
-import subprocess
-import shutil
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 from pyrogram import Client, filters
 from pyrogram.types import Message
-from pyrogram.errors import FloodWait
 
 logger = logging.getLogger(__name__)
 
-# ✅ MASSIVE font sizes for visibility
 FONT_SIZE_TOP = 60
 FONT_SIZE_CENTER = 60
 FONT_SIZE_BOTTOM = 60
-TEXT_COLOR = (255, 255, 255)  # White
-OUTLINE_COLOR = (0, 0, 0)  # Black
-OUTLINE_WIDTH = 1  # Thicker outline
+TEXT_COLOR = (255, 255, 255)
+OUTLINE_COLOR = (0, 0, 0)
+OUTLINE_WIDTH = 1
 
-# Position settings
 TOP_POSITION = 0.01
 CENTER_POSITION = 0.5
 BOTTOM_POSITION = 0.95
 
-
-def check_ffmpeg_installed():
-    """Check if FFmpeg is installed"""
-    try:
-        subprocess.run(['ffmpeg', '-version'], 
-                      stdout=subprocess.DEVNULL, 
-                      stderr=subprocess.DEVNULL)
-        return True
-    except FileNotFoundError:
-        return False
+SUPPORT_GROUP = "https://t.me/Samurais_Support"
 
 
 def get_font(size: int):
-    """Get default meme font from assets folder"""
-    font_path = "assets/default.ttf"  # ✅ Your repo's font
+    font_path = "assets/default.ttf"
     
     if os.path.exists(font_path):
         try:
             return ImageFont.truetype(font_path, size)
         except Exception as e:
             logger.error(f"Error loading font {font_path}: {e}")
-            raise FileNotFoundError(
-                f"Font file exists but failed to load: {font_path}"
-            )
+            raise FileNotFoundError(f"Font file exists but failed to load: {font_path}")
     else:
-        raise FileNotFoundError(
-            "Font not found! Make sure assets/default.ttf exists in your repo."
-        )
+        raise FileNotFoundError("Font not found! Make sure assets/default.ttf exists in your repo.")
 
 
 def wrap_text(text: str, font, max_width: int):
-    """Wrap text to fit within max_width"""
     words = text.split()
     lines = []
     current_line = []
@@ -78,21 +58,17 @@ def wrap_text(text: str, font, max_width: int):
 
 
 def draw_text_with_outline(draw, position, text, font, text_color, outline_color, outline_width):
-    """Draw text with thick outline - NO BACKGROUND BOX"""
     x, y = position
     
-    # Draw outline (black) - multiple passes for thickness
     for adj_x in range(-outline_width, outline_width + 1):
         for adj_y in range(-outline_width, outline_width + 1):
-            if adj_x != 0 or adj_y != 0:  # Skip center
+            if adj_x != 0 or adj_y != 0:
                 draw.text((x + adj_x, y + adj_y), text, font=font, fill=outline_color)
     
-    # Draw main text (white) on top
     draw.text(position, text, font=font, fill=text_color)
 
 
 def parse_mmf_command(text: str):
-    """Parse MMF/MEMEFI command"""
     text = text.replace("/mmf", "").replace("/memefi", "").strip()
     
     if not text:
@@ -133,20 +109,15 @@ def parse_mmf_command(text: str):
 
 async def add_text_to_static_sticker(sticker_path: str, top_text: str = None, 
                                      center_text: str = None, bottom_text: str = None):
-    """Add text to static sticker - PURE TRANSPARENCY"""
     try:
-        # Open and convert to RGBA (transparency support)
         img = Image.open(sticker_path).convert("RGBA")
         width, height = img.size
         
-        # ✅ Create FULLY TRANSPARENT overlay
         text_layer = Image.new('RGBA', (width, height), (0, 0, 0, 0))
         draw = ImageDraw.Draw(text_layer)
         
-        # Max text width (85% of image width for padding)
         max_text_width = int(width * 0.85)
         
-        # ✅ TOP TEXT (NO UPPERCASE - keep original case)
         if top_text:
             font = get_font(FONT_SIZE_TOP)
             lines = wrap_text(top_text, font, max_text_width)
@@ -165,7 +136,6 @@ async def add_text_to_static_sticker(sticker_path: str, top_text: str = None,
                 )
                 y += line_height
         
-        # ✅ CENTER TEXT (NO UPPERCASE - keep original case)
         if center_text:
             font = get_font(FONT_SIZE_CENTER)
             lines = wrap_text(center_text, font, max_text_width)
@@ -185,7 +155,6 @@ async def add_text_to_static_sticker(sticker_path: str, top_text: str = None,
                 )
                 y += line_height
         
-        # ✅ BOTTOM TEXT (NO UPPERCASE - keep original case)
         if bottom_text:
             font = get_font(FONT_SIZE_BOTTOM)
             lines = wrap_text(bottom_text, font, max_text_width)
@@ -205,20 +174,15 @@ async def add_text_to_static_sticker(sticker_path: str, top_text: str = None,
                 )
                 y += line_height
         
-        # ✅ Composite text over original (preserves transparency)
         final_image = Image.alpha_composite(img, text_layer)
         
-        # Resize to 512x512 max (Telegram sticker standard)
         final_image.thumbnail((512, 512), Image.Resampling.LANCZOS)
         
-        # Create 512x512 transparent canvas
         sticker_canvas = Image.new('RGBA', (512, 512), (0, 0, 0, 0))
         
-        # Center image on canvas
         offset = ((512 - final_image.size[0]) // 2, (512 - final_image.size[1]) // 2)
         sticker_canvas.paste(final_image, offset, final_image)
         
-        # Save to temp file
         temp_dir = Path("temp")
         temp_dir.mkdir(exist_ok=True)
         output_path = temp_dir / f"meme_static_{os.getpid()}.webp"
@@ -232,295 +196,84 @@ async def add_text_to_static_sticker(sticker_path: str, top_text: str = None,
         return None
 
 
-async def add_text_to_video_sticker(video_path: str, top_text: str = None,
-                                    center_text: str = None, bottom_text: str = None):
-    """Add text to video sticker using FFmpeg - Returns proper WEBM sticker"""
-    try:
-        if not check_ffmpeg_installed():
-            logger.error("FFmpeg not installed!")
-            return None
-        
-        # Build FFmpeg drawtext filters
-        filters = []
-        
-        # ✅ Use assets/default.ttf font path for FFmpeg
-        font_path = "assets/default.ttf"
-        
-        if not os.path.exists(font_path):
-            logger.error(f"Font not found: {font_path}")
-            return None
-        
-        # Escape font path for FFmpeg
-        font_path_escaped = font_path.replace(":", "\\:").replace("\\", "/")
-        
-        fontsize = 70
-        fontcolor = "white"
-        borderw = 4
-        
-        # Escape text for FFmpeg (NO UPPERCASE - keep original case)
-        def escape_text(text):
-            return text.replace("'", "'\\\\\\''").replace(":", "\\:").replace("%", "\\%")
-        
-        # TOP text
-        if top_text:
-            text_escaped = escape_text(top_text)
-            filters.append(
-                f"drawtext=fontfile='{font_path_escaped}':text='{text_escaped}':"
-                f"fontsize={fontsize}:fontcolor={fontcolor}:"
-                f"borderw={borderw}:bordercolor=black:"
-                f"x=(w-text_w)/2:y=h*0.1"
-            )
-        
-        # CENTER text
-        if center_text:
-            text_escaped = escape_text(center_text)
-            filters.append(
-                f"drawtext=fontfile='{font_path_escaped}':text='{text_escaped}':"
-                f"fontsize={fontsize-10}:fontcolor={fontcolor}:"
-                f"borderw={borderw}:bordercolor=black:"
-                f"x=(w-text_w)/2:y=(h-text_h)/2"
-            )
-        
-        # BOTTOM text
-        if bottom_text:
-            text_escaped = escape_text(bottom_text)
-            filters.append(
-                f"drawtext=fontfile='{font_path_escaped}':text='{text_escaped}':"
-                f"fontsize={fontsize}:fontcolor={fontcolor}:"
-                f"borderw={borderw}:bordercolor=black:"
-                f"x=(w-text_w)/2:y=h*0.85-text_h"
-            )
-        
-        if not filters:
-            return None
-        
-        filter_complex = ",".join(filters)
-        
-        # Output path
-        temp_dir = Path("temp")
-        temp_dir.mkdir(exist_ok=True)
-        output_path = temp_dir / f"meme_video_{os.getpid()}.webm"
-        
-        # ✅ FFmpeg command for TELEGRAM VIDEO STICKER format
-        cmd = [
-            'ffmpeg',
-            '-i', video_path,
-            '-vf', f"scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000,{filter_complex}",
-            '-c:v', 'libvpx-vp9',
-            '-pix_fmt', 'yuva420p',
-            '-auto-alt-ref', '0',
-            '-vb', '400k',
-            '-crf', '35',
-            '-b:v', '400k',
-            '-maxrate', '400k',
-            '-bufsize', '256k',
-            '-t', '3',  # Max 3 seconds
-            '-an',  # No audio
-            '-y',
-            str(output_path)
-        ]
-        
-        process = subprocess.run(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            timeout=30
-        )
-        
-        if process.returncode != 0:
-            logger.error(f"FFmpeg error: {process.stderr.decode()}")
-            return None
-        
-        # Check file size
-        if os.path.exists(output_path):
-            file_size = os.path.getsize(output_path)
-            if file_size > 256 * 1024:  # If larger than 256KB
-                logger.warning(f"Video sticker too large: {file_size} bytes, retrying with lower quality...")
-                
-                # Retry with even lower quality
-                cmd_retry = [
-                    'ffmpeg',
-                    '-i', video_path,
-                    '-vf', f"scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000,{filter_complex}",
-                    '-c:v', 'libvpx-vp9',
-                    '-pix_fmt', 'yuva420p',
-                    '-auto-alt-ref', '0',
-                    '-crf', '45',
-                    '-b:v', '200k',
-                    '-maxrate', '200k',
-                    '-bufsize', '128k',
-                    '-t', '2',  # Reduce to 2 seconds
-                    '-an',
-                    '-y',
-                    str(output_path)
-                ]
-                
-                process = subprocess.run(
-                    cmd_retry,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    timeout=30
-                )
-                
-                if process.returncode != 0:
-                    return None
-        
-        return str(output_path)
-    
-    except Exception as e:
-        logger.error(f"Error adding text to video sticker: {e}", exc_info=True)
-        return None
-
-
 async def setup_memefi_handlers(client: Client):
-    """Setup MemeFi command handlers"""
     
     @client.on_message(filters.command(["mmf", "memefi"]) & (filters.group | filters.private))
     async def memefi_command(client: Client, message: Message):
         try:
-            # Check if replying to a message
             if not message.reply_to_message:
                 await message.reply_text(
-                    "⚠️ 𝖯𝗅𝖾𝖺𝗌𝖾 𝗋𝖾𝗉𝗅𝗒 𝗍𝗈 𝖺 𝗌𝗍𝗂𝖼𝗄𝖾𝗋!\n\n"
-                    "━━━━━━━━━━━━━━━━━━━━\n"
-                    "📝 𝖧𝗈𝗐 𝗍𝗈 𝗎𝗌𝖾:\n"
-                    "━━━━━━━━━━━━━━━━━━━━\n\n"
-                    "• /mmf Text\n"
-                    "  (𝖳𝗈𝗉 𝗈𝗇𝗅𝗒)\n\n"
-                    "• /mmf Text1 ; Text2\n"
-                    "  (𝖳𝗈𝗉 + 𝖡𝗈𝗍𝗍𝗈𝗆)\n\n"
-                    "• /mmf -c Text\n"
-                    "  (𝖢𝖾𝗇𝗍𝖾𝗋 𝗈𝗇𝗅𝗒)\n\n"
-                    "• /mmf Text ; -c Center\n"
-                    "  (𝖳𝗈𝗉 + 𝖢𝖾𝗇𝗍𝖾𝗋)\n\n"
-                    "• /mmf -c Center ; Bottom\n"
-                    "  (𝖢𝖾𝗇𝗍𝖾𝗋 + 𝖡𝗈𝗍𝗍𝗈𝗆)\n\n"
-                    "━━━━━━━━━━━━━━━━━━━━\n"
-                    "𝖤𝗑𝖺𝗆𝗉𝗅𝖾:\n"
+                    "Please reply to a sticker.\n\n"
+                    "How to use:\n"
+                    "• /mmf Text (top only)\n"
+                    "• /mmf Text1 ; Text2 (top and bottom)\n"
+                    "• /mmf -c Text (center only)\n"
+                    "• /mmf Text ; -c Center (top and center)\n"
+                    "• /mmf -c Center ; Bottom (center and bottom)\n\n"
+                    "Example:\n"
                     "/mmf ME ON MONDAY ; NEED COFFEE"
                 )
                 return
             
             replied_msg = message.reply_to_message
             if not replied_msg.sticker:
-                await message.reply_text(
-                    "⚠️ 𝖳𝗁𝖺𝗍'𝗌 𝗇𝗈𝗍 𝖺 𝗌𝗍𝗂𝖼𝗄𝖾𝗋!\n\n"
-                    "𝖯𝗅𝖾𝖺𝗌𝖾 𝗋𝖾𝗉𝗅𝗒 𝗍𝗈 𝖺 𝗌𝗍𝗂𝖼𝗄𝖾𝗋 𝖺𝗇𝖽 𝖺𝖽𝖽 𝗍𝖾𝗑𝗍."
-                )
+                await message.reply_text("That's not a sticker. Please reply to a sticker and add your text.")
                 return
             
-            # Parse command
+            if replied_msg.sticker.is_video:
+                await message.reply_text("Video stickers are not supported yet. Please use image stickers only.")
+                return
+            
             top_text, center_text, bottom_text = parse_mmf_command(message.text)
             
             if not top_text and not center_text and not bottom_text:
                 await message.reply_text(
-                    "⚠️ 𝖯𝗅𝖾𝖺𝗌𝖾 𝗉𝗋𝗈𝗏𝗂𝖽𝖾 𝗍𝖾𝗑𝗍!\n\n"
-                    "𝖴𝗌𝖺𝗀𝖾: /mmf Your Text Here\n"
-                    "𝖮𝗋: /mmf Top ; Bottom"
+                    "Please provide some text.\n\n"
+                    "Usage: /mmf Your Text Here\n"
+                    "Or: /mmf Top ; Bottom"
                 )
                 return
             
-            processing_msg = await message.reply_text("⏳ 𝖢𝗋𝖾𝖺𝗍𝗂𝗇𝗀 𝗆𝖾𝗆𝖾...")
+            processing_msg = await message.reply_text("Memifying this Sticker! Please wait.")
             
             temp_dir = Path("temp")
             temp_dir.mkdir(exist_ok=True)
             
-            is_video = replied_msg.sticker.is_video or replied_msg.sticker.is_animated
+            sticker_path = temp_dir / f"sticker_{message.from_user.id}.webp"
+            await client.download_media(replied_msg.sticker.file_id, file_name=str(sticker_path))
             
-            if is_video:
-                # ✅ VIDEO STICKER - Send as video sticker, not file
-                if not check_ffmpeg_installed():
-                    await processing_msg.edit_text(
-                        "❌ 𝖵𝗂𝖽𝖾𝗈 𝗌𝗍𝗂𝖼𝗄𝖾𝗋𝗌 𝗇𝖾𝖾𝖽 𝖥𝖥𝗆𝗉𝖾𝗀.\n\n"
-                        "𝖯𝗅𝖾𝖺𝗌𝖾 𝖼𝗈𝗇𝗍𝖺𝖼𝗍 𝖻𝗈𝗍 𝗈𝗐𝗇𝖾𝗋."
-                    )
-                    return
-                
-                sticker_path = temp_dir / f"sticker_{message.from_user.id}.webm"
-                await client.download_media(replied_msg.sticker.file_id, file_name=str(sticker_path))
-                
-                result_path = await add_text_to_video_sticker(
-                    str(sticker_path),
-                    top_text=top_text,
-                    center_text=center_text,
-                    bottom_text=bottom_text
-                )
-                
-                if not result_path:
-                    await processing_msg.edit_text(
-                        "❌ 𝖥𝖺𝗂𝗅𝖾𝖽 𝗍𝗈 𝗉𝗋𝗈𝖼𝖾𝗌𝗌 𝗏𝗂𝖽𝖾𝗈.\n"
-                        "𝖯𝗅𝖾𝖺𝗌𝖾 𝗍𝗋𝗒 𝖺𝗀𝖺𝗂𝗇."
-                    )
-                    return
-                
-                # ✅ FIXED: Send as VIDEO STICKER using reply_video_note
-                # Video stickers in Telegram are sent as video_note (round videos)
-                try:
-                    await message.reply_video_note(
-                        video_note=result_path,
-                        duration=3,
-                        length=512
-                    )
-                except Exception as e:
-                    # Fallback: try sending as regular sticker
-                    logger.warning(f"Failed to send as video_note, trying as sticker: {e}")
-                    try:
-                        await message.reply_sticker(sticker=result_path)
-                    except Exception as e2:
-                        logger.error(f"Failed to send video sticker: {e2}")
-                        await processing_msg.edit_text(
-                            "❌ 𝖥𝖺𝗂𝗅𝖾𝖽 𝗍𝗈 𝗌𝖾𝗇𝖽 𝗏𝗂𝖽𝖾𝗈 𝗌𝗍𝗂𝖼𝗄𝖾𝗋.\n"
-                            "𝖯𝗅𝖾𝖺𝗌𝖾 𝗍𝗋𝗒 𝖺𝗀𝖺𝗂𝗇."
-                        )
-                        return
-                
-                # Cleanup
-                try:
-                    os.remove(sticker_path)
-                    os.remove(result_path)
-                except:
-                    pass
+            result_path = await add_text_to_static_sticker(
+                str(sticker_path),
+                top_text=top_text,
+                center_text=center_text,
+                bottom_text=bottom_text
+            )
             
-            else:
-                # ✅ STATIC STICKER
-                sticker_path = temp_dir / f"sticker_{message.from_user.id}.webp"
-                await client.download_media(replied_msg.sticker.file_id, file_name=str(sticker_path))
-                
-                result_path = await add_text_to_static_sticker(
-                    str(sticker_path),
-                    top_text=top_text,
-                    center_text=center_text,
-                    bottom_text=bottom_text
+            if not result_path:
+                await processing_msg.edit_text(
+                    f"Failed to create your meme. Please try again.\n\n"
+                    f"If this issue persists, report it in our support group: {SUPPORT_GROUP}"
                 )
-                
-                if not result_path:
-                    await processing_msg.edit_text(
-                        "❌ 𝖥𝖺𝗂𝗅𝖾𝖽 𝗍𝗈 𝖼𝗋𝖾𝖺𝗍𝖾 𝗆𝖾𝗆𝖾.\n"
-                        "𝖯𝗅𝖾𝖺𝗌𝖾 𝗍𝗋𝗒 𝖺𝗀𝖺𝗂𝗇."
-                )
-                    return
-                
-                # ✅ Send as STICKER
-                await message.reply_sticker(sticker=result_path)
-                
-                # Cleanup
-                try:
-                    os.remove(sticker_path)
-                    os.remove(result_path)
-                except:
-                    pass
+                return
+            
+            await message.reply_sticker(sticker=result_path)
+            
+            try:
+                os.remove(sticker_path)
+                os.remove(result_path)
+            except:
+                pass
             
             await processing_msg.delete()
             
             logger.info(f"MemeFi: Created meme for user {message.from_user.id}")
         
         except FileNotFoundError as e:
-            # Font not found error
             logger.error(f"Font error: {e}")
             try:
                 await message.reply_text(
-                    "❌ 𝖥𝗈𝗇𝗍 𝖿𝗂𝗅𝖾 𝗇𝗈𝗍 𝖿𝗈𝗎𝗇𝖽!\n\n"
-                    "𝖯𝗅𝖾𝖺𝗌𝖾 𝗆𝖺𝗄𝖾 𝗌𝗎𝗋𝖾 𝖺𝗌𝗌𝖾𝗍𝗌/𝖽𝖾𝖿𝖺𝗎𝗅𝗍.𝗍𝗍𝖿 𝖾𝗑𝗂𝗌𝗍𝗌."
+                    f"Font file not found. Please contact the bot owner.\n\n"
+                    f"Support: {SUPPORT_GROUP}"
                 )
             except:
                 pass
@@ -529,10 +282,10 @@ async def setup_memefi_handlers(client: Client):
             logger.error(f"Error in memefi command: {e}", exc_info=True)
             try:
                 await message.reply_text(
-                    "❌ 𝖠𝗇 𝖾𝗋𝗋𝗈𝗋 𝗈𝖼𝖼𝗎𝗋𝗋𝖾𝖽.\n"
-                    "𝖯𝗅𝖾𝖺𝗌𝖾 𝗍𝗋𝗒 𝖺𝗀𝖺𝗂𝗇 𝗅𝖺𝗍𝖾𝗋."
+                    f"Something went wrong. Please try again later.\n\n"
+                    f"If the problem continues, report it here: {SUPPORT_GROUP}"
                 )
             except:
                 pass
     
-    logger.info("✅ MemeFi handlers setup complete")
+    logger.info("MemeFi handlers setup complete")

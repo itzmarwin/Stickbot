@@ -284,7 +284,7 @@ async def setup_welcome_handlers(client: Client):
                 await create_default_welcome_settings(chat_id)
                 settings = await get_welcome_settings(chat_id)
             
-            # ✅ FIXED: Removed blocking check - allow updating welcome anytime
+            # ✅ FIXED: Removed blocking check
             
             # Extract data from replied message
             media_type = None
@@ -339,7 +339,7 @@ async def setup_welcome_handlers(client: Client):
             )
             
             if success:
-                # ✅ FIXED: Auto-enable welcome when custom is set
+                # ✅ FIXED: Auto-enable welcome
                 await update_welcome_status(chat_id, True)
                 
                 response = "✅ <b>Custom welcome set and enabled!</b>\n\n"
@@ -421,86 +421,184 @@ async def setup_welcome_handlers(client: Client):
             )
     
     
-    @client.on_message(filters.new_chat_members & filters.group)
-    async def welcome_new_member(client: Client, message: Message):
-        """
-        Send welcome message to new members
-        """
+    # ✅ DEBUG COMMANDS
+    @client.on_message(filters.command("checkwelcome") & filters.group)
+    async def check_welcome_settings(client: Client, message: Message):
+        """Debug command to check welcome settings"""
         try:
             chat_id = message.chat.id
+            
+            if not await is_user_admin(client, chat_id, message.from_user.id):
+                await message.reply_text("❌ Only admins!")
+                return
+            
+            settings = await get_welcome_settings(chat_id)
+            
+            if not settings:
+                await message.reply_text("❌ No settings found!")
+                return
+            
+            welcome_config = settings.get('welcome', {})
+            
+            debug_msg = f"""
+🔍 <b>Welcome Settings Debug</b>
+
+<b>Chat ID:</b> <code>{chat_id}</code>
+
+<b>Welcome Enabled:</b> {welcome_config.get('enabled', False)}
+<b>Custom Set:</b> {welcome_config.get('custom_set', False)}
+<b>Media Type:</b> {welcome_config.get('media_type') or 'None'}
+<b>Has Text:</b> {bool(welcome_config.get('text'))}
+<b>Buttons:</b> {len(welcome_config.get('buttons', []))}
+
+<b>Text Preview:</b>
+{welcome_config.get('text', 'No text')[:100]}
+"""
+            
+            await message.reply_text(debug_msg, parse_mode=ParseMode.HTML)
+            
+        except Exception as e:
+            logger.error(f"Error in check: {e}", exc_info=True)
+            await message.reply_text(f"❌ Error: {e}")
+    
+    
+    @client.on_message(filters.command("checkperms") & filters.group)
+    async def check_bot_permissions(client: Client, message: Message):
+        """Check bot permissions"""
+        try:
+            chat_id = message.chat.id
+            
+            if not await is_user_admin(client, chat_id, message.from_user.id):
+                await message.reply_text("❌ Only admins!")
+                return
+            
+            bot_member = await client.get_chat_member(chat_id, client.me.id)
+            status = bot_member.status
+            
+            perms_msg = f"""
+🤖 <b>Bot Status</b>
+
+<b>Status:</b> {status.value}
+<b>Bot ID:</b> <code>{client.me.id}</code>
+<b>Chat ID:</b> <code>{chat_id}</code>
+"""
+            
+            if status in [ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER]:
+                perms_msg += "\n✅ Bot is admin"
+            else:
+                perms_msg += "\n⚠️ Bot is NOT admin!"
+            
+            await message.reply_text(perms_msg, parse_mode=ParseMode.HTML)
+            
+        except Exception as e:
+            await message.reply_text(f"❌ Error: {e}")
+    
+    
+    @client.on_message(filters.new_chat_members & filters.group)
+    async def welcome_new_member(client: Client, message: Message):
+        """Send welcome message to new members"""
+        try:
+            chat_id = message.chat.id
+            
+            logger.info(f"🔔 New member(s) in chat {chat_id}")
             
             # Get settings
             settings = await get_welcome_settings(chat_id)
             
-            # Check if welcome enabled
-            if not settings or not settings['welcome']['enabled']:
+            if not settings:
+                logger.warning(f"⚠️ No settings for {chat_id}")
+                await create_default_welcome_settings(chat_id)
+                settings = await get_welcome_settings(chat_id)
+            
+            logger.info(f"Settings: enabled={settings.get('welcome', {}).get('enabled')}")
+            
+            # Check if enabled
+            if not settings or not settings.get('welcome', {}).get('enabled'):
+                logger.warning(f"⚠️ Welcome disabled for {chat_id}")
                 return
             
-            # Welcome each new member
+            logger.info(f"✅ Welcome enabled for {chat_id}")
+            
+            # Welcome each member
             for new_member in message.new_chat_members:
-                # Skip bots
+                logger.info(f"Processing: {new_member.id}")
+                
                 if new_member.is_bot:
+                    logger.info(f"⏭️ Skipping bot")
                     continue
                 
-                # Get welcome config
                 welcome_config = settings['welcome']
                 
-                # Determine text to use
-                if welcome_config['custom_set'] and welcome_config['text']:
+                # Get text
+                if welcome_config.get('custom_set') and welcome_config.get('text'):
                     text = welcome_config['text']
                 else:
-                    text = welcome_config['default_text']
+                    text = welcome_config.get('default_text', 'Welcome {MENTION}!')
                 
-                # Format text with variables
+                # Format text
                 formatted_text = format_welcome_text(text, new_member, message.chat)
                 
-                # Create buttons
+                # Buttons
                 reply_markup = None
-                if welcome_config['buttons']:
+                if welcome_config.get('buttons'):
                     reply_markup = create_button_markup(welcome_config['buttons'])
                 
-                # Send welcome message
-                if welcome_config['media_type'] and welcome_config['media_id']:
-                    # Send with media
-                    media_type = welcome_config['media_type']
-                    media_id = welcome_config['media_id']
+                # Send message
+                try:
+                    if welcome_config.get('media_type') and welcome_config.get('media_id'):
+                        media_type = welcome_config['media_type']
+                        media_id = welcome_config['media_id']
+                        
+                        logger.info(f"Sending {media_type} welcome")
+                        
+                        if media_type == "photo":
+                            await client.send_photo(
+                                chat_id=chat_id,
+                                photo=media_id,
+                                caption=formatted_text,
+                                reply_markup=reply_markup,
+                                parse_mode=ParseMode.HTML
+                            )
+                        elif media_type == "video":
+                            await client.send_video(
+                                chat_id=chat_id,
+                                video=media_id,
+                                caption=formatted_text,
+                                reply_markup=reply_markup,
+                                parse_mode=ParseMode.HTML
+                            )
+                        elif media_type == "animation":
+                            await client.send_animation(
+                                chat_id=chat_id,
+                                animation=media_id,
+                                caption=formatted_text,
+                                reply_markup=reply_markup,
+                                parse_mode=ParseMode.HTML
+                            )
+                    else:
+                        logger.info(f"Sending text welcome")
+                        await client.send_message(
+                            chat_id=chat_id,
+                            text=formatted_text,
+                            reply_markup=reply_markup,
+                            parse_mode=ParseMode.HTML
+                        )
                     
-                    if media_type == "photo":
-                        await client.send_photo(
+                    logger.info(f"✅ Welcome sent to {new_member.id}")
+                    
+                except Exception as send_error:
+                    logger.error(f"❌ Send failed: {send_error}", exc_info=True)
+                    try:
+                        await client.send_message(
                             chat_id=chat_id,
-                            photo=media_id,
-                            caption=formatted_text,
-                            reply_markup=reply_markup,
+                            text=f"Welcome {new_member.mention}!",
                             parse_mode=ParseMode.HTML
                         )
-                    elif media_type == "video":
-                        await client.send_video(
-                            chat_id=chat_id,
-                            video=media_id,
-                            caption=formatted_text,
-                            reply_markup=reply_markup,
-                            parse_mode=ParseMode.HTML
-                        )
-                    elif media_type == "animation":
-                        await client.send_animation(
-                            chat_id=chat_id,
-                            animation=media_id,
-                            caption=formatted_text,
-                            reply_markup=reply_markup,
-                            parse_mode=ParseMode.HTML
-                        )
-                else:
-                    # Text only
-                    await client.send_message(
-                        chat_id=chat_id,
-                        text=formatted_text,
-                        reply_markup=reply_markup,
-                        parse_mode=ParseMode.HTML
-                    )
-                
-                logger.info(f"Sent welcome to user {new_member.id} in chat {chat_id}")
+                        logger.info(f"✅ Fallback sent")
+                    except:
+                        pass
         
         except Exception as e:
-            logger.error(f"Error in welcome_new_member: {e}", exc_info=True)
+            logger.error(f"❌ Critical error: {e}", exc_info=True)
     
     logger.info("✅ Welcome handlers setup complete")

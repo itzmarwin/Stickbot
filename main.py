@@ -7,18 +7,43 @@ from telethon import TelegramClient
 from pyrogram import Client
 
 from config import BOT_TOKEN, TELEGRAM_API_ID, TELEGRAM_API_HASH
-from database import init_db, close_db  # ✅ ADDED close_db import
+
+# ============================================================================
+# STICKER DATABASE (Existing)
+# ============================================================================
+from database import init_db, close_db
+
+# ============================================================================
+# MANAGEMENT DATABASE (New)
+# ============================================================================
+from database_management import init_management_db, close_management_db
+
+# ============================================================================
+# AIOGRAM HANDLERS (Sticker Features)
+# ============================================================================
 from handlers import start, kang, misc, logger
 from handlers import sticker_id
 from handlers import getsticker, getvidsticker
 from handlers import copypack
 from handlers import pack_management, publish
+
+# ============================================================================
+# TELETHON HANDLERS (Quotly)
+# ============================================================================
 from telethon_quotly import setup_telethon_handlers
+
+# ============================================================================
+# PYROGRAM HANDLERS (Group Management + Other Features)
+# ============================================================================
 from pyrogram_handlers.gban import setup_gban_handlers
 from pyrogram_handlers.afk import setup_afk_handlers
-from pyrogram_handlers.memefi import setup_memefi_handlers 
+from pyrogram_handlers.memefi import setup_memefi_handlers
 from pyrogram_handlers.tagall import setup_tagall_handlers
 from pyrogram_handlers.broadcast import setup_broadcast_handlers
+
+# ✅ NEW: Welcome/Goodbye Handlers
+from pyrogram_handlers.welcome import setup_welcome_handlers
+from pyrogram_handlers.goodbye import setup_goodbye_handlers
 
 # Configure logging
 logging.basicConfig(
@@ -52,6 +77,10 @@ async def setup_pyrogram():
         await setup_tagall_handlers(pyro_client)
         await setup_afk_handlers(pyro_client)
         await setup_memefi_handlers(pyro_client)
+        
+        # ✅ NEW: Setup Welcome/Goodbye handlers
+        await setup_welcome_handlers(pyro_client)
+        await setup_goodbye_handlers(pyro_client)
 
         return pyro_client
 
@@ -69,10 +98,22 @@ async def stop_pyrogram():
 
 async def main():
     try:
-        # Initialize database
+        # ============================================================================
+        # INITIALIZE DATABASES
+        # ============================================================================
+        logging.info("Initializing databases...")
+        
+        # ✅ Initialize Sticker Database (Existing)
         await init_db()
+        logging.info("✅ Sticker database initialized")
+        
+        # ✅ Initialize Management Database (New)
+        await init_management_db()
+        logging.info("✅ Management database initialized")
 
-        # Initialize Aiogram bot and dispatcher
+        # ============================================================================
+        # INITIALIZE AIOGRAM BOT
+        # ============================================================================
         global aiogram_bot
         aiogram_bot = Bot(
             token=BOT_TOKEN,
@@ -80,7 +121,7 @@ async def main():
         )
         dp = Dispatcher()
 
-        # Register Aiogram routers
+        # Register Aiogram routers (Sticker features)
         dp.include_router(start.router)
         dp.include_router(kang.router)
         dp.include_router(sticker_id.router)
@@ -92,7 +133,9 @@ async def main():
         dp.include_router(copypack.router)
         dp.include_router(misc.router)
 
-        # Initialize Telethon client for /q command
+        # ============================================================================
+        # INITIALIZE TELETHON CLIENT (Quotly)
+        # ============================================================================
         global telethon_client
         telethon_client = TelegramClient(
             'quotly_bot_session',
@@ -103,13 +146,20 @@ async def main():
         # Start Telethon client
         await telethon_client.start(bot_token=BOT_TOKEN)
         await setup_telethon_handlers(telethon_client)
+        logging.info("✅ Telethon client started")
 
-        # Start Pyrogram client
+        # ============================================================================
+        # INITIALIZE PYROGRAM CLIENT (Group Management)
+        # ============================================================================
         await setup_pyrogram()
+        logging.info("✅ Pyrogram client started")
 
         # Get bot info
         bot_info = await aiogram_bot.get_me()
-        logging.info(f"Bot started: @{bot_info.username}")
+        logging.info(f"🤖 Bot started: @{bot_info.username}")
+        logging.info("=" * 60)
+        logging.info("✅ ALL SYSTEMS OPERATIONAL")
+        logging.info("=" * 60)
 
         # Run all clients
         await dp.start_polling(aiogram_bot)
@@ -119,8 +169,12 @@ async def main():
     except Exception as e:
         logging.error(f"Error in main: {e}")
     finally:
-        # ✅ Graceful shutdown: Close all connections
+        # ============================================================================
+        # GRACEFUL SHUTDOWN
+        # ============================================================================
+        logging.info("=" * 60)
         logging.info("Shutting down gracefully...")
+        logging.info("=" * 60)
         
         # Disconnect Telethon
         if telethon_client:
@@ -136,11 +190,17 @@ async def main():
             logging.info("Closing Aiogram session...")
             await aiogram_bot.session.close()
         
-        # ✅ Close MongoDB connection
-        logging.info("Closing database connection...")
+        # ✅ Close Sticker Database
+        logging.info("Closing sticker database connection...")
         await close_db()
         
-        logging.info("✅ Shutdown complete!")
+        # ✅ Close Management Database
+        logging.info("Closing management database connection...")
+        await close_management_db()
+        
+        logging.info("=" * 60)
+        logging.info("✅ SHUTDOWN COMPLETE!")
+        logging.info("=" * 60)
 
 
 if __name__ == "__main__":

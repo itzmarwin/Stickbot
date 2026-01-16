@@ -4,6 +4,7 @@ Handles welcome messages with custom media, text, and buttons
 """
 import logging
 import re
+import traceback
 from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.enums import ChatMemberStatus, ParseMode
@@ -129,28 +130,34 @@ async def is_user_admin(client: Client, chat_id: int, user_id: int) -> bool:
 
 async def setup_welcome_handlers(client: Client):
     """Setup welcome command handlers"""
+    print("🔄 DEBUG: Setting up welcome handlers...")
     
     @client.on_message(filters.command("welcome") & filters.group)
     async def welcome_command(client: Client, message: Message):
         """
         Handle /welcome on and /welcome off commands
         """
+        print(f"🔄 DEBUG: /welcome command received from {message.from_user.id} in chat {message.chat.id}")
         try:
             chat_id = message.chat.id
             user_id = message.from_user.id
             
+            print(f"🔄 DEBUG: Checking admin status for user {user_id}")
             # Check admin
             if not await is_user_admin(client, chat_id, user_id):
+                print(f"❌ DEBUG: User {user_id} is not admin")
                 await message.reply_text(
                     "❌ <b>Only admins can use this command!</b>",
                     parse_mode=ParseMode.HTML
                 )
                 return
             
+            print(f"✅ DEBUG: User {user_id} is admin")
             # Parse command
             command_parts = message.text.split(maxsplit=1)
             
             if len(command_parts) < 2:
+                print(f"ℹ️ DEBUG: No action specified in /welcome command")
                 await message.reply_text(
                     "ℹ️ <b>Welcome Command Usage:</b>\n\n"
                     "<code>/welcome on</code> - Enable welcome messages\n"
@@ -172,18 +179,25 @@ async def setup_welcome_handlers(client: Client):
                 return
             
             action = command_parts[1].lower()
+            print(f"🔄 DEBUG: Action requested: {action}")
             
             # Get current settings
+            print(f"🔄 DEBUG: Fetching settings for chat {chat_id}")
             settings = await get_welcome_settings(chat_id)
             
             if not settings:
+                print(f"⚠️ DEBUG: No settings found, creating default")
                 # Create default settings
                 await create_default_welcome_settings(chat_id)
                 settings = await get_welcome_settings(chat_id)
+                print(f"✅ DEBUG: Default settings created")
+            
+            print(f"✅ DEBUG: Settings loaded: enabled={settings['welcome']['enabled']}, custom_set={settings['welcome']['custom_set']}")
             
             # Handle /welcome on
             if action == "on":
                 if settings['welcome']['enabled']:
+                    print(f"ℹ️ DEBUG: Welcome already enabled")
                     await message.reply_text(
                         "✅ <b>Welcome is already enabled!</b>",
                         parse_mode=ParseMode.HTML
@@ -191,7 +205,9 @@ async def setup_welcome_handlers(client: Client):
                     return
                 
                 # Enable welcome
+                print(f"🔄 DEBUG: Enabling welcome for chat {chat_id}")
                 await update_welcome_status(chat_id, True)
+                print(f"✅ DEBUG: Welcome enabled")
                 
                 if settings['welcome']['custom_set']:
                     await message.reply_text(
@@ -210,6 +226,7 @@ async def setup_welcome_handlers(client: Client):
             # Handle /welcome off
             elif action == "off":
                 if not settings['welcome']['enabled']:
+                    print(f"ℹ️ DEBUG: Welcome already disabled")
                     await message.reply_text(
                         "ℹ️ <b>Welcome is already disabled!</b>",
                         parse_mode=ParseMode.HTML
@@ -217,7 +234,9 @@ async def setup_welcome_handlers(client: Client):
                     return
                 
                 # Disable welcome
+                print(f"🔄 DEBUG: Disabling welcome for chat {chat_id}")
                 await update_welcome_status(chat_id, False)
+                print(f"✅ DEBUG: Welcome disabled")
                 
                 await message.reply_text(
                     "❌ <b>Welcome disabled!</b>\n\n"
@@ -226,6 +245,7 @@ async def setup_welcome_handlers(client: Client):
                 )
             
             else:
+                print(f"❌ DEBUG: Invalid action: {action}")
                 await message.reply_text(
                     "⚠️ <b>Invalid action!</b>\n\n"
                     "Use <code>/welcome on</code> or <code>/welcome off</code>",
@@ -233,6 +253,8 @@ async def setup_welcome_handlers(client: Client):
                 )
         
         except Exception as e:
+            print(f"❌ DEBUG: Error in welcome_command: {e}")
+            print(f"❌ DEBUG: Traceback: {traceback.format_exc()}")
             logger.error(f"Error in welcome_command: {e}", exc_info=True)
             await message.reply_text(
                 "❌ An error occurred. Please try again.",
@@ -246,20 +268,24 @@ async def setup_welcome_handlers(client: Client):
         Handle /setwelcome command
         Must be used as reply to media or text
         """
+        print(f"🔄 DEBUG: /setwelcome command received from {message.from_user.id}")
         try:
             chat_id = message.chat.id
             user_id = message.from_user.id
             
             # Check admin
             if not await is_user_admin(client, chat_id, user_id):
+                print(f"❌ DEBUG: User {user_id} is not admin")
                 await message.reply_text(
                     "❌ <b>Only admins can use this command!</b>",
                     parse_mode=ParseMode.HTML
                 )
                 return
             
+            print(f"✅ DEBUG: User {user_id} is admin")
             # Must be reply
             if not message.reply_to_message:
+                print(f"❌ DEBUG: No reply message found")
                 await message.reply_text(
                     "⚠️ <b>Please reply to a message!</b>\n\n"
                     "<b>Usage:</b>\n"
@@ -276,11 +302,13 @@ async def setup_welcome_handlers(client: Client):
                 return
             
             replied_msg = message.reply_to_message
+            print(f"✅ DEBUG: Reply found, message type: {replied_msg.media}")
             
             # Get current settings
             settings = await get_welcome_settings(chat_id)
             
             if not settings:
+                print(f"⚠️ DEBUG: No settings found, creating default")
                 await create_default_welcome_settings(chat_id)
                 settings = await get_welcome_settings(chat_id)
             
@@ -297,24 +325,29 @@ async def setup_welcome_handlers(client: Client):
                 media_type = "photo"
                 media_id = replied_msg.photo.file_id
                 text = replied_msg.caption or ""
+                print(f"✅ DEBUG: Photo detected, file_id: {media_id[:20]}...")
             
             # Check for video
             elif replied_msg.video:
                 media_type = "video"
                 media_id = replied_msg.video.file_id
                 text = replied_msg.caption or ""
+                print(f"✅ DEBUG: Video detected, file_id: {media_id[:20]}...")
             
             # Check for animation (GIF)
             elif replied_msg.animation:
                 media_type = "animation"
                 media_id = replied_msg.animation.file_id
                 text = replied_msg.caption or ""
+                print(f"✅ DEBUG: Animation detected, file_id: {media_id[:20]}...")
             
             # Text only
             elif replied_msg.text:
                 text = replied_msg.text
+                print(f"✅ DEBUG: Text detected, length: {len(text)}")
             
             else:
+                print(f"❌ DEBUG: Unsupported message type")
                 await message.reply_text(
                     "❌ <b>Unsupported message type!</b>\n\n"
                     "Supported: Photo, Video, GIF, Text",
@@ -324,10 +357,16 @@ async def setup_welcome_handlers(client: Client):
             
             # Parse buttons from text
             if text:
+                print(f"🔄 DEBUG: Parsing buttons from text")
                 text, buttons = parse_buttons(text)
+                if buttons:
+                    print(f"✅ DEBUG: Found {len(buttons)} buttons")
             
             if not text or len(text.strip()) == 0:
                 text = "Welcome {MENTION}!"
+                print(f"⚠️ DEBUG: No text found, using default")
+            
+            print(f"✅ DEBUG: Final text length: {len(text)}, media_type: {media_type}")
             
             # Save custom welcome
             success = await set_custom_welcome(
@@ -340,6 +379,7 @@ async def setup_welcome_handlers(client: Client):
             
             if success:
                 # ✅ FIXED: Auto-enable welcome
+                print(f"🔄 DEBUG: Auto-enabling welcome")
                 await update_welcome_status(chat_id, True)
                 
                 response = "✅ <b>Custom welcome set and enabled!</b>\n\n"
@@ -354,14 +394,18 @@ async def setup_welcome_handlers(client: Client):
                 
                 response += "\n✅ Welcome is now ON!"
                 
+                print(f"✅ DEBUG: Custom welcome set successfully")
                 await message.reply_text(response, parse_mode=ParseMode.HTML)
             else:
+                print(f"❌ DEBUG: Failed to set custom welcome in database")
                 await message.reply_text(
                     "❌ Failed to set custom welcome. Please try again.",
                     parse_mode=ParseMode.HTML
                 )
         
         except Exception as e:
+            print(f"❌ DEBUG: Error in setwelcome_command: {e}")
+            print(f"❌ DEBUG: Traceback: {traceback.format_exc()}")
             logger.error(f"Error in setwelcome_command: {e}", exc_info=True)
             await message.reply_text(
                 "❌ An error occurred. Please try again.",
@@ -375,6 +419,7 @@ async def setup_welcome_handlers(client: Client):
         Handle /delwelcome command
         Deletes custom welcome and disables welcome
         """
+        print(f"🔄 DEBUG: /delwelcome command received")
         try:
             chat_id = message.chat.id
             user_id = message.from_user.id
@@ -425,6 +470,7 @@ async def setup_welcome_handlers(client: Client):
     @client.on_message(filters.command("checkwelcome") & filters.group)
     async def check_welcome_settings(client: Client, message: Message):
         """Debug command to check welcome settings"""
+        print(f"🔄 DEBUG: /checkwelcome command received")
         try:
             chat_id = message.chat.id
             
@@ -432,12 +478,15 @@ async def setup_welcome_handlers(client: Client):
                 await message.reply_text("❌ Only admins!")
                 return
             
+            print(f"🔄 DEBUG: Fetching settings for chat {chat_id}")
             settings = await get_welcome_settings(chat_id)
             
             if not settings:
+                print(f"❌ DEBUG: No settings found in database")
                 await message.reply_text("❌ No settings found!")
                 return
             
+            print(f"✅ DEBUG: Settings found: {settings}")
             welcome_config = settings.get('welcome', {})
             
             debug_msg = f"""
@@ -458,6 +507,7 @@ async def setup_welcome_handlers(client: Client):
             await message.reply_text(debug_msg, parse_mode=ParseMode.HTML)
             
         except Exception as e:
+            print(f"❌ DEBUG: Error in check: {e}")
             logger.error(f"Error in check: {e}", exc_info=True)
             await message.reply_text(f"❌ Error: {e}")
     
@@ -465,6 +515,7 @@ async def setup_welcome_handlers(client: Client):
     @client.on_message(filters.command("checkperms") & filters.group)
     async def check_bot_permissions(client: Client, message: Message):
         """Check bot permissions"""
+        print(f"🔄 DEBUG: /checkperms command received")
         try:
             chat_id = message.chat.id
             
@@ -497,33 +548,64 @@ async def setup_welcome_handlers(client: Client):
     @client.on_message(filters.new_chat_members & filters.group)
     async def welcome_new_member(client: Client, message: Message):
         """Send welcome message to new members"""
+        print(f"🔔🔔🔔 DEBUG: NEW MEMBER EVENT TRIGGERED!")
+        print(f"🔔 DEBUG: Chat ID: {message.chat.id}")
+        print(f"🔔 DEBUG: Chat Title: {message.chat.title}")
+        print(f"🔔 DEBUG: New members count: {len(message.new_chat_members)}")
+        
+        for i, member in enumerate(message.new_chat_members):
+            print(f"🔔 DEBUG: Member {i+1}: {member.id} - {member.first_name} (bot: {member.is_bot})")
+        
         try:
             chat_id = message.chat.id
+            
+            print(f"🔄 DEBUG: Getting bot's own member status...")
+            try:
+                bot_member = await client.get_chat_member(chat_id, client.me.id)
+                print(f"✅ DEBUG: Bot status: {bot_member.status}")
+                if bot_member.status not in [ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER]:
+                    print(f"⚠️ WARNING: Bot is not admin in this group!")
+            except Exception as e:
+                print(f"❌ DEBUG: Error checking bot status: {e}")
             
             logger.info(f"🔔 New member(s) in chat {chat_id}")
             
             # Get settings
+            print(f"🔄 DEBUG: Fetching welcome settings from database...")
             settings = await get_welcome_settings(chat_id)
+            print(f"✅ DEBUG: Settings fetched: {settings is not None}")
             
             if not settings:
+                print(f"⚠️ DEBUG: No settings found for {chat_id}, creating default...")
                 logger.warning(f"⚠️ No settings for {chat_id}")
                 await create_default_welcome_settings(chat_id)
                 settings = await get_welcome_settings(chat_id)
+                print(f"✅ DEBUG: Default settings created")
+            
+            if settings:
+                print(f"✅ DEBUG: Settings loaded successfully")
+                print(f"✅ DEBUG: Welcome enabled: {settings.get('welcome', {}).get('enabled')}")
+                print(f"✅ DEBUG: Custom set: {settings.get('welcome', {}).get('custom_set')}")
+            else:
+                print(f"❌ DEBUG: Failed to load settings even after creating default!")
+                return
             
             logger.info(f"Settings: enabled={settings.get('welcome', {}).get('enabled')}")
             
             # Check if enabled
             if not settings or not settings.get('welcome', {}).get('enabled'):
+                print(f"❌ DEBUG: Welcome is DISABLED for chat {chat_id}")
                 logger.warning(f"⚠️ Welcome disabled for {chat_id}")
                 return
             
-            logger.info(f"✅ Welcome enabled for {chat_id}")
+            print(f"✅✅✅ DEBUG: Welcome is ENABLED for chat {chat_id}")
             
             # Welcome each member
             for new_member in message.new_chat_members:
-                logger.info(f"Processing: {new_member.id}")
+                print(f"🔄 DEBUG: Processing member: {new_member.id} - {new_member.first_name}")
                 
                 if new_member.is_bot:
+                    print(f"⏭️ DEBUG: Skipping bot user")
                     logger.info(f"⏭️ Skipping bot")
                     continue
                 
@@ -532,16 +614,20 @@ async def setup_welcome_handlers(client: Client):
                 # Get text
                 if welcome_config.get('custom_set') and welcome_config.get('text'):
                     text = welcome_config['text']
+                    print(f"✅ DEBUG: Using custom welcome text")
                 else:
                     text = welcome_config.get('default_text', 'Welcome {MENTION}!')
+                    print(f"✅ DEBUG: Using default welcome text")
                 
                 # Format text
                 formatted_text = format_welcome_text(text, new_member, message.chat)
+                print(f"✅ DEBUG: Formatted text length: {len(formatted_text)}")
                 
                 # Buttons
                 reply_markup = None
                 if welcome_config.get('buttons'):
                     reply_markup = create_button_markup(welcome_config['buttons'])
+                    print(f"✅ DEBUG: Created {len(welcome_config['buttons'])} buttons")
                 
                 # Send message
                 try:
@@ -549,6 +635,7 @@ async def setup_welcome_handlers(client: Client):
                         media_type = welcome_config['media_type']
                         media_id = welcome_config['media_id']
                         
+                        print(f"🔄 DEBUG: Sending {media_type} welcome with media_id: {media_id[:30]}...")
                         logger.info(f"Sending {media_type} welcome")
                         
                         if media_type == "photo":
@@ -575,7 +662,9 @@ async def setup_welcome_handlers(client: Client):
                                 reply_markup=reply_markup,
                                 parse_mode=ParseMode.HTML
                             )
+                        print(f"✅✅✅ DEBUG: Media welcome sent successfully!")
                     else:
+                        print(f"🔄 DEBUG: Sending text-only welcome")
                         logger.info(f"Sending text welcome")
                         await client.send_message(
                             chat_id=chat_id,
@@ -583,22 +672,31 @@ async def setup_welcome_handlers(client: Client):
                             reply_markup=reply_markup,
                             parse_mode=ParseMode.HTML
                         )
+                        print(f"✅✅✅ DEBUG: Text welcome sent successfully!")
                     
                     logger.info(f"✅ Welcome sent to {new_member.id}")
+                    print(f"✅✅✅ DEBUG: Welcome message SENT to {new_member.id}")
                     
                 except Exception as send_error:
+                    print(f"❌❌❌ DEBUG: Error sending welcome: {send_error}")
+                    print(f"❌ DEBUG: Traceback: {traceback.format_exc()}")
                     logger.error(f"❌ Send failed: {send_error}", exc_info=True)
                     try:
+                        print(f"🔄 DEBUG: Trying fallback welcome message...")
                         await client.send_message(
                             chat_id=chat_id,
                             text=f"Welcome {new_member.mention}!",
                             parse_mode=ParseMode.HTML
                         )
+                        print(f"✅ DEBUG: Fallback sent")
                         logger.info(f"✅ Fallback sent")
-                    except:
-                        pass
+                    except Exception as fallback_error:
+                        print(f"❌❌❌ DEBUG: Fallback also failed: {fallback_error}")
         
         except Exception as e:
+            print(f"❌❌❌ DEBUG: CRITICAL ERROR in welcome handler: {e}")
+            print(f"❌ DEBUG: Full traceback: {traceback.format_exc()}")
             logger.error(f"❌ Critical error: {e}", exc_info=True)
     
+    print("✅✅✅ DEBUG: Welcome handlers setup COMPLETE")
     logger.info("✅ Welcome handlers setup complete")

@@ -45,11 +45,15 @@ from pyrogram_handlers.broadcast import setup_broadcast_handlers
 from pyrogram_handlers.welcome import setup_welcome_handlers
 from pyrogram_handlers.goodbye import setup_goodbye_handlers
 
-# Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.WARNING,
+    format="%(asctime)s - %(levelname)s - %(message)s"
 )
+
+# 🚫 Disable aiogram spam logs
+logging.getLogger("aiogram").setLevel(logging.WARNING)
+logging.getLogger("aiogram.event").disabled = True
+logging.getLogger("aiogram.dispatcher").setLevel(logging.WARNING)
 
 # Global clients
 pyro_client = None

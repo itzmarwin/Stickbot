@@ -44,3 +44,8 @@ def is_owner(user_id: int) -> bool:
 
 def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_IDS
+
+# New management 
+MONGO_URI_MANAGEMENT = os.getenv("MONGO_URI_MANAGEMENT")
+DATABASE_NAME_MANAGEMENT = os.getenv("DATABASE_NAME_MANAGEMENT", "sticker_kang_management")
+

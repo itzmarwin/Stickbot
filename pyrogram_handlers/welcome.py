@@ -1,4 +1,7 @@
-
+"""
+Welcome System Handler
+Handles welcome messages with custom media, text, and buttons
+"""
 import logging
 import re
 from pyrogram import Client, filters

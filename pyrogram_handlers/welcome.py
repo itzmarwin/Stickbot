@@ -284,15 +284,7 @@ async def setup_welcome_handlers(client: Client):
                 await create_default_welcome_settings(chat_id)
                 settings = await get_welcome_settings(chat_id)
             
-            # Check if welcome already ON with custom
-            if settings['welcome']['enabled'] and settings['welcome']['custom_set']:
-                await message.reply_text(
-                    "⚠️ <b>Welcome is already ON with a custom message!</b>\n\n"
-                    "First use <code>/delwelcome</code> to remove it,\n"
-                    "then set the new welcome message.",
-                    parse_mode=ParseMode.HTML
-                )
-                return
+            # ✅ FIXED: Removed blocking check - allow updating welcome anytime
             
             # Extract data from replied message
             media_type = None
@@ -347,7 +339,10 @@ async def setup_welcome_handlers(client: Client):
             )
             
             if success:
-                response = "✅ <b>Custom welcome set!</b>\n\n"
+                # ✅ FIXED: Auto-enable welcome when custom is set
+                await update_welcome_status(chat_id, True)
+                
+                response = "✅ <b>Custom welcome set and enabled!</b>\n\n"
                 
                 if media_type:
                     response += f"<b>Type:</b> {media_type.title()}\n"
@@ -357,7 +352,7 @@ async def setup_welcome_handlers(client: Client):
                 if buttons:
                     response += f"<b>Buttons:</b> {len(buttons)}\n"
                 
-                response += "\nUse <code>/welcome on</code> to enable."
+                response += "\n✅ Welcome is now ON!"
                 
                 await message.reply_text(response, parse_mode=ParseMode.HTML)
             else:

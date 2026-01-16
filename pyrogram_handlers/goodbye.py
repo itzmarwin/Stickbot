@@ -48,17 +48,42 @@ def format_goodbye_text(text: str, user, chat) -> str:
     Replace variables in goodbye text
     
     Variables:
-        {mention} - User mention
-        {name} - User first name
-        {chat} - Chat title
-        {id} - User ID
+        {ID} - User ID
+        {NAME} - User first name
+        {SURNAME} - User last name
+        {NAMESURNAME} - Full name
+        {DATE} - Current date (DD-MM-YYYY)
+        {TIME} - Current time (HH:MM)
+        {MENTION} - User mention (clickable)
+        {USERNAME} - Username with @
+        {GROUPNAME} - Group name
+        {RULES} - Group rules (placeholder)
     """
-    user_mention = f'<a href="tg://user?id={user.id}">{user.first_name}</a>'
+    from datetime import datetime
     
-    formatted = text.replace("{mention}", user_mention)
-    formatted = formatted.replace("{name}", user.first_name)
-    formatted = formatted.replace("{chat}", chat.title)
-    formatted = formatted.replace("{id}", str(user.id))
+    # User info
+    user_mention = f'<a href="tg://user?id={user.id}">{user.first_name}</a>'
+    first_name = user.first_name or "User"
+    last_name = user.last_name or ""
+    full_name = f"{first_name} {last_name}".strip()
+    username = f"@{user.username}" if user.username else "No username"
+    
+    # Date and time
+    now = datetime.now()
+    current_date = now.strftime("%d-%m-%Y")
+    current_time = now.strftime("%H:%M")
+    
+    # Replace all variables
+    formatted = text.replace("{ID}", str(user.id))
+    formatted = formatted.replace("{NAME}", first_name)
+    formatted = formatted.replace("{SURNAME}", last_name)
+    formatted = formatted.replace("{NAMESURNAME}", full_name)
+    formatted = formatted.replace("{DATE}", current_date)
+    formatted = formatted.replace("{TIME}", current_time)
+    formatted = formatted.replace("{MENTION}", user_mention)
+    formatted = formatted.replace("{USERNAME}", username)
+    formatted = formatted.replace("{GROUPNAME}", chat.title)
+    formatted = formatted.replace("{RULES}", "Check pinned message for rules")
     
     return formatted
 
@@ -130,7 +155,18 @@ async def setup_goodbye_handlers(client: Client):
                     "ℹ️ <b>Goodbye Command Usage:</b>\n\n"
                     "<code>/goodbye on</code> - Enable goodbye messages\n"
                     "<code>/goodbye off</code> - Disable goodbye messages\n\n"
-                    "💡 Use <code>/setgoodbye</code> to set custom goodbye",
+                    "💡 Use <code>/setgoodbye</code> to set custom goodbye\n\n"
+                    "<b>Available Variables:</b>\n"
+                    "<code>{ID}</code> - User ID\n"
+                    "<code>{NAME}</code> - First name\n"
+                    "<code>{SURNAME}</code> - Last name\n"
+                    "<code>{NAMESURNAME}</code> - Full name\n"
+                    "<code>{DATE}</code> - Current date\n"
+                    "<code>{TIME}</code> - Current time\n"
+                    "<code>{MENTION}</code> - User mention\n"
+                    "<code>{USERNAME}</code> - Username\n"
+                    "<code>{GROUPNAME}</code> - Group name\n"
+                    "<code>{RULES}</code> - Group rules",
                     parse_mode=ParseMode.HTML
                 )
                 return
@@ -230,7 +266,11 @@ async def setup_goodbye_handlers(client: Client):
                     "1. Send/forward a photo/video/GIF with caption\n"
                     "2. Or send a text message\n"
                     "3. Reply to it with <code>/setgoodbye</code>\n\n"
-                    "<b>Buttons:</b> Use <code>[Text](URL)</code> format in caption/text",
+                    "<b>Variables:</b>\n"
+                    "<code>{ID}</code> {NAME} {SURNAME} {NAMESURNAME}\n"
+                    "<code>{DATE}</code> {TIME} {MENTION} {USERNAME}\n"
+                    "<code>{GROUPNAME}</code> {RULES}\n\n"
+                    "<b>Buttons:</b> Use <code>[Text](URL)</code> format",
                     parse_mode=ParseMode.HTML
                 )
                 return
@@ -295,7 +335,7 @@ async def setup_goodbye_handlers(client: Client):
                 text, buttons = parse_buttons(text)
             
             if not text or len(text.strip()) == 0:
-                text = "Goodbye {name}!"
+                text = "Goodbye {NAME}!"
             
             # Save custom goodbye
             success = await set_custom_goodbye(

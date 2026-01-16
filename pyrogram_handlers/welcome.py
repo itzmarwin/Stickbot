@@ -260,7 +260,12 @@ async def setup_welcome_handlers(client: Client):
                 "❌ An error occurred. Please try again.",
                 parse_mode=ParseMode.HTML
             )
-    
+
+    @client.on_message(filters.command("testjoin") & filters.group)
+    async def test_join(client: Client, message: Message):
+        """Test if Pyrogram is receiving messages"""
+        await message.reply("✅ Pyrogram is working!")
+        print("✅ TEST: Pyrogram command received!")
     
     @client.on_message(filters.command("setwelcome") & filters.group)
     async def setwelcome_command(client: Client, message: Message):

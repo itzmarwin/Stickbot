@@ -75,12 +75,10 @@ async def setup_pyrogram():
         await setup_gban_handlers(pyro_client)
         await setup_broadcast_handlers(pyro_client)
         await setup_tagall_handlers(pyro_client)
-        await setup_afk_handlers(pyro_client)
         await setup_memefi_handlers(pyro_client)
-        
-        # ✅ NEW: Setup Welcome/Goodbye handlers
         await setup_welcome_handlers(pyro_client)
         await setup_goodbye_handlers(pyro_client)
+        await setup_afk_handlers(pyro_client)
 
         return pyro_client
 

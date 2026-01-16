@@ -261,6 +261,14 @@ async def setup_welcome_handlers(client: Client):
                 parse_mode=ParseMode.HTML
             )
 
+    @client.on_message(filters.group, group=0)
+    async def debug_all_messages(client: Client, message: Message):
+        """Debug: Log ALL group messages"""
+        if message.new_chat_members:
+            print(f"🔔 DEBUG CATCH-ALL: New member detected!")
+            print(f"🔔 Members: {[m.id for m in message.new_chat_members]}")
+            return
+
     @client.on_message(filters.command("testjoin") & filters.group)
     async def test_join(client: Client, message: Message):
         """Test if Pyrogram is receiving messages"""

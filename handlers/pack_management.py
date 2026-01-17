@@ -29,7 +29,7 @@ from templates import (
     RENAME_PACK_INFO, DELETE_PACK_INFO, ADD_STICKER_INFO,
     RATE_LIMIT_MESSAGE, STICKER_ADDING_IN_PROGRESS,
     PUBLISH_PACK_INFO, EXTRA_COMMANDS_MESSAGE, AFK_INFO_MESSAGE,
-    QUOTLY_INFO_MESSAGE, STICKERS_INFO_MESSAGE, STICKER_ADDED_SIMPLE
+    QUOTLY_INFO_MESSAGE, STICKERS_INFO_MESSAGE, STICKER_ADDED_SIMPLE, WELCOME_INFO_MESSAGE
 )
 from utils.fsm_states import PackManagementStates
 from utils.helpers import validate_pack_name, format_pack_name, generate_short_name, get_file_size_mb

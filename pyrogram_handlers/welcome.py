@@ -323,10 +323,8 @@ async def setup_welcome_handlers(client: Client):
             
             if settings['welcome']['custom_set']:
                 await message.reply_text(
-                    "<b>Custom welcome already set!</b>\n\n"
-                    "First use <code>/delwelcome</code> to remove the existing custom welcome,\n"
-                    "then set the new one.\n\n"
-                    "This prevents accidental overwrites.",
+                    "<b>A welcome message is already active.</b>"
+                    "Use /delwelcome to remove it before adding a new one.",
                     parse_mode=ParseMode.HTML
                 )
                 return
@@ -396,18 +394,7 @@ async def setup_welcome_handlers(client: Client):
                 settings = await get_welcome_settings(chat_id)
                 WELCOME_CACHE[chat_id] = settings['welcome']
                 
-                response = "<b>Welcome message settings updated successfully.</b>\n\n"
-                
-                if media_type:
-                    response += f"<b>Type:</b> {media_type.title()}\n"
-                
-                response += f"<b>Text:</b> {text[:50]}...\n" if len(text) > 50 else f"<b>Text:</b> {text}\n"
-                
-                if button_rows:
-                    total_btns = sum(len(row) for row in button_rows)
-                    response += f"<b>Buttons:</b> {total_btns} ({len(button_rows)} rows)\n"
-                
-                response += "\nWelcome is now ON!"
+                response = "<b>Welcome message has been set successfully!</b>\n\nWelcome is now <b>enabled</b>"
                 
                 await message.reply_text(response, parse_mode=ParseMode.HTML)
             else:

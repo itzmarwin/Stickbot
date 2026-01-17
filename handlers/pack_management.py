@@ -269,6 +269,16 @@ async def extra_memefi_callback(callback: CallbackQuery):
     except Exception as e:
         logger.error(f"Error in extra_memefi_callback: {e}")
 
+
+@router.callback_query(F.data == PackManagementCallback.EXTRA_CMD_WELCOME)
+async def extra_welcome_callback(callback: CallbackQuery):
+    await callback.answer()
+    try:
+        await safe_edit_message(callback, WELCOME_INFO_MESSAGE, get_back_to_extra_keyboard())
+    except Exception as e:
+        logger.error(f"Error in extra_welcome_callback: {e}")
+        
+
 @router.callback_query(F.data == PackManagementCallback.EXTRA_CMD_QUOTLY)
 async def extra_quotly_callback(callback: CallbackQuery):
     await callback.answer()

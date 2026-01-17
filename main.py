@@ -6,7 +6,7 @@ from aiogram.enums import ParseMode
 from telethon import TelegramClient
 from pyrogram import Client
 
-from config import BOT_TOKEN, TELEGRAM_API_ID, TELEGRAM_API_HASH
+from config import BOT_TOKEN, TELEGRAM_API_ID, TELEGRAM_API_HASH, LOG_GROUP_ID
 
 # ============================================================================
 # STICKER DATABASE (Existing)
@@ -41,9 +41,12 @@ from pyrogram_handlers.memefi import setup_memefi_handlers
 from pyrogram_handlers.tagall import setup_tagall_handlers
 from pyrogram_handlers.broadcast import setup_broadcast_handlers
 
-# ✅ NEW: Welcome/Goodbye Handlers
+# ✅ Welcome/Goodbye Handlers
 from pyrogram_handlers.welcome import setup_welcome_handlers
 from pyrogram_handlers.goodbye import setup_goodbye_handlers
+
+# ✅ NEW: Restart Handler
+from pyrogram_handlers.restart import setup_restart_handlers
 
 logging.basicConfig(
     level=logging.WARNING,
@@ -83,6 +86,7 @@ async def setup_pyrogram():
         await setup_welcome_handlers(pyro_client)
         await setup_goodbye_handlers(pyro_client)
         await setup_afk_handlers(pyro_client)
+        await setup_restart_handlers(pyro_client)  # ✅ NEW
 
         return pyro_client
 
@@ -96,6 +100,49 @@ async def stop_pyrogram():
     global pyro_client
     if pyro_client:
         await pyro_client.stop()
+
+
+async def send_startup_notification(bot: Bot):
+    """
+    Send startup notification to logger group
+    """
+    if not LOG_GROUP_ID or LOG_GROUP_ID == 0:
+        logging.warning("⚠️ LOG_GROUP_ID not configured, skipping startup notification")
+        return
+    
+    try:
+        from datetime import datetime
+        
+        # Get bot info
+        bot_info = await bot.get_me()
+        
+        # Current time
+        now = datetime.now()
+        timestamp = now.strftime("%d-%m-%Y %H:%M:%S")
+        
+        # Startup message
+        startup_msg = (
+            "✅ <b>Bot Restarted Successfully!</b>\n\n"
+            f"🤖 <b>Bot:</b> @{bot_info.username}\n"
+            f"🆔 <b>ID:</b> <code>{bot_info.id}</code>\n"
+            f"⏰ <b>Time:</b> {timestamp}\n\n"
+            "🔥 <b>Status:</b> All systems operational\n"
+            "📡 <b>Connection:</b> Stable\n"
+            "💾 <b>Databases:</b> Connected\n"
+            "🧹 <b>Cache:</b> Cleared\n\n"
+            "🎯 Bot is ready to serve!"
+        )
+        
+        await bot.send_message(
+            chat_id=LOG_GROUP_ID,
+            text=startup_msg,
+            parse_mode=ParseMode.HTML
+        )
+        
+        logging.info(f"✅ Startup notification sent to LOG_GROUP_ID: {LOG_GROUP_ID}")
+        
+    except Exception as e:
+        logging.error(f"❌ Failed to send startup notification: {e}")
 
 
 async def main():
@@ -162,6 +209,11 @@ async def main():
         logging.info("=" * 60)
         logging.info("✅ ALL SYSTEMS OPERATIONAL")
         logging.info("=" * 60)
+
+        # ============================================================================
+        # ✅ SEND STARTUP NOTIFICATION TO LOGGER GROUP
+        # ============================================================================
+        await send_startup_notification(aiogram_bot)
 
         # Run all clients
         await dp.start_polling(aiogram_bot)

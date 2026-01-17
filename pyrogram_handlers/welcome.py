@@ -18,19 +18,47 @@ WELCOME_CACHE = {}
 
 
 def parse_buttons(text: str) -> tuple:
-    buttons = []
+    cleaned_text = text
+    button_rows = []
+    
+    lines = text.split('\n')
     button_pattern = r'\[([^\]]+)\]\(([^\)]+)\)'
     
-    matches = re.findall(button_pattern, text)
+    total_buttons = 0
+    for line in lines:
+        if '|' in line:
+            parts = line.split('|')
+            row_buttons = []
+            
+            for part in parts:
+                matches = re.findall(button_pattern, part.strip())
+                for match in matches:
+                    if total_buttons >= 6:
+                        break
+                    row_buttons.append({"text": match[0].strip(), "url": match[1].strip()})
+                    total_buttons += 1
+                
+                if len(row_buttons) > 2:
+                    return None, None, "Maximum 2 buttons per row allowed!"
+            
+            if row_buttons:
+                button_rows.append(row_buttons)
+        else:
+            matches = re.findall(button_pattern, line)
+            for match in matches:
+                if total_buttons >= 6:
+                    break
+                button_rows.append([{"text": match[0].strip(), "url": match[1].strip()}])
+                total_buttons += 1
     
-    for match in matches:
-        button_text = match[0].strip()
-        button_url = match[1].strip()
-        buttons.append({"text": button_text, "url": button_url})
+    if total_buttons > 6:
+        return None, None, "Maximum 6 buttons allowed!"
     
-    cleaned_text = re.sub(button_pattern, '', text).strip()
+    cleaned_text = re.sub(button_pattern, '', text)
+    cleaned_text = re.sub(r'\|', '', cleaned_text)
+    cleaned_text = cleaned_text.strip()
     
-    return cleaned_text, buttons
+    return cleaned_text, button_rows, None
 
 
 def format_welcome_text(text: str, user, chat) -> str:
@@ -59,19 +87,17 @@ def format_welcome_text(text: str, user, chat) -> str:
     return formatted
 
 
-def create_button_markup(buttons: list) -> InlineKeyboardMarkup:
-    if not buttons:
+def create_button_markup(button_rows: list) -> InlineKeyboardMarkup:
+    if not button_rows:
         return None
     
     keyboard = []
-    row = []
     
-    for i, btn in enumerate(buttons):
-        row.append(InlineKeyboardButton(text=btn['text'], url=btn['url']))
-        
-        if len(row) == 2 or i == len(buttons) - 1:
-            keyboard.append(row)
-            row = []
+    for row in button_rows:
+        keyboard_row = []
+        for btn in row:
+            keyboard_row.append(InlineKeyboardButton(text=btn['text'], url=btn['url']))
+        keyboard.append(keyboard_row)
     
     return InlineKeyboardMarkup(keyboard) if keyboard else None
 
@@ -127,7 +153,11 @@ async def setup_welcome_handlers(client: Client):
                     "<code>{TIME}</code> - Current time\n"
                     "<code>{MENTION}</code> - User mention\n"
                     "<code>{USERNAME}</code> - Username\n"
-                    "<code>{GROUPNAME}</code> - Group name",
+                    "<code>{GROUPNAME}</code> - Group name\n\n"
+                    "<b>Buttons Format:</b>\n"
+                    "<code>[Button](URL)</code> - Single button per row\n"
+                    "<code>[Btn1](URL) | [Btn2](URL)</code> - Two buttons in one row\n"
+                    "Max 2 buttons per row, Max 6 buttons total",
                     parse_mode=ParseMode.HTML
                 )
                 return
@@ -238,7 +268,10 @@ async def setup_welcome_handlers(client: Client):
                     "<code>{ID}</code> {NAME} {SURNAME} {NAMESURNAME}\n"
                     "<code>{DATE}</code> {TIME} {MENTION} {USERNAME}\n"
                     "<code>{GROUPNAME}</code>\n\n"
-                    "<b>Buttons:</b> Use <code>[Text](URL)</code> format",
+                    "<b>Buttons Format:</b>\n"
+                    "<code>[Button](URL)</code> - Single button\n"
+                    "<code>[Btn1](URL) | [Btn2](URL)</code> - Two buttons in one row\n"
+                    "Max 2 buttons per row, Max 6 buttons total",
                     parse_mode=ParseMode.HTML
                 )
                 return
@@ -264,7 +297,7 @@ async def setup_welcome_handlers(client: Client):
             media_type = None
             media_id = None
             text = None
-            buttons = []
+            button_rows = []
             
             if replied_msg.photo:
                 media_type = "photo"
@@ -292,7 +325,20 @@ async def setup_welcome_handlers(client: Client):
                 return
             
             if text:
-                text, buttons = parse_buttons(text)
+                text, button_rows, error = parse_buttons(text)
+                if error:
+                    await message.reply_text(
+                        f"<b>Button Error:</b> {error}\n\n"
+                        "<b>Rules:</b>\n"
+                        "• Max 2 buttons per row\n"
+                        "• Max 6 buttons total\n"
+                        "• Use | to put buttons in same row\n\n"
+                        "<b>Examples:</b>\n"
+                        "<code>[Btn1](url) | [Btn2](url)</code>\n"
+                        "<code>[Btn3](url)</code>",
+                        parse_mode=ParseMode.HTML
+                    )
+                    return
             
             if not text or len(text.strip()) == 0:
                 text = "Hey {MENTION}!\nWelcome to {GROUPNAME}!"
@@ -302,7 +348,7 @@ async def setup_welcome_handlers(client: Client):
                 media_type=media_type,
                 media_id=media_id,
                 text=text,
-                buttons=buttons
+                buttons=button_rows
             )
             
             if success:
@@ -318,8 +364,9 @@ async def setup_welcome_handlers(client: Client):
                 
                 response += f"<b>Text:</b> {text[:50]}...\n" if len(text) > 50 else f"<b>Text:</b> {text}\n"
                 
-                if buttons:
-                    response += f"<b>Buttons:</b> {len(buttons)}\n"
+                if button_rows:
+                    total_btns = sum(len(row) for row in button_rows)
+                    response += f"<b>Buttons:</b> {total_btns} ({len(button_rows)} rows)\n"
                 
                 response += "\nWelcome is now ON!"
                 

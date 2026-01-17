@@ -122,15 +122,9 @@ async def send_startup_notification(bot: Bot):
         
         # Startup message
         startup_msg = (
-            "✅ <b>Bot Restarted Successfully!</b>\n\n"
-            f"🤖 <b>Bot:</b> @{bot_info.username}\n"
-            f"🆔 <b>ID:</b> <code>{bot_info.id}</code>\n"
-            f"⏰ <b>Time:</b> {timestamp}\n\n"
-            "🔥 <b>Status:</b> All systems operational\n"
-            "📡 <b>Connection:</b> Stable\n"
-            "💾 <b>Databases:</b> Connected\n"
-            "🧹 <b>Cache:</b> Cleared\n\n"
-            "🎯 Bot is ready to serve!"
+            "<b>Bot Restarted Successfully!</b>\n\n"
+            f"<b>Bot:</b> @{bot_info.username}\n"
+            f"<b>ID:</b> <code>{bot_info.id}</code>\n"
         )
         
         await bot.send_message(

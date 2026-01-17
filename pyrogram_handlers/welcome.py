@@ -286,8 +286,7 @@ async def setup_welcome_handlers(client: Client):
             
             else:
                 await message.reply_text(
-                    "<b>Unsupported message type!</b>\n\n"
-                    "Supported: Photo, Video, GIF, Text",
+                    "<b>The selected message type is not supported.</b>",
                     parse_mode=ParseMode.HTML
                 )
                 return

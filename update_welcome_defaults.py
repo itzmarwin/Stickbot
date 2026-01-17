@@ -11,8 +11,8 @@ async def update_defaults():
         {},
         {
             "$set": {
-                "welcome.default_text": "Welcome {MENTION} to {GROUPNAME}!",
-                "goodbye.default_text": "Goodbye {NAME}!"
+                "welcome.default_text": "Welcome {MENTION} Hope you have a great time here.",
+                "goodbye.default_text": "Goodbye {MENTION} We hope to see you again."
             }
         }
     )

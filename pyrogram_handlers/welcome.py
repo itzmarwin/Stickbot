@@ -136,10 +136,7 @@ async def setup_welcome_handlers(client: Client):
             
             if not await is_bot_admin(client, chat_id):
                 await message.reply_text(
-                    "<b>I need admin rights first!</b>\n\n"
-                    "Please promote me as admin with:\n"
-                    "Change Group Info permission\n\n"
-                    "Then try again!",
+                    "<b>Please promote the bot to admin to enable welcome messages.</b>",
                     parse_mode=ParseMode.HTML
                 )
                 return

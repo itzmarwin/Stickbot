@@ -1,8 +1,3 @@
-"""
-Goodbye System Handler
-Handles goodbye messages with custom media, text, and buttons
-WITH IN-MEMORY CACHING FOR INSTANT RESPONSES
-"""
 import logging
 import re
 from pyrogram import Client, filters
@@ -19,67 +14,66 @@ from database_management import (
 
 logger = logging.getLogger(__name__)
 
-# ============================================================================
-# IN-MEMORY CACHE FOR INSTANT GOODBYE MESSAGES
-# ============================================================================
-GOODBYE_CACHE = {}  # {chat_id: {goodbye_config}}
+GOODBYE_CACHE = {}
 
 
 def parse_buttons(text: str) -> tuple:
-    """
-    Parse buttons from text
-    Format: [Button Text](https://url.com)
+    cleaned_text = text
+    button_rows = []
     
-    Returns:
-        (cleaned_text, buttons_list)
-    """
-    buttons = []
+    lines = text.split('\n')
     button_pattern = r'\[([^\]]+)\]\(([^\)]+)\)'
     
-    matches = re.findall(button_pattern, text)
+    total_buttons = 0
+    for line in lines:
+        if '|' in line:
+            parts = line.split('|')
+            row_buttons = []
+            
+            for part in parts:
+                matches = re.findall(button_pattern, part.strip())
+                for match in matches:
+                    if total_buttons >= 6:
+                        break
+                    row_buttons.append({"text": match[0].strip(), "url": match[1].strip()})
+                    total_buttons += 1
+                
+                if len(row_buttons) > 2:
+                    return None, None, "Maximum 2 buttons per row allowed!"
+            
+            if row_buttons:
+                button_rows.append(row_buttons)
+        else:
+            matches = re.findall(button_pattern, line)
+            for match in matches:
+                if total_buttons >= 6:
+                    break
+                button_rows.append([{"text": match[0].strip(), "url": match[1].strip()}])
+                total_buttons += 1
     
-    for match in matches:
-        button_text = match[0].strip()
-        button_url = match[1].strip()
-        buttons.append({"text": button_text, "url": button_url})
+    if total_buttons > 6:
+        return None, None, "Maximum 6 buttons allowed!"
     
-    # Remove button markdown from text
-    cleaned_text = re.sub(button_pattern, '', text).strip()
+    cleaned_text = re.sub(button_pattern, '', text)
+    cleaned_text = re.sub(r'\|', '', cleaned_text)
+    cleaned_text = cleaned_text.strip()
     
-    return cleaned_text, buttons
+    return cleaned_text, button_rows, None
 
 
 def format_goodbye_text(text: str, user, chat) -> str:
-    """
-    Replace variables in goodbye text
-    
-    Variables:
-        {ID} - User ID
-        {NAME} - User first name
-        {SURNAME} - User last name
-        {NAMESURNAME} - Full name
-        {DATE} - Current date (DD-MM-YYYY)
-        {TIME} - Current time (HH:MM)
-        {MENTION} - User mention (clickable)
-        {USERNAME} - Username with @
-        {GROUPNAME} - Group name
-        {RULES} - Group rules (placeholder)
-    """
     from datetime import datetime
     
-    # User info
     user_mention = f'<a href="tg://user?id={user.id}">{user.first_name}</a>'
     first_name = user.first_name or "User"
     last_name = user.last_name or ""
     full_name = f"{first_name} {last_name}".strip()
-    username = f"@{user.username}" if user.username else "No username"
+    username = f"@{user.username}" if user.username else "None"
     
-    # Date and time
     now = datetime.now()
     current_date = now.strftime("%d-%m-%Y")
     current_time = now.strftime("%H:%M")
     
-    # Replace all variables
     formatted = text.replace("{ID}", str(user.id))
     formatted = formatted.replace("{NAME}", first_name)
     formatted = formatted.replace("{SURNAME}", last_name)
@@ -89,42 +83,26 @@ def format_goodbye_text(text: str, user, chat) -> str:
     formatted = formatted.replace("{MENTION}", user_mention)
     formatted = formatted.replace("{USERNAME}", username)
     formatted = formatted.replace("{GROUPNAME}", chat.title)
-    formatted = formatted.replace("{RULES}", "Check pinned message for rules")
     
     return formatted
 
 
-def create_button_markup(buttons: list) -> InlineKeyboardMarkup:
-    """
-    Create inline keyboard markup from button list
-    
-    Args:
-        buttons: List of dicts with 'text' and 'url'
-        
-    Returns:
-        InlineKeyboardMarkup or None
-    """
-    if not buttons:
+def create_button_markup(button_rows: list) -> InlineKeyboardMarkup:
+    if not button_rows:
         return None
     
     keyboard = []
-    row = []
     
-    for i, btn in enumerate(buttons):
-        row.append(InlineKeyboardButton(text=btn['text'], url=btn['url']))
-        
-        # 2 buttons per row
-        if len(row) == 2 or i == len(buttons) - 1:
-            keyboard.append(row)
-            row = []
+    for row in button_rows:
+        keyboard_row = []
+        for btn in row:
+            keyboard_row.append(InlineKeyboardButton(text=btn['text'], url=btn['url']))
+        keyboard.append(keyboard_row)
     
     return InlineKeyboardMarkup(keyboard) if keyboard else None
 
 
 async def is_user_admin(client: Client, chat_id: int, user_id: int) -> bool:
-    """
-    Check if user is admin in chat
-    """
     try:
         member = await client.get_chat_member(chat_id, user_id)
         return member.status in [ChatMemberStatus.OWNER, ChatMemberStatus.ADMINISTRATOR]
@@ -134,9 +112,6 @@ async def is_user_admin(client: Client, chat_id: int, user_id: int) -> bool:
 
 
 async def is_bot_admin(client: Client, chat_id: int) -> bool:
-    """
-    Check if bot is admin in chat
-    """
     try:
         bot = await client.get_me()
         bot_member = await client.get_chat_member(chat_id, bot.id)
@@ -147,169 +122,177 @@ async def is_bot_admin(client: Client, chat_id: int) -> bool:
 
 
 async def setup_goodbye_handlers(client: Client):
-    """Setup goodbye command handlers"""
     
     @client.on_message(filters.command("goodbye") & filters.group)
     async def goodbye_command(client: Client, message: Message):
-        """
-        Handle /goodbye on and /goodbye off commands
-        """
         try:
             chat_id = message.chat.id
             user_id = message.from_user.id
             
-            # Check admin
             if not await is_user_admin(client, chat_id, user_id):
                 await message.reply_text(
-                    "❌ <b>Only admins can use this command!</b>",
+                    "Only admins can use this command!",
                     parse_mode=ParseMode.HTML
                 )
                 return
             
-            # Parse command
             command_parts = message.text.split(maxsplit=1)
             
             if len(command_parts) < 2:
-                await message.reply_text(
-                    "ℹ️ <b>Goodbye Command Usage:</b>\n\n"
-                    "<code>/goodbye on</code> - Enable goodbye messages\n"
-                    "<code>/goodbye off</code> - Disable goodbye messages\n\n"
-                    "💡 Use <code>/setgoodbye</code> to set custom goodbye\n\n"
-                    "<b>Available Variables:</b>\n"
-                    "<code>{ID}</code> - User ID\n"
-                    "<code>{NAME}</code> - First name\n"
-                    "<code>{SURNAME}</code> - Last name\n"
-                    "<code>{NAMESURNAME}</code> - Full name\n"
-                    "<code>{DATE}</code> - Current date\n"
-                    "<code>{TIME}</code> - Current time\n"
-                    "<code>{MENTION}</code> - User mention\n"
-                    "<code>{USERNAME}</code> - Username\n"
-                    "<code>{GROUPNAME}</code> - Group name\n"
-                    "<code>{RULES}</code> - Group rules",
+                settings = await get_welcome_settings(chat_id)
+                
+                if not settings:
+                    await create_default_welcome_settings(chat_id)
+                    settings = await get_welcome_settings(chat_id)
+                
+                is_enabled = settings.get('goodbye', {}).get('enabled', False)
+                status_text = "enabled" if is_enabled else "disabled"
+                
+                status_msg = await message.reply_text(
+                    f"<b>Goodbye messages are currently {status_text}.</b>",
                     parse_mode=ParseMode.HTML
                 )
+                
+                if is_enabled:
+                    goodbye_config = settings['goodbye']
+                    
+                    if goodbye_config.get('custom_set') and goodbye_config.get('text'):
+                        text = goodbye_config['text']
+                    else:
+                        text = goodbye_config.get('default_text', 'Goodbye {MENTION}! 👋 We hope to see you again.')
+                    
+                    reply_markup = None
+                    if goodbye_config.get('buttons'):
+                        reply_markup = create_button_markup(goodbye_config['buttons'])
+                    
+                    if goodbye_config.get('media_type') and goodbye_config.get('media_id'):
+                        media_type = goodbye_config['media_type']
+                        media_id = goodbye_config['media_id']
+                        
+                        if media_type == "photo":
+                            await message.reply_photo(
+                                photo=media_id,
+                                caption=text,
+                                reply_markup=reply_markup
+                            )
+                        elif media_type == "video":
+                            await message.reply_video(
+                                video=media_id,
+                                caption=text,
+                                reply_markup=reply_markup
+                            )
+                        elif media_type == "animation":
+                            await message.reply_animation(
+                                animation=media_id,
+                                caption=text,
+                                reply_markup=reply_markup
+                            )
+                    else:
+                        await message.reply_text(
+                            text=text,
+                            reply_markup=reply_markup
+                        )
+                
                 return
             
             action = command_parts[1].lower()
             
-            # ✅ CHECK IF BOT IS ADMIN
             if not await is_bot_admin(client, chat_id):
                 await message.reply_text(
-                    "❌ <b>I need admin rights first!</b>\n\n"
-                    "Please promote me as admin with:\n"
-                    "• <b>Change Group Info</b> permission\n\n"
-                    "Then try again!",
+                    "<b>Please promote the bot to admin to enable goodbye messages.</b>",
                     parse_mode=ParseMode.HTML
                 )
                 return
             
-            # Get current settings
             settings = await get_welcome_settings(chat_id)
             
             if not settings:
                 await create_default_welcome_settings(chat_id)
                 settings = await get_welcome_settings(chat_id)
             
-            # Handle /goodbye on
             if action == "on":
                 if settings['goodbye']['enabled']:
                     await message.reply_text(
-                        "✅ <b>Goodbye is already enabled!</b>",
+                        "Goodbye is already enabled!",
                         parse_mode=ParseMode.HTML
                     )
                     return
                 
-                # Enable goodbye
                 await update_goodbye_status(chat_id, True)
                 
-                # ✅ UPDATE CACHE
                 settings = await get_welcome_settings(chat_id)
                 GOODBYE_CACHE[chat_id] = settings['goodbye']
                 
                 if settings['goodbye']['custom_set']:
                     await message.reply_text(
-                        "✅ <b>Goodbye enabled!</b>\n\n"
+                        "<b>Goodbye enabled!</b>\n\n"
                         "Custom goodbye message will be sent when members leave.",
                         parse_mode=ParseMode.HTML
                     )
                 else:
                     await message.reply_text(
-                        "✅ <b>Goodbye enabled!</b>\n\n"
+                        "<b>Goodbye enabled!</b>\n\n"
                         "Default goodbye message will be sent when members leave.\n"
                         "Use <code>/setgoodbye</code> to set a custom message.",
                         parse_mode=ParseMode.HTML
                     )
             
-            # Handle /goodbye off
             elif action == "off":
                 if not settings['goodbye']['enabled']:
                     await message.reply_text(
-                        "ℹ️ <b>Goodbye is already disabled!</b>",
+                        "Goodbye is already disabled!",
                         parse_mode=ParseMode.HTML
                     )
                     return
                 
-                # Disable goodbye
                 await update_goodbye_status(chat_id, False)
                 
-                # ✅ CLEAR CACHE
                 if chat_id in GOODBYE_CACHE:
                     del GOODBYE_CACHE[chat_id]
                 
                 await message.reply_text(
-                    "❌ <b>Goodbye disabled!</b>\n\n"
+                    "<b>Goodbye disabled!</b>\n\n"
                     "Members leaving will not receive goodbye messages.",
                     parse_mode=ParseMode.HTML
                 )
             
             else:
                 await message.reply_text(
-                    "⚠️ <b>Invalid action!</b>\n\n"
-                    "Use <code>/goodbye on</code> or <code>/goodbye off</code>",
+                    "<b>Use <code>/goodbye on</code> or <code>/goodbye off</code></b>",
                     parse_mode=ParseMode.HTML
                 )
         
         except Exception as e:
             logger.error(f"Error in goodbye_command: {e}", exc_info=True)
             await message.reply_text(
-                "❌ An error occurred. Please try again.",
+                "Please try again shortly. If the problem continues, contact our support group.",
                 parse_mode=ParseMode.HTML
             )
     
     
     @client.on_message(filters.command("setgoodbye") & filters.group)
     async def setgoodbye_command(client: Client, message: Message):
-        """
-        Handle /setgoodbye command
-        Must be used as reply to media or text
-        """
         try:
             chat_id = message.chat.id
             user_id = message.from_user.id
             
-            # Check admin
             if not await is_user_admin(client, chat_id, user_id):
                 await message.reply_text(
-                    "❌ <b>Only admins can use this command!</b>",
+                    "Only admins can use this command!",
                     parse_mode=ParseMode.HTML
                 )
                 return
             
-            # ✅ CHECK IF BOT IS ADMIN
             if not await is_bot_admin(client, chat_id):
                 await message.reply_text(
-                    "❌ <b>I need admin rights first!</b>\n\n"
-                    "Please promote me as admin with:\n"
-                    "• <b>Change Group Info</b> permission\n\n"
-                    "Then try again!",
+                    "<b>Please promote the bot to admin to enable goodbye messages.</b>",
                     parse_mode=ParseMode.HTML
                 )
                 return
             
-            # Must be reply
             if not message.reply_to_message:
                 await message.reply_text(
-                    "⚠️ <b>Please reply to a message!</b>\n\n"
+                    "<b>Please reply to a message!</b>\n\n"
                     "<b>Usage:</b>\n"
                     "1. Send/forward a photo/video/GIF with caption\n"
                     "2. Or send a text message\n"
@@ -317,226 +300,205 @@ async def setup_goodbye_handlers(client: Client):
                     "<b>Variables:</b>\n"
                     "<code>{ID}</code> {NAME} {SURNAME} {NAMESURNAME}\n"
                     "<code>{DATE}</code> {TIME} {MENTION} {USERNAME}\n"
-                    "<code>{GROUPNAME}</code> {RULES}\n\n"
-                    "<b>Buttons:</b> Use <code>[Text](URL)</code> format",
+                    "<code>{GROUPNAME}</code>\n\n"
+                    "<b>Buttons Format:</b>\n"
+                    "<code>[Button](URL)</code> - Single button\n"
+                    "<code>[Btn1](URL) | [Btn2](URL)</code> - Two buttons in one row\n"
+                    "Max 2 buttons per row, Max 6 buttons total",
                     parse_mode=ParseMode.HTML
                 )
                 return
             
-            replied_msg = message.reply_to_message
-            
-            # Get current settings
             settings = await get_welcome_settings(chat_id)
             
             if not settings:
                 await create_default_welcome_settings(chat_id)
                 settings = await get_welcome_settings(chat_id)
             
-            # Extract data from replied message
+            if settings['goodbye']['custom_set']:
+                await message.reply_text(
+                    "<b>Custom goodbye already set!</b>\n\n"
+                    "First use <code>/delgoodbye</code> to remove the existing custom goodbye,\n"
+                    "then set the new one.\n\n"
+                    "This prevents accidental overwrites.",
+                    parse_mode=ParseMode.HTML
+                )
+                return
+            
+            replied_msg = message.reply_to_message
+            
             media_type = None
             media_id = None
             text = None
-            buttons = []
+            button_rows = []
             
-            # Check for photo
             if replied_msg.photo:
                 media_type = "photo"
                 media_id = replied_msg.photo.file_id
                 text = replied_msg.caption or ""
             
-            # Check for video
             elif replied_msg.video:
                 media_type = "video"
                 media_id = replied_msg.video.file_id
                 text = replied_msg.caption or ""
             
-            # Check for animation (GIF)
             elif replied_msg.animation:
                 media_type = "animation"
                 media_id = replied_msg.animation.file_id
                 text = replied_msg.caption or ""
             
-            # Text only
             elif replied_msg.text:
                 text = replied_msg.text
             
             else:
                 await message.reply_text(
-                    "❌ <b>Unsupported message type!</b>\n\n"
-                    "Supported: Photo, Video, GIF, Text",
+                    "<b>The selected message type is not supported.</b>",
                     parse_mode=ParseMode.HTML
                 )
                 return
             
-            # Parse buttons from text
             if text:
-                text, buttons = parse_buttons(text)
+                text, button_rows, error = parse_buttons(text)
+                if error:
+                    await message.reply_text(
+                        f"<b>Button Error:</b> {error}\n\n"
+                        "<b>Rules:</b>\n"
+                        "• Max 2 buttons per row\n"
+                        "• Max 6 buttons total\n"
+                        "• Use | to put buttons in same row\n\n"
+                        "<b>Examples:</b>\n"
+                        "<code>[Btn1](url) | [Btn2](url)</code>\n"
+                        "<code>[Btn3](url)</code>",
+                        parse_mode=ParseMode.HTML
+                    )
+                    return
             
             if not text or len(text.strip()) == 0:
-                text = "Goodbye {NAME}! 👋 See you again!"
+                text = "Goodbye {MENTION}! 👋 We hope to see you again."
             
-            # Save custom goodbye
             success = await set_custom_goodbye(
                 chat_id=chat_id,
                 media_type=media_type,
                 media_id=media_id,
                 text=text,
-                buttons=buttons
+                buttons=button_rows
             )
             
             if success:
-                # ✅ AUTO-ENABLE GOODBYE
                 await update_goodbye_status(chat_id, True)
                 
-                # ✅ UPDATE CACHE
                 settings = await get_welcome_settings(chat_id)
                 GOODBYE_CACHE[chat_id] = settings['goodbye']
                 
-                response = "✅ <b>Custom goodbye set and enabled!</b>\n\n"
-                
-                if media_type:
-                    response += f"<b>Type:</b> {media_type.title()}\n"
-                
-                response += f"<b>Text:</b> {text[:50]}...\n" if len(text) > 50 else f"<b>Text:</b> {text}\n"
-                
-                if buttons:
-                    response += f"<b>Buttons:</b> {len(buttons)}\n"
-                
-                response += "\n✅ Goodbye is now ON!"
+                response = "<b>Goodbye message has been set successfully!</b>\n\nGoodbye is now <b>enabled</b>"
                 
                 await message.reply_text(response, parse_mode=ParseMode.HTML)
             else:
                 await message.reply_text(
-                    "❌ Failed to set custom goodbye. Please try again.",
+                    "Unable to set the goodbye message at this time. Please try again later.",
                     parse_mode=ParseMode.HTML
                 )
         
         except Exception as e:
             logger.error(f"Error in setgoodbye_command: {e}", exc_info=True)
             await message.reply_text(
-                "❌ An error occurred. Please try again.",
+                "Please try again later or contact the support group if the issue persists.",
                 parse_mode=ParseMode.HTML
             )
     
     
     @client.on_message(filters.command("delgoodbye") & filters.group)
     async def delgoodbye_command(client: Client, message: Message):
-        """
-        Handle /delgoodbye command
-        Deletes custom goodbye, disables goodbye, and clears cache
-        """
         try:
             chat_id = message.chat.id
             user_id = message.from_user.id
             
-            # Check admin
             if not await is_user_admin(client, chat_id, user_id):
                 await message.reply_text(
-                    "❌ <b>Only admins can use this command!</b>",
+                    "Only admins can use this command!",
                     parse_mode=ParseMode.HTML
                 )
                 return
             
-            # Get settings
             settings = await get_welcome_settings(chat_id)
             
             if not settings or not settings['goodbye']['custom_set']:
                 await message.reply_text(
-                    "ℹ️ <b>No custom goodbye message is set!</b>",
+                    "<b>No goodbye message is set.</b>\n\n"
+                    "Set it using <code>/setgoodbye</code>.",
                     parse_mode=ParseMode.HTML
                 )
                 return
             
-            # ✅ DELETE FROM DATABASE
             success = await delete_custom_goodbye(chat_id)
             
             if success:
-                # ✅ CLEAR FROM CACHE
                 if chat_id in GOODBYE_CACHE:
                     del GOODBYE_CACHE[chat_id]
+                    logger.info(f"Cleared goodbye cache for chat {chat_id}")
                 
                 await message.reply_text(
-                    "✅ <b>Custom goodbye deleted!</b>\n\n"
-                    "Goodbye is now disabled.\n"
-                    "Use <code>/setgoodbye</code> to set a new one.",
+                    "<b>Goodbye message deleted.</b>",
                     parse_mode=ParseMode.HTML
                 )
             else:
                 await message.reply_text(
-                    "❌ Failed to delete custom goodbye.",
+                    "Unable to delete the goodbye message.",
                     parse_mode=ParseMode.HTML
                 )
         
         except Exception as e:
             logger.error(f"Error in delgoodbye_command: {e}", exc_info=True)
             await message.reply_text(
-                "❌ An error occurred. Please try again.",
+                "Please try again later. If the problem continues, contact the support group.",
                 parse_mode=ParseMode.HTML
             )
     
     
     @client.on_message(filters.left_chat_member & filters.group)
     async def goodbye_left_member(client: Client, message: Message):
-        """
-        Send goodbye message when member leaves
-        WITH IN-MEMORY CACHING FOR INSTANT RESPONSES
-        """
         try:
             chat_id = message.chat.id
             left_member = message.left_chat_member
             
-            # Skip if bot left
             if left_member.is_bot:
                 return
             
-            # ============================================================================
-            # ✅ IN-MEMORY CACHE CHECK (INSTANT RESPONSE)
-            # ============================================================================
             if chat_id in GOODBYE_CACHE:
                 goodbye_config = GOODBYE_CACHE[chat_id]
                 
-                # Check if enabled
                 if not goodbye_config.get('enabled'):
                     return
                 
                 logger.info(f"Using cached goodbye for chat {chat_id}")
             
             else:
-                # ============================================================================
-                # 🔍 FIRST-TIME CHECK (ONLY ONCE PER GROUP)
-                # ============================================================================
                 settings = await get_welcome_settings(chat_id)
                 
                 if not settings:
                     await create_default_welcome_settings(chat_id)
                     settings = await get_welcome_settings(chat_id)
                 
-                # Check if enabled
                 if not settings or not settings.get('goodbye', {}).get('enabled'):
                     return
                 
                 goodbye_config = settings['goodbye']
                 
-                # ✅ STORE IN CACHE FOR FUTURE LEAVES
                 GOODBYE_CACHE[chat_id] = goodbye_config
                 
                 logger.info(f"Cached goodbye for chat {chat_id}")
             
-            # Get text
             if goodbye_config.get('custom_set') and goodbye_config.get('text'):
                 text = goodbye_config['text']
             else:
-                text = goodbye_config.get('default_text', 'Goodbye {NAME}! 👋 See you again!')
+                text = goodbye_config.get('default_text', 'Goodbye {MENTION}! 👋 We hope to see you again.')
             
-            # Format text
             formatted_text = format_goodbye_text(text, left_member, message.chat)
             
-            # Buttons
             reply_markup = None
             if goodbye_config.get('buttons'):
                 reply_markup = create_button_markup(goodbye_config['buttons'])
             
-            # Send message
             if goodbye_config.get('media_type') and goodbye_config.get('media_id'):
                 media_type = goodbye_config['media_type']
                 media_id = goodbye_config['media_id']

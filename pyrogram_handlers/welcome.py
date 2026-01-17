@@ -39,7 +39,7 @@ def parse_buttons(text: str) -> tuple:
                     total_buttons += 1
                 
                 if len(row_buttons) > 2:
-                    return None, None, "Maximum 2 buttons per row allowed!"
+                    return None, None, "Maximum 2 buttons per row allowed."
             
             if row_buttons:
                 button_rows.append(row_buttons)
@@ -52,7 +52,7 @@ def parse_buttons(text: str) -> tuple:
                 total_buttons += 1
     
     if total_buttons > 6:
-        return None, None, "Maximum 6 buttons allowed!"
+        return None, None, "Maximum 6 buttons allowed."
     
     cleaned_text = re.sub(button_pattern, '', text)
     cleaned_text = re.sub(r'\|', '', cleaned_text)
@@ -284,10 +284,8 @@ async def setup_welcome_handlers(client: Client):
             
             if settings['welcome']['custom_set']:
                 await message.reply_text(
-                    "<b>Custom welcome already set!</b>\n\n"
-                    "First use <code>/delwelcome</code> to remove the existing custom welcome,\n"
-                    "then set the new one.\n\n"
-                    "This prevents accidental overwrites.",
+                    "<b>A welcome message is already active.</b>"
+                    "Use /delwelcome to remove it before adding a new one.",
                     parse_mode=ParseMode.HTML
                 )
                 return

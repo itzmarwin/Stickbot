@@ -195,15 +195,14 @@ async def setup_welcome_handlers(client: Client):
             
             else:
                 await message.reply_text(
-                    "<b>Invalid action!</b>\n\n"
-                    "Use <code>/welcome on</code> or <code>/welcome off</code>",
+                    "<b>Use <code>/welcome on</code> or <code>/welcome off</code></b>",
                     parse_mode=ParseMode.HTML
                 )
         
         except Exception as e:
             logger.error(f"Error in welcome_command: {e}", exc_info=True)
             await message.reply_text(
-                "An error occurred. Please try again.",
+                "Please try again shortly. If the problem continues, contact our support group.",
                 parse_mode=ParseMode.HTML
             )
     
@@ -223,10 +222,7 @@ async def setup_welcome_handlers(client: Client):
             
             if not await is_bot_admin(client, chat_id):
                 await message.reply_text(
-                    "<b>I need admin rights first!</b>\n\n"
-                    "Please promote me as admin with:\n"
-                    "Change Group Info permission\n\n"
-                    "Then try again!",
+                    "<b>Please promote the bot to admin to enable welcome messages.</b>",
                     parse_mode=ParseMode.HTML
                 )
                 return

@@ -39,7 +39,7 @@ def parse_buttons(text: str) -> tuple:
                     total_buttons += 1
                 
                 if len(row_buttons) > 2:
-                    return None, None, "Maximum 2 buttons per row allowed."
+                    return None, None, "Maximum 2 buttons per row allowed!"
             
             if row_buttons:
                 button_rows.append(row_buttons)
@@ -52,7 +52,7 @@ def parse_buttons(text: str) -> tuple:
                 total_buttons += 1
     
     if total_buttons > 6:
-        return None, None, "Maximum 6 buttons allowed."
+        return None, None, "Maximum 6 buttons allowed!"
     
     cleaned_text = re.sub(button_pattern, '', text)
     cleaned_text = re.sub(r'\|', '', cleaned_text)
@@ -139,27 +139,66 @@ async def setup_welcome_handlers(client: Client):
             command_parts = message.text.split(maxsplit=1)
             
             if len(command_parts) < 2:
-                await message.reply_text(
-                    "<b>Welcome Command Usage:</b>\n\n"
-                    "<code>/welcome on</code> - Enable welcome messages\n"
-                    "<code>/welcome off</code> - Disable welcome messages\n\n"
-                    "Use <code>/setwelcome</code> to set custom welcome\n\n"
-                    "<b>Available Variables:</b>\n"
-                    "<code>{ID}</code> - User ID\n"
-                    "<code>{NAME}</code> - First name\n"
-                    "<code>{SURNAME}</code> - Last name\n"
-                    "<code>{NAMESURNAME}</code> - Full name\n"
-                    "<code>{DATE}</code> - Current date\n"
-                    "<code>{TIME}</code> - Current time\n"
-                    "<code>{MENTION}</code> - User mention\n"
-                    "<code>{USERNAME}</code> - Username\n"
-                    "<code>{GROUPNAME}</code> - Group name\n\n"
-                    "<b>Buttons Format:</b>\n"
-                    "<code>[Button](URL)</code> - Single button per row\n"
-                    "<code>[Btn1](URL) | [Btn2](URL)</code> - Two buttons in one row\n"
-                    "Max 2 buttons per row, Max 6 buttons total",
+                settings = await get_welcome_settings(chat_id)
+                
+                if not settings:
+                    await create_default_welcome_settings(chat_id)
+                    settings = await get_welcome_settings(chat_id)
+                
+                is_enabled = settings.get('welcome', {}).get('enabled', False)
+                status_text = "enabled" if is_enabled else "disabled"
+                
+                status_msg = await message.reply_text(
+                    f"<b>Welcome messages are currently {status_text}.</b>",
                     parse_mode=ParseMode.HTML
                 )
+                
+                if is_enabled:
+                    welcome_config = settings['welcome']
+                    
+                    if welcome_config.get('custom_set') and welcome_config.get('text'):
+                        text = welcome_config['text']
+                    else:
+                        text = welcome_config.get('default_text', 'Hey {MENTION}!\nWelcome to {GROUPNAME}!')
+                    
+                    formatted_text = format_welcome_text(text, message.from_user, message.chat)
+                    
+                    reply_markup = None
+                    if welcome_config.get('buttons'):
+                        reply_markup = create_button_markup(welcome_config['buttons'])
+                    
+                    if welcome_config.get('media_type') and welcome_config.get('media_id'):
+                        media_type = welcome_config['media_type']
+                        media_id = welcome_config['media_id']
+                        
+                        if media_type == "photo":
+                            await message.reply_photo(
+                                photo=media_id,
+                                caption=formatted_text,
+                                reply_markup=reply_markup,
+                                parse_mode=ParseMode.HTML
+                            )
+                        elif media_type == "video":
+                            await message.reply_video(
+                                video=media_id,
+                                caption=formatted_text,
+                                reply_markup=reply_markup,
+                                parse_mode=ParseMode.HTML
+                            )
+                        elif media_type == "animation":
+                            await message.reply_animation(
+                                animation=media_id,
+                                caption=formatted_text,
+                                reply_markup=reply_markup,
+                                parse_mode=ParseMode.HTML
+                            )
+                    else:
+                        await message.reply_text(
+                            text=formatted_text,
+                            reply_markup=reply_markup,
+                            parse_mode=ParseMode.HTML
+                        )
+                
                 return
             
             action = command_parts[1].lower()
@@ -284,8 +323,10 @@ async def setup_welcome_handlers(client: Client):
             
             if settings['welcome']['custom_set']:
                 await message.reply_text(
-                    "<b>A welcome message is already active.</b>"
-                    "Use /delwelcome to remove it before adding a new one.",
+                    "<b>Custom welcome already set!</b>\n\n"
+                    "First use <code>/delwelcome</code> to remove the existing custom welcome,\n"
+                    "then set the new one.\n\n"
+                    "This prevents accidental overwrites.",
                     parse_mode=ParseMode.HTML
                 )
                 return

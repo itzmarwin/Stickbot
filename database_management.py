@@ -115,7 +115,7 @@ async def create_default_welcome_settings(chat_id: int) -> bool:
                 "media_id": None,
                 "text": None,
                 "buttons": [],
-                "default_text": "Welcome {MENTION} to {GROUPNAME}!"  # ✅ FIXED
+                "default_text": "Hey {MENTION}! 👋\nWelcome to {GROUPNAME}! 🎉"  # ✅ UPDATED
             },
             "goodbye": {
                 "enabled": False,
@@ -124,7 +124,7 @@ async def create_default_welcome_settings(chat_id: int) -> bool:
                 "media_id": None,
                 "text": None,
                 "buttons": [],
-                "default_text": "Goodbye {NAME}!"  # ✅ FIXED
+                "default_text": "Goodbye {NAME}! 👋 See you again!"  # ✅ UPDATED
             },
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow()

@@ -312,7 +312,7 @@ async def setup_welcome_handlers(client: Client):
                 settings = await get_welcome_settings(chat_id)
                 WELCOME_CACHE[chat_id] = settings['welcome']
                 
-                response = "<b>Custom welcome set and enabled!</b>\n\n"
+                response = "<b>Welcome message settings updated successfully.</b>\n\n"
                 
                 if media_type:
                     response += f"<b>Type:</b> {media_type.title()}\n"
@@ -327,14 +327,14 @@ async def setup_welcome_handlers(client: Client):
                 await message.reply_text(response, parse_mode=ParseMode.HTML)
             else:
                 await message.reply_text(
-                    "Failed to set custom welcome. Please try again.",
+                    "Unable to set the welcome message at this time. Please try again later.",
                     parse_mode=ParseMode.HTML
                 )
         
         except Exception as e:
             logger.error(f"Error in setwelcome_command: {e}", exc_info=True)
             await message.reply_text(
-                "An error occurred. Please try again.",
+                "Please try again later or contact the support group if the issue persists.",
                 parse_mode=ParseMode.HTML
             )
     
@@ -356,8 +356,8 @@ async def setup_welcome_handlers(client: Client):
             
             if not settings or not settings['welcome']['custom_set']:
                 await message.reply_text(
-                    "<b>No custom welcome message is set!</b>\n\n"
-                    "You can use <code>/setwelcome</code> to set one.",
+                    "<b>No welcome message is set.</b>\n\n"
+                    "Set it using <code>/setwelcome</code>.",
                     parse_mode=ParseMode.HTML
                 )
                 return
@@ -370,23 +370,19 @@ async def setup_welcome_handlers(client: Client):
                     logger.info(f"Cleared welcome cache for chat {chat_id}")
                 
                 await message.reply_text(
-                    "<b>Custom welcome deleted!</b>\n\n"
-                    "Welcome is now <b>disabled</b>.\n\n"
-                    "<b>Options:</b>\n"
-                    "Use <code>/setwelcome</code> to set a new custom welcome\n"
-                    "Use <code>/welcome on</code> to enable default welcome",
+                    "<b>Welcome message deleted.</b>",
                     parse_mode=ParseMode.HTML
                 )
             else:
                 await message.reply_text(
-                    "Failed to delete custom welcome.",
+                    "Unable to delete the welcome message.",
                     parse_mode=ParseMode.HTML
                 )
         
         except Exception as e:
             logger.error(f"Error in delwelcome_command: {e}", exc_info=True)
             await message.reply_text(
-                "An error occurred. Please try again.",
+                "Please try again later. If the problem continues, contact the support group.",
                 parse_mode=ParseMode.HTML
             )
     

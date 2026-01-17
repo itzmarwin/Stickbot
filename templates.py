@@ -497,22 +497,22 @@ Alternate command: <code>/memefi</code>
 """
 
 WELCOME_INFO_MESSAGE = """
-Welcome & Goodbye Messages
+<b>Welcome & Goodbye Messages</b>
 
-Customize Messages
-✦ /setwelcome <reply>
+<b>Customize Messages</b>
+✦ /setwelcome <b>reply</b>
 Set a custom welcome message when a new member joins.
 
 ✦ /delwelcome
 Remove the current welcome message.
 
-✦ /setgoodbye <reply>
+✦ /setgoodbye <b>reply</b>
 Set a custom goodbye message when a member leaves.
 
 ✦ /delgoodbye
 Remove the current goodbye message.
 
-Enable / Disable
+<b>Enable / Disable</b>
 ✦ /welcome on
 Enable welcome messages in the group.
 
@@ -525,21 +525,21 @@ Enable goodbye messages.
 ✦ /goodbye off
 Disable goodbye messages.
 
-How It Works
+<b>How It Works</b>
 ✦ Sends a welcome message when a user joins the group.
 ✦ Sends a goodbye message when a user leaves the group.
 ✦ Uses default messages if no custom message is set.
 ✦ Bot must be admin to function properly.
 
-Buttons in Messages
+<b>Buttons in Messages</b>
 ✦ [Button](URL) – Single button
 ✦ [Btn1](URL) | [Btn2](URL) – Two buttons in one row
 
-Limits
+<b>Limits</b>
 ✦ Maximum 2 buttons per row
 ✦ Maximum 6 buttons in total
 
-Notes
+<b>Notes</b>
 ✦ Only group admins can manage these settings.
 ✦ Text, media and buttons are fully supported.
 """

@@ -72,7 +72,7 @@ def format_welcome_text(text: str, user, chat) -> str:
     first_name = user.first_name or "User"
     last_name = user.last_name or ""
     full_name = f"{first_name} {last_name}".strip()
-    username = f"@{user.username}" if user.username else "No username"
+    username = f"@{user.username}" if user.username else "None"
     
     # Date and time
     now = datetime.now()

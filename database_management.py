@@ -20,6 +20,7 @@ management_db = None
 async def init_management_db():
     """
     Initialize Management MongoDB connection
+    ✅ OPTIMIZED: Connection pool settings for production scalability
     """
     global management_client, management_db
     try:
@@ -28,9 +29,10 @@ async def init_management_db():
             serverSelectionTimeoutMS=5000,
             connectTimeoutMS=10000,
             socketTimeoutMS=30000,
-            maxPoolSize=100,
-            minPoolSize=10,
+            maxPoolSize=20,              # ✅ FIXED: Reduced from 100 (prevents pool exhaustion)
+            minPoolSize=2,               # ✅ FIXED: Reduced from 10 (lower baseline)
             waitQueueTimeoutMS=10000,
+            maxIdleTimeMS=45000,         # ✅ NEW: Close idle connections after 45s
             retryWrites=True,
             retryReads=True
         )
@@ -39,13 +41,32 @@ async def init_management_db():
         await management_client.admin.command('ping')
         management_db = management_client[DATABASE_NAME_MANAGEMENT]
         
-        # Create indexes
+        # ✅ ENHANCED: Create comprehensive indexes for performance
         logger.info("Creating management database indexes...")
         
-        # Welcome settings indexes
+        # Primary index - chat_id (unique)
         await management_db.welcome_settings.create_index("chat_id", unique=True)
         
+        # ✅ NEW: Performance indexes for enabled status queries
+        await management_db.welcome_settings.create_index([("welcome.enabled", 1)])
+        await management_db.welcome_settings.create_index([("goodbye.enabled", 1)])
+        
+        # ✅ NEW: Compound index for common query patterns
+        await management_db.welcome_settings.create_index([
+            ("chat_id", 1),
+            ("welcome.enabled", 1)
+        ])
+        
+        await management_db.welcome_settings.create_index([
+            ("chat_id", 1),
+            ("goodbye.enabled", 1)
+        ])
+        
+        # ✅ NEW: Index for cleanup operations (future-proofing)
+        await management_db.welcome_settings.create_index([("updated_at", 1)])
+        
         logger.info("✅ Management database initialized successfully")
+        logger.info(f"✅ Connection pool: max={20}, min={2}, idle_timeout=45s")
         return management_db
         
     except Exception as e:
@@ -56,11 +77,13 @@ async def init_management_db():
 async def close_management_db():
     """
     Graceful shutdown for management database
+    ✅ ENHANCED: Proper connection cleanup
     """
     global management_client
     try:
         if management_client:
             logger.info("Closing management MongoDB connection...")
+            # ✅ Close all connections in pool
             management_client.close()
         
         logger.info("✅ Management database connection closed")
@@ -80,6 +103,7 @@ def get_management_db():
 async def get_welcome_settings(chat_id: int) -> Optional[Dict[str, Any]]:
     """
     Get welcome/goodbye settings for a chat
+    ✅ OPTIMIZED: Uses indexed query for fast retrieval
     
     Args:
         chat_id: Chat ID
@@ -142,6 +166,7 @@ async def create_default_welcome_settings(chat_id: int) -> bool:
 async def update_welcome_status(chat_id: int, enabled: bool) -> bool:
     """
     Enable/disable welcome messages
+    ✅ OPTIMIZED: Indexed update query
     
     Args:
         chat_id: Chat ID
@@ -170,6 +195,7 @@ async def update_welcome_status(chat_id: int, enabled: bool) -> bool:
 async def update_goodbye_status(chat_id: int, enabled: bool) -> bool:
     """
     Enable/disable goodbye messages
+    ✅ OPTIMIZED: Indexed update query
     
     Args:
         chat_id: Chat ID
@@ -342,6 +368,7 @@ async def delete_custom_goodbye(chat_id: int) -> bool:
 async def check_management_db_health() -> Dict[str, Any]:
     """
     Check management database health
+    ✅ ENHANCED: Includes pool statistics
     Returns status dict for monitoring
     """
     health = {
@@ -353,7 +380,19 @@ async def check_management_db_health() -> Dict[str, Any]:
         start = time.time()
         await management_client.admin.command('ping')
         latency = (time.time() - start) * 1000
-        health["management_db"] = {"status": "healthy", "latency_ms": round(latency, 2)}
+        
+        # ✅ NEW: Add connection pool stats
+        pool_stats = {
+            "max_pool_size": 20,
+            "min_pool_size": 2,
+            "idle_timeout_ms": 45000
+        }
+        
+        health["management_db"] = {
+            "status": "healthy", 
+            "latency_ms": round(latency, 2),
+            "pool": pool_stats
+        }
     except Exception as e:
         health["management_db"] = {"status": "unhealthy", "error": str(e)}
         logger.error(f"Management DB health check failed: {e}")

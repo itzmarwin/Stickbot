@@ -161,8 +161,6 @@ async def setup_welcome_handlers(client: Client):
                     else:
                         text = welcome_config.get('default_text', 'Hey {MENTION}!\nWelcome to {GROUPNAME}!')
                     
-                    formatted_text = format_welcome_text(text, message.from_user, message.chat)
-                    
                     reply_markup = None
                     if welcome_config.get('buttons'):
                         reply_markup = create_button_markup(welcome_config['buttons'])
@@ -174,29 +172,25 @@ async def setup_welcome_handlers(client: Client):
                         if media_type == "photo":
                             await message.reply_photo(
                                 photo=media_id,
-                                caption=formatted_text,
-                                reply_markup=reply_markup,
-                                parse_mode=ParseMode.HTML
+                                caption=text,
+                                reply_markup=reply_markup
                             )
                         elif media_type == "video":
                             await message.reply_video(
                                 video=media_id,
-                                caption=formatted_text,
-                                reply_markup=reply_markup,
-                                parse_mode=ParseMode.HTML
+                                caption=text,
+                                reply_markup=reply_markup
                             )
                         elif media_type == "animation":
                             await message.reply_animation(
                                 animation=media_id,
-                                caption=formatted_text,
-                                reply_markup=reply_markup,
-                                parse_mode=ParseMode.HTML
+                                caption=text,
+                                reply_markup=reply_markup
                             )
                     else:
                         await message.reply_text(
-                            text=formatted_text,
-                            reply_markup=reply_markup,
-                            parse_mode=ParseMode.HTML
+                            text=text,
+                            reply_markup=reply_markup
                         )
                 
                 return
@@ -323,8 +317,10 @@ async def setup_welcome_handlers(client: Client):
             
             if settings['welcome']['custom_set']:
                 await message.reply_text(
-                    "<b>A welcome message is already active.</b>"
-                    "Use /delwelcome to remove it before adding a new one.",
+                    "<b>Custom welcome already set!</b>\n\n"
+                    "First use <code>/delwelcome</code> to remove the existing custom welcome,\n"
+                    "then set the new one.\n\n"
+                    "This prevents accidental overwrites.",
                     parse_mode=ParseMode.HTML
                 )
                 return

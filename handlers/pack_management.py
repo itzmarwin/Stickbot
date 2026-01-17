@@ -64,6 +64,7 @@ class PackManagementCallback:
     EXTRA_CMD_QUOTLY = "extra_quotly"
     EXTRA_CMD_STICKERS = "extra_stickers"
     EXTRA_CMD_MEMEFI = "extra_memefi"
+    EXTRA_CMD_WELCOME = "extra_welcome"
 
 def get_main_menu_keyboard():
     builder = InlineKeyboardBuilder()
@@ -81,8 +82,9 @@ def get_extra_commands_keyboard():
     builder.button(text="𝗤𝘂𝗼𝘁𝗹𝘆", callback_data=PackManagementCallback.EXTRA_CMD_QUOTLY)
     builder.button(text="𝗦𝘁𝗶𝗰𝗸𝗲𝗿𝘀", callback_data=PackManagementCallback.EXTRA_CMD_STICKERS)
     builder.button(text="𝗠𝗲𝗺𝗲𝗙𝗶", callback_data=PackManagementCallback.EXTRA_CMD_MEMEFI) 
+    builder.button(text="𝗪𝗲𝗹𝗰𝗼𝗺𝗲", callback_data=PackManagementCallback.EXTRA_CMD_WELCOME)
     builder.button(text="⬅️ 𝗕𝗮𝗰𝗸", callback_data=PackManagementCallback.BACK_TO_MAIN)
-    builder.adjust(4, 1)
+    builder.adjust(3, 2, 1)
     return builder.as_markup()
 
 def get_back_to_extra_keyboard():

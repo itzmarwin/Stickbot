@@ -292,19 +292,7 @@ async def setup_welcome_handlers(client: Client):
             
             if not message.reply_to_message:
                 await message.reply_text(
-                    "<b>Please reply to a message!</b>\n\n"
-                    "<b>Usage:</b>\n"
-                    "1. Send/forward a photo/video/GIF with caption\n"
-                    "2. Or send a text message\n"
-                    "3. Reply to it with <code>/setwelcome</code>\n\n"
-                    "<b>Variables:</b>\n"
-                    "<code>{ID}</code> {NAME} {SURNAME} {NAMESURNAME}\n"
-                    "<code>{DATE}</code> {TIME} {MENTION} {USERNAME}\n"
-                    "<code>{GROUPNAME}</code>\n\n"
-                    "<b>Buttons Format:</b>\n"
-                    "<code>[Button](URL)</code> - Single button\n"
-                    "<code>[Btn1](URL) | [Btn2](URL)</code> - Two buttons in one row\n"
-                    "Max 2 buttons per row, Max 6 buttons total",
+                    "<b>Please reply to a message.</b>",
                     parse_mode=ParseMode.HTML
                 )
                 return
@@ -317,10 +305,8 @@ async def setup_welcome_handlers(client: Client):
             
             if settings['welcome']['custom_set']:
                 await message.reply_text(
-                    "<b>Custom welcome already set!</b>\n\n"
-                    "First use <code>/delwelcome</code> to remove the existing custom welcome,\n"
-                    "then set the new one.\n\n"
-                    "This prevents accidental overwrites.",
+                    "<b>A welcome message is already active.</b>"
+                    "Use /delwelcome to remove it before adding a new one.",
                     parse_mode=ParseMode.HTML
                 )
                 return

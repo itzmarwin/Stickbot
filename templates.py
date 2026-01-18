@@ -60,7 +60,7 @@ Just reply to any message with <code>/q</code>
 
 # CopyPack feature messages
 COPYPACK_INFO_MESSAGE = """
-<b>📦 𝖢𝗈𝗉𝗒 𝖯𝖺𝖼𝗄 𝖥𝖾𝖺𝗍𝗎𝗋𝖾</b>
+<b> 𝖢𝗈𝗉𝗒 𝖯𝖺𝖼𝗄 𝖥𝖾𝖺𝗍𝗎𝗋𝖾</b>
 
 <b>𝖧𝗈𝗐 𝗂𝗍 𝗐𝗈𝗋𝗄𝗌:</b>
 𝖢𝗈𝗉𝗒 𝖺𝗇𝗒 𝖾𝗇𝗍𝗂𝗋𝖾 𝗌𝗍𝗂𝖼𝗄𝖾𝗋 𝗉𝖺𝖼𝗄 𝗍𝗈 𝗒𝗈𝗎𝗋 𝗈𝗐𝗇 𝖼𝗈𝗅𝗅𝖾𝖼𝗍𝗂𝗈𝗇!
@@ -140,30 +140,30 @@ STICKER_ADDED = """
 """
 
 NO_MEDIA_REPLY = """
-⚠️ <b>𝖯𝗅𝖾𝖺𝗌𝖾 𝗋𝖾𝗉𝗅𝗒 𝗍𝗈 𝖺 𝗆𝖾𝖽𝗂𝖺 𝗆𝖾𝗌𝗌𝖺𝗀𝖾</b>
+ <b>𝖯𝗅𝖾𝖺𝗌𝖾 𝗋𝖾𝗉𝗅𝗒 𝗍𝗈 𝖺 𝗆𝖾𝖽𝗂𝖺 𝗆𝖾𝗌𝗌𝖺𝗀𝖾</b>
 """
 
 VIDEO_TOO_LARGE = """
-⚠️ <b>𝖵𝗂𝖽𝖾𝗈 𝗍𝗈𝗈 𝗅𝖺𝗋𝗀𝖾 (𝗈𝗏𝖾𝗋 𝟦𝖬𝖡)</b>
+ <b>𝖵𝗂𝖽𝖾𝗈 𝗍𝗈𝗈 𝗅𝖺𝗋𝗀𝖾 (𝗈𝗏𝖾𝗋 𝟦𝖬𝖡)</b>
 
 𝖯𝗅𝖾𝖺𝗌𝖾 𝗌𝖾𝗇𝖽 𝗌𝗆𝖺𝗅𝗅𝖾𝗋 𝗏𝗂𝖽𝖾𝗈
 """
 
 VIDEO_COMPRESSION_FAILED = """
-⚠️ <b>𝗎𝗇𝖺𝖻𝗅𝖾 𝗍𝗈 𝗉𝗋𝗈𝖼𝖾𝗌𝗌 𝗏𝗂𝖽𝖾𝗈</b>
+ <b>𝗎𝗇𝖺𝖻𝗅𝖾 𝗍𝗈 𝗉𝗋𝗈𝖼𝖾𝗌𝗌 𝗏𝗂𝖽𝖾𝗈</b>
 
 𝖳𝗋𝗒 𝗌𝗁𝗈𝗋𝗍𝖾𝗇𝗂𝗇𝗀 𝗈𝗋 𝗅𝗈𝗐𝖾𝗋𝗂𝗇𝗀 𝗊𝗎𝖺𝗅𝗂𝗍𝗒, 𝗈𝗋 𝗎𝗌𝖾 𝗀𝗂𝖿
 """
 
 PACK_NAME_TOO_LONG = """
-⚠️ <b>𝖯𝖺𝖼𝗄 𝗇𝖺𝗆𝖾 𝗂𝗌 𝗍𝗈𝗈 𝗅𝗈𝗇𝗀!</b>
+ <b>𝖯𝖺𝖼𝗄 𝗇𝖺𝗆𝖾 𝗂𝗌 𝗍𝗈𝗈 𝗅𝗈𝗇𝗀!</b>
 
 𝖯𝗅𝖾𝖺𝗌𝖾 𝗄𝖾𝖾𝗉 𝗂𝗍 𝗎𝗇𝖽𝖾𝗋 𝟨𝟦 𝖼𝗁𝖺𝗋𝖺𝖼𝗍𝖾𝗋𝗌.
 𝖳𝗋𝗒 𝖺 𝗌𝗁𝗈𝗋𝗍𝖾𝗋 𝗇𝖺𝗆𝖾.
 """
 
 PACK_NAME_INVALID = """
-⚠️ <b>𝖯𝖺𝖼𝗄 𝗇𝖺𝗆𝖾 𝗂𝗌 𝗂𝗇𝗏𝖺𝗅𝗂𝖽!</b>
+ <b>𝖯𝖺𝖼𝗄 𝗇𝖺𝗆𝖾 𝗂𝗌 𝗂𝗇𝗏𝖺𝗅𝗂𝖽!</b>
 
 𝖬𝖺𝗑𝗂𝗆𝗎𝗆 𝗅𝖾𝗇𝗀𝗍𝗁 𝗂𝗌 𝟨𝟦 𝖼𝗁𝖺𝗋𝖺𝖼𝗍𝖾𝗋𝗌.
 𝖸𝗈𝗎𝗋 𝗇𝖺𝗆𝖾 𝗁𝖺𝗌 {length} 𝖼𝗁𝖺𝗋𝖺𝖼𝗍𝖾𝗋𝗌.
@@ -174,7 +174,7 @@ PACK_NAME_INVALID = """
 PROCESSING_MEDIA = "<b>𝖦𝗋𝖺𝖻𝖻𝗂𝗇𝗀 𝗒𝗈𝗎𝗋 𝗌𝗍𝗂𝖼𝗄𝖾𝗋, 𝗁𝗈𝗅𝖽 𝗈𝗇...</b>"
 
 ERROR_OCCURRED = """
-⚠️ <b>𝖮𝗈𝗉𝗌 — 𝗌𝗈𝗆𝖾𝗍𝗁𝗂𝗇𝗀 𝗐𝖾𝗇𝗍 𝗐𝗋𝗈𝗇𝗀.</b>
+ <b>𝖮𝗈𝗉𝗌 — 𝗌𝗈𝗆𝖾𝗍𝗁𝗂𝗇𝗀 𝗐𝖾𝗇𝗍 𝗐𝗋𝗈𝗇𝗀.</b>
 <b>𝖣𝗈𝗇'𝗍 𝗐𝗈𝗋𝗋𝗒, 𝗈𝗎𝗋 𝗍𝖾𝖺𝗆 𝗂𝗌 𝗈𝗇 𝗂𝗍.</b>
 𝖨𝖿 𝗍𝗁𝖾 𝗂𝗌𝗌𝗎𝖾 𝖼𝗈𝗇𝗍𝗂𝗇𝗎𝖾𝗌, 𝗉𝗅𝖾𝖺𝗌𝖾 𝗋𝖾𝗉𝗈𝗋𝗍 𝗂𝗍 𝗁𝖾𝗋𝖾: <a href="https://t.me/Samuraissupportchat"><b>𝖲𝗎𝗉𝗉𝗈𝗋𝗍 𝖦𝗋𝗈𝗎𝗉</b></a>
 """
@@ -253,7 +253,7 @@ MANAGE_PACKS_MESSAGE = """
 """
 
 NO_PACKS_MESSAGE = """
-📦 <b>𝖭𝗈 𝗉𝖺𝖼𝗄𝗌 𝗒𝖾𝗍.</b>
+ <b>𝖭𝗈 𝗉𝖺𝖼𝗄𝗌 𝗒𝖾𝗍.</b>
 𝖢𝗋𝖾𝖺𝗍𝖾 𝗒𝗈𝗎𝗋 𝖿𝗂𝗋𝗌𝗍 𝗍𝗈 𝗀𝖾𝗍 𝗌𝗍𝖺𝗋𝗍𝖾𝖽.
 """
 
@@ -294,7 +294,7 @@ PACK_RENAMED_SUCCESS = """
 """
 
 ADD_STICKER_INSTRUCTIONS = """
-🎨 <b>𝖠𝖽𝖽 𝗌𝗍𝗂𝖼𝗄𝖾𝗋 𝗍𝗈 {pack_name}</b>
+ <b>𝖠𝖽𝖽 𝗌𝗍𝗂𝖼𝗄𝖾𝗋 𝗍𝗈 {pack_name}</b>
 
 𝖲𝖾𝗇𝖽 𝗆𝖾 𝖺𝗇 𝗂𝗆𝖺𝗀𝖾, 𝗏𝗂𝖽𝖾𝗈, 𝗀𝗂𝖿 𝗈𝗋 𝗌𝗍𝗂𝖼𝗄𝖾𝗋 𝗍𝗈 𝖺𝖽𝖽.  
 <b>𝖭𝗈𝗍𝖾:</b> 𝖵𝗂𝖽𝖾𝗈𝗌 𝗆𝗎𝗌𝗍 𝖻𝖾 ≤4MB.
@@ -316,7 +316,7 @@ STICKER_ADDED_TO_PACK = """
 
 # Multiple packs support  
 PACK_FULL_CREATE_NEW = """
-📦 𝖸𝗈𝗎𝗋 𝗉𝖺𝖼𝗄 𝗂𝗌 𝖿𝗎𝗅𝗅 (120 𝗅𝗂𝗆𝗂𝗍).  
+ 𝖸𝗈𝗎𝗋 𝗉𝖺𝖼𝗄 𝗂𝗌 𝖿𝗎𝗅𝗅 (120 𝗅𝗂𝗆𝗂𝗍).  
 
 𝖸𝗈𝗎 𝗁𝖺𝗏𝖾 {pack_count} 𝗉𝖺𝖼𝗄(𝗌).  
 𝖲𝖾𝗇𝖽 𝖺 𝗇𝖺𝗆𝖾 𝖿𝗈𝗋 𝗒𝗈𝗎𝗋 𝗇𝖾𝗐 𝗉𝖺𝖼𝗄:
@@ -499,7 +499,7 @@ Alternate command: <code>/memefi</code>
 WELCOME_INFO_MESSAGE = """
 <b>Welcome & Goodbye Messages</b>
 
-<b>Customize Messages</b>
+Customize Messages
 ✦ /setwelcome <b>reply</b>
 Set a custom welcome message when a new member joins.
 
@@ -512,7 +512,8 @@ Set a custom goodbye message when a member leaves.
 ✦ /delgoodbye
 Remove the current goodbye message.
 
-<b>Enable / Disable</b>
+
+Enable / Disable
 ✦ /welcome on
 Enable welcome messages in the group.
 
@@ -525,21 +526,40 @@ Enable goodbye messages.
 ✦ /goodbye off
 Disable goodbye messages.
 
-<b>How It Works</b>
-✦ Sends a welcome message when a user joins the group.
-✦ Sends a goodbye message when a user leaves the group.
-✦ Uses default messages if no custom message is set.
-✦ Bot must be admin to function properly.
 
-<b>Buttons in Messages</b>
-✦ [Button](URL) – Single button
-✦ [Btn1](URL) | [Btn2](URL) – Two buttons in one row
+Available Variables
+You can use the following variables in welcome & goodbye messages:
 
-<b>Limits</b>
-✦ Maximum 2 buttons per row
-✦ Maximum 6 buttons in total
+✦ <code>{ID}</code> – User ID  
+✦ <code>{NAME}</code> – User's first name  
+✦ <code>{SURNAME}</code> – User's last name  
+✦ <code>{NAMESURNAME}</code> – Full name of the user  
+✦ <code>{USERNAME}</code> – Username (or None)  
+✦ <code>{MENTION}</code> – Mention the user  
+✦ <code>{GROUPNAME}</code> – Group name  
+✦ <code>{DATE}</code> – Current date  
+✦ <code>{TIME}</code> – Current time  
 
-<b>Notes</b>
+
+Example
+✦ Welcome <code>{MENTION}</code> to <code>{GROUPNAME}</code>!
+Joined on <code>{DATE}</code> at <code>{TIME}</code> ⏰
+
+
+Buttons in Messages
+You can add buttons to welcome & goodbye messages:
+
+✦ <code>[Button](https://example.com)</code> – Single button  
+✦ <code>[Btn1](https://link1.com) | [Btn2](https://link2.com)</code> – Two buttons in one row  
+
+
+Limits
+✦ Maximum 2 buttons per row  
+✦ Maximum 6 buttons in total  
+
+
+Notes
 ✦ Only group admins can manage these settings.
 ✦ Text, media and buttons are fully supported.
+✦ Bot must be admin to work properly.
 """

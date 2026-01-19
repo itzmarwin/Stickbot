@@ -29,7 +29,8 @@ from templates import (
     RENAME_PACK_INFO, DELETE_PACK_INFO, ADD_STICKER_INFO,
     RATE_LIMIT_MESSAGE, STICKER_ADDING_IN_PROGRESS,
     PUBLISH_PACK_INFO, EXTRA_COMMANDS_MESSAGE, AFK_INFO_MESSAGE,
-    QUOTLY_INFO_MESSAGE, STICKERS_INFO_MESSAGE, STICKER_ADDED_SIMPLE, WELCOME_INFO_MESSAGE
+    QUOTLY_INFO_MESSAGE, STICKERS_INFO_MESSAGE, STICKER_ADDED_SIMPLE, 
+    WELCOME_INFO_MESSAGE, GROUP_START_MESSAGE, STATE_CANCELLED_MESSAGE
 )
 from utils.fsm_states import PackManagementStates
 from utils.helpers import validate_pack_name, format_pack_name, generate_short_name, get_file_size_mb
@@ -74,6 +75,14 @@ def get_main_menu_keyboard():
     builder.button(text="𝗦𝘂𝗽𝗽𝗼𝗿𝘁", url="https://t.me/Samurais_Support")
     builder.button(text="𝗨𝗽𝗱𝗮𝘁𝗲𝘀", url="https://t.me/Samurais_network")
     builder.adjust(1, 2, 2)
+    return builder.as_markup()
+
+def get_group_start_keyboard():
+    """Keyboard for group /start command"""
+    builder = InlineKeyboardBuilder()
+    builder.button(text="🚀 𝗦𝘁𝗮𝗿𝘁 𝗠𝗲", url=f"https://t.me/{BOT_USERNAME}?start=group")
+    builder.button(text="💬 𝗦𝘂𝗽𝗽𝗼𝗿𝘁", url="https://t.me/Samurais_Support")
+    builder.adjust(2)
     return builder.as_markup()
 
 def get_extra_commands_keyboard():
@@ -213,6 +222,16 @@ async def cmd_start(message: Message, state: FSMContext):
     user = message.from_user
     await state.clear()
     
+    # ✅ FIX: Check if command is in group
+    if message.chat.type in ["group", "supergroup"]:
+        # Group start - show introduction with 2 buttons
+        await message.reply(
+            GROUP_START_MESSAGE.format(bot_username=BOT_USERNAME),
+            reply_markup=get_group_start_keyboard()
+        )
+        return
+    
+    # Private chat - normal start flow
     user_data = await get_user(user.id)
     
     if not user_data:
@@ -568,7 +587,7 @@ async def add_sticker_callback(callback: CallbackQuery, state: FSMContext):
     except Exception as e:
         logger.error(f"Error in add_sticker_callback: {e}")
 
-# ✅ FIXED: Show sticker count after adding
+# ✅ FIX: Auto-clear state on text message + show warning ONCE
 @router.message(PackManagementStates.waiting_for_sticker_to_add)
 async def process_sticker_addition(message: Message, state: FSMContext, bot: Bot):
     data = await state.get_data()
@@ -581,8 +600,10 @@ async def process_sticker_addition(message: Message, state: FSMContext, bot: Bot
         await state.clear()
         return
     
+    # ✅ FIX: If user sends text message, show warning ONCE and clear state
     if not message.photo and not message.sticker and not message.animation and not message.video:
-        await message.reply("⚠️ Please send an image, video, GIF, or sticker to add to your pack.")
+        await message.reply(STATE_CANCELLED_MESSAGE)
+        await state.clear()  # ✅ Clear state immediately
         return
     
     media = None
@@ -662,16 +683,13 @@ async def create_new_pack_callback(callback: CallbackQuery, state: FSMContext):
     except Exception as e:
         logger.error(f"Error in create_new_pack_callback: {e}")
 
+# ✅ FIX: Auto-clear state on text message + show warning ONCE
 @router.message(PackManagementStates.waiting_for_first_sticker)
 async def process_first_sticker(message: Message, state: FSMContext):
+    # ✅ FIX: If user sends text message, show warning ONCE and clear state
     if not message.photo and not message.sticker and not message.animation and not message.video:
-        await message.reply(
-            "⚠️ <b>That media is not valid.</b> Please send a proper sticker:\n"
-            "- PNG/JPEG/WEBP for static stickers\n" 
-            "- WEBM/MP4 for video stickers\n"
-            "- GIF for animated\n"
-            "- Existing stickers"
-        )
+        await message.reply(STATE_CANCELLED_MESSAGE)
+        await state.clear()  # ✅ Clear state immediately
         return
 
     media = None

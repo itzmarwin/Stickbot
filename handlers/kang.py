@@ -19,7 +19,8 @@ from templates import (
     PACK_NAME_INVALID, PROCESSING_MEDIA,
     ERROR_OCCURRED, VIDEO_COMPRESSION_FAILED,
     PACK_FULL_MESSAGE, NEW_PACK_CREATED_MULTI,
-    STICKER_ADDED_SIMPLE, PACK_NOT_FOUND_MESSAGE
+    STICKER_ADDED_SIMPLE, PACK_NOT_FOUND_MESSAGE,
+    STATE_CANCELLED_MESSAGE
 )
 from utils.fsm_states import KangStates
 from utils.helpers import (
@@ -181,14 +182,16 @@ async def cmd_kang(message: Message, state: FSMContext, bot: Bot):
             await message.reply(ERROR_OCCURRED)
 
 
+# ✅ FIX: Auto-clear state on text message + show warning ONCE
 @router.message(KangStates.waiting_for_pack_name)
 async def process_pack_name(message: Message, state: FSMContext, bot: Bot):
     """
     ✅ Process pack name input with guaranteed cleanup
     """
-    # Check if message has text
+    # ✅ FIX: If user sends non-text message, show warning ONCE and clear state
     if not message.text:
-        await message.reply("Please send a valid pack name.")
+        await message.reply(STATE_CANCELLED_MESSAGE)
+        await state.clear()  # ✅ Clear state immediately
         return
     
     pack_name = message.text.strip()

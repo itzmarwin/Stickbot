@@ -12,11 +12,36 @@ START_MESSAGE_WITH_IMAGE = """
 ᴘʀᴇꜱꜱ ᴛʜᴇ ʙᴜᴛᴛᴏɴꜱ ʙᴇʟᴏᴡ ᴛᴏ ꜱᴛᴀʀᴛ
 """
 
+GROUP_START_MESSAGE = """
+<b>Hello! I'm Sticker Kang Bot</b>
+
+I help you create and manage custom sticker packs!
+
+<b>Features:</b>
+✦ Create unlimited sticker packs
+✦ Add images, videos, GIFs as stickers
+✦ Manage and organize your packs
+✦ Share packs with others
+
+<b>Start me in PM to use all features!</b>
+"""
+
+STATE_CANCELLED_MESSAGE = """
+<b>Operation cancelled.</b>
+
+You sent an invalid message. If you want to continue, please use /start to begin again.
+"""
+
 # EXTRA COMMANDS HELP MESSAGE
 EXTRA_COMMANDS_MESSAGE = """
 <b>Extra Commands</b>
 
 Choose a feature to learn more:
+"""
+
+# EXTRA COMMANDS HELP MESSAGE
+EXTRA_COMMANDS_MESSAGE = """
+<b>Extra Commands</b>
 """
 
 # AFK FEATURE INFO

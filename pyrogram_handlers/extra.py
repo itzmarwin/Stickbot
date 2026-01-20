@@ -28,13 +28,13 @@ SUPPORT_GROUP = "https://t.me/Samuraissupportchat"
 
 async def download_tiktok(url: str) -> dict:
     """
-    Download TikTok video using API
+    Download TikTok video or images using API
     
     Args:
-        url: TikTok video URL
+        url: TikTok video/slideshow URL
         
     Returns:
-        dict with 'success', 'video_url', 'title', 'error' keys
+        dict with 'success', 'type', 'video_url'/'images', 'title', 'error' keys
     """
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -50,18 +50,27 @@ async def download_tiktok(url: str) -> dict:
             
             result = data["result"]
             
-            # Get video URL without watermark
             video_url = result.get("download_url", {}).get("without_watermark")
+            images = result.get("images")
             
-            if not video_url:
-                return {"success": False, "error": "Video URL not found"}
-            
-            return {
-                "success": True,
-                "video_url": video_url,
-                "title": result.get("title", "TikTok Video"),
-                "username": result.get("username", "Unknown")
-            }
+            if video_url:
+                return {
+                    "success": True,
+                    "type": "video",
+                    "video_url": video_url,
+                    "title": result.get("title", "TikTok Video"),
+                    "username": result.get("username", "Unknown")
+                }
+            elif images and isinstance(images, list) and len(images) > 0:
+                return {
+                    "success": True,
+                    "type": "images",
+                    "images": images,
+                    "title": result.get("title", "TikTok Slideshow"),
+                    "username": result.get("username", "Unknown")
+                }
+            else:
+                return {"success": False, "error": "No video or images found in post"}
             
     except httpx.TimeoutException:
         return {"success": False, "error": "Request timeout"}
@@ -157,15 +166,28 @@ async def setup_extra_handlers(client: Client):
             
             if result["success"]:
                 try:
-                    await message.reply_video(
-                        video=result["video_url"],
-                        caption=f"📹 **{result['title']}**\n👤 @{result['username']}"
-                    )
-                    await processing_msg.delete()
+                    if result["type"] == "video":
+                        await message.reply_video(
+                            video=result["video_url"],
+                            caption=f"📹 **{result['title']}**\n👤 @{result['username']}"
+                        )
+                        await processing_msg.delete()
+                    elif result["type"] == "images":
+                        await processing_msg.edit_text(f"⏳ **Downloading {len(result['images'])} images...**")
+                        
+                        from pyrogram.types import InputMediaPhoto
+                        media_group = []
+                        
+                        for idx, img_url in enumerate(result['images'][:10]):
+                            caption = f"📸 **{result['title']}**\n👤 @{result['username']}" if idx == 0 else ""
+                            media_group.append(InputMediaPhoto(media=img_url, caption=caption))
+                        
+                        await message.reply_media_group(media=media_group)
+                        await processing_msg.delete()
                 except Exception as e:
-                    logger.error(f"Error sending TikTok video: {e}")
+                    logger.error(f"Error sending TikTok media: {e}")
                     await processing_msg.edit_text(
-                        f"❌ Failed to send video.\n"
+                        f"❌ Failed to send media.\n"
                         f"Please report to [Support Group]({SUPPORT_GROUP})."
                     )
             else:
@@ -253,15 +275,28 @@ async def setup_extra_handlers(client: Client):
         
         if result["success"]:
             try:
-                await message.reply_video(
-                    video=result["video_url"],
-                    caption=f"📹 **{result['title']}**\n👤 @{result['username']}"
-                )
-                await processing_msg.delete()
+                if result["type"] == "video":
+                    await message.reply_video(
+                        video=result["video_url"],
+                        caption=f"📹 **{result['title']}**\n👤 @{result['username']}"
+                    )
+                    await processing_msg.delete()
+                elif result["type"] == "images":
+                    await processing_msg.edit_text(f"⏳ **Downloading {len(result['images'])} images...**")
+                    
+                    from pyrogram.types import InputMediaPhoto
+                    media_group = []
+                    
+                    for idx, img_url in enumerate(result['images'][:10]):
+                        caption = f"📸 **{result['title']}**\n👤 @{result['username']}" if idx == 0 else ""
+                        media_group.append(InputMediaPhoto(media=img_url, caption=caption))
+                    
+                    await message.reply_media_group(media=media_group)
+                    await processing_msg.delete()
             except Exception as e:
-                logger.error(f"Error sending TikTok video in group: {e}")
+                logger.error(f"Error sending TikTok media in group: {e}")
                 await processing_msg.edit_text(
-                    f"❌ Failed to send video.\n"
+                    f"❌ Failed to send media.\n"
                     f"Please report to [Support Group]({SUPPORT_GROUP})."
                 )
         else:

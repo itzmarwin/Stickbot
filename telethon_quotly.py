@@ -5,6 +5,7 @@ from random import choice
 from telethon import TelegramClient, events
 from telethon.tl import types
 from telethon.utils import get_display_name
+from telethon.errors import ChatAdminRequiredError, ChatSendStickersForbiddenError, ChatWriteForbiddenError
 
 logger = logging.getLogger(__name__)
 
@@ -65,12 +66,20 @@ class QuotlyTelethon:
 
         reply_data = {}
         if reply:
-            reply_sender = await reply.get_sender()
-            reply_data = {
-                "name": get_display_name(reply_sender) or "Deleted Account",
-                "text": reply.raw_text,
-                "chatId": reply.chat_id,
-            }
+            try:
+                reply_sender = await reply.get_sender()
+                reply_data = {
+                    "name": get_display_name(reply_sender) or "Deleted Account",
+                    "text": reply.raw_text,
+                    "chatId": reply.chat_id,
+                }
+            except (ChatAdminRequiredError, Exception) as e:
+                logger.warning(f"Could not get reply sender: {e}")
+                reply_data = {
+                    "name": "User",
+                    "text": reply.raw_text,
+                    "chatId": reply.chat_id,
+                }
 
         is_fwd = event.fwd_from
         name, last_name = None, None
@@ -80,8 +89,13 @@ class QuotlyTelethon:
             name = get_display_name(sender)
         elif not is_fwd:
             id_ = event.sender_id
-            sender = await event.get_sender()
-            name = get_display_name(sender)
+            try:
+                sender = await event.get_sender()
+                name = get_display_name(sender)
+            except (ChatAdminRequiredError, Exception) as e:
+                logger.warning(f"Could not get event sender: {e}")
+                name = "User"
+                sender = None
         else:
             id_, sender = None, None
             name = is_fwd.from_name
@@ -90,7 +104,8 @@ class QuotlyTelethon:
                 try:
                     sender = await event.client.get_entity(id_)
                     name = get_display_name(sender)
-                except ValueError:
+                except (ValueError, ChatAdminRequiredError, Exception) as e:
+                    logger.warning(f"Could not get forwarded sender: {e}")
                     pass
 
         if sender and hasattr(sender, "last_name"):
@@ -126,9 +141,12 @@ class QuotlyTelethon:
         }
 
         if event.document and event.document.thumbs:
-            file_ = await event.download_media(thumb=-1)
-            uri = await telegraph(file_)
-            message["media"] = {"url": uri}
+            try:
+                file_ = await event.download_media(thumb=-1)
+                uri = await telegraph(file_)
+                message["media"] = {"url": uri}
+            except Exception as e:
+                logger.warning(f"Could not download media: {e}")
 
         return message
 
@@ -178,78 +196,135 @@ async def setup_telethon_handlers(client):
 
     @client.on(events.NewMessage(pattern=r'^/q(?: |$)(.*)'))
     async def quott_(event):
-        match = event.pattern_match.group(1).strip()
-        if not event.is_reply:
-            return await event.reply("Please reply to a message.")
-
-        msg = await event.reply("Creating quote, please wait...")
-        reply = await event.get_reply_message()
-        replied_to, reply_ = None, None
-
-        if match:
-            spli_ = match.split(maxsplit=1)
-            if (spli_[0] in ["r", "reply"]) or (
-                spli_[0].isdigit() and int(spli_[0]) in range(1, 21)
-            ):
-                if spli_[0].isdigit():
-                    if not event.client.is_bot:
-                        reply_ = await event.client.get_messages(
-                            event.chat_id,
-                            min_id=event.reply_to_msg_id - 1,
-                            reverse=True,
-                            limit=int(spli_[0]),
-                        )
-                    else:
-                        id_ = reply.id
-                        reply_ = []
-                        for msg_ in range(id_, id_ + int(spli_[0])):
-                            msh = await event.client.get_messages(event.chat_id, ids=msg_)
-                            if msh:
-                                reply_.append(msh)
-                else:
-                    replied_to = await reply.get_reply_message()
-                try:
-                    match = spli_[1]
-                except IndexError:
-                    match = None
-
-        user = None
-
-        if not reply_:
-            reply_ = reply
-
-        if match:
-            match = match.split(maxsplit=1)
-
-        if match:
-            if match[0].startswith("@") or match[0].isdigit():
-                try:
-                    match_ = await event.client.parse_id(match[0])
-                    user = await event.client.get_entity(match_)
-                except ValueError:
-                    pass
-                match = match[1] if len(match) == 2 else None
-            else:
-                match = match[0]
-
-        if match == "random":
-            match = choice(list(COLOR_MAP.values()))
-
-        # Handle color mapping
-        bg_color = "#2a1f3d"
-        if match and match in COLOR_MAP:
-            bg_color = COLOR_MAP[match]
-        elif match and match.startswith("#"):
-            bg_color = match
-
         try:
-            file = await quotly.create_quotly(
-                reply_, bg=bg_color, reply=replied_to, sender=user
-            )
-        except Exception as er:
-            return await msg.edit(str(er))
+            match = event.pattern_match.group(1).strip()
+            if not event.is_reply:
+                return await event.reply("<b>Please reply to a message to create a quote.</b>", parse_mode='html')
 
-        message = await reply.reply("", file=file)
-        os.remove(file)
-        await msg.delete()
-        return message
+            msg = await event.reply("⏳ <b>Creating quote, please wait...</b>", parse_mode='html')
+            reply = await event.get_reply_message()
+            replied_to, reply_ = None, None
+
+            if match:
+                spli_ = match.split(maxsplit=1)
+                if (spli_[0] in ["r", "reply"]) or (
+                    spli_[0].isdigit() and int(spli_[0]) in range(1, 21)
+                ):
+                    if spli_[0].isdigit():
+                        if not event.client.is_bot:
+                            reply_ = await event.client.get_messages(
+                                event.chat_id,
+                                min_id=event.reply_to_msg_id - 1,
+                                reverse=True,
+                                limit=int(spli_[0]),
+                            )
+                        else:
+                            id_ = reply.id
+                            reply_ = []
+                            for msg_ in range(id_, id_ + int(spli_[0])):
+                                msh = await event.client.get_messages(event.chat_id, ids=msg_)
+                                if msh:
+                                    reply_.append(msh)
+                    else:
+                        try:
+                            replied_to = await reply.get_reply_message()
+                        except (ChatAdminRequiredError, Exception) as e:
+                            logger.warning(f"Could not get reply message: {e}")
+                    try:
+                        match = spli_[1]
+                    except IndexError:
+                        match = None
+
+            user = None
+
+            if not reply_:
+                reply_ = reply
+
+            if match:
+                match = match.split(maxsplit=1)
+
+            if match:
+                if match[0].startswith("@") or match[0].isdigit():
+                    try:
+                        match_ = await event.client.parse_id(match[0])
+                        user = await event.client.get_entity(match_)
+                    except (ValueError, ChatAdminRequiredError, Exception) as e:
+                        logger.warning(f"Could not get user entity: {e}")
+                        pass
+                    match = match[1] if len(match) == 2 else None
+                else:
+                    match = match[0]
+
+            if match == "random":
+                match = choice(list(COLOR_MAP.values()))
+
+            # Handle color mapping
+            bg_color = "#2a1f3d"
+            if match and match in COLOR_MAP:
+                bg_color = COLOR_MAP[match]
+            elif match and match.startswith("#"):
+                bg_color = match
+
+            try:
+                file = await quotly.create_quotly(
+                    reply_, bg=bg_color, reply=replied_to, sender=user
+                )
+            except Exception as er:
+                error_msg = (
+                    "<b>Oops! Couldn't send the quote.</b>\n\n"
+                    "If the problem continues, kindly report it here: <a href='https://t.me/Samuraissupportchat'>Support Group</a>"
+                )
+                await msg.edit(error_msg, parse_mode='html')
+                logger.error(f"Quote creation error: {er}")
+                return
+
+            try:
+                message = await reply.reply("", file=file)
+                os.remove(file)
+                await msg.delete()
+                return message
+                
+            except ChatSendStickersForbiddenError:
+                os.remove(file)
+                error_msg = (
+                    "<b>If the problem continues, kindly report it here: <a href='https://t.me/Samuraissupportchat'>Support Group</a></b>"
+                )
+                await msg.edit(error_msg, parse_mode='html')
+                logger.warning(f"Stickers forbidden in chat {event.chat_id}")
+                
+            except ChatWriteForbiddenError:
+                os.remove(file)
+                error_msg = (
+                    "<b>I need admin rights to complete this. Kindly promote me and try again.</b>"
+                )
+                await msg.edit(error_msg, parse_mode='html')
+                logger.warning(f"Write forbidden in chat {event.chat_id}")
+                
+            except ChatAdminRequiredError:
+                os.remove(file)
+                error_msg = (
+                    "<b>I need admin rights to complete this. Kindly promote me and try again.</b>"
+                )
+                await msg.edit(error_msg, parse_mode='html')
+                logger.warning(f"Admin required in chat {event.chat_id}")
+                
+            except Exception as e:
+                if os.path.exists(file):
+                    os.remove(file)
+                error_msg = (
+                    "<b>Oops! Couldn't send the quote.</b>\n\n"
+                    "If the problem continues, kindly report it here: <a href='https://t.me/Samuraissupportchat'>Support Group</a>"
+                )
+                await msg.edit(error_msg, parse_mode='html')
+                logger.error(f"Unexpected error in quott_: {e}", exc_info=True)
+                
+        except Exception as e:
+            logger.error(f"Unhandled exception in quott_: {e}", exc_info=True)
+            try:
+                error_msg = (
+                    "<b>Oops! Couldn't send the quote.</b>\n\n"
+                    "If the problem continues, kindly report it here: <a href='https://t.me/Samuraissupportchat'>Support Group</a>"
+                )
+                await event.reply(error_msg, parse_mode='html')
+            except:
+                pass

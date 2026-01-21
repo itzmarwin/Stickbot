@@ -64,6 +64,7 @@ async def get_instagram_media_official(url: str) -> dict:
             
             if response.status_code == 200:
                 html = response.text
+                logger.info(f"✅ Got Instagram page, size: {len(html)} bytes")
                 
                 # Extract JSON data from page
                 # Instagram embeds data in <script type="application/ld+json">
@@ -97,7 +98,7 @@ async def get_instagram_media_official(url: str) -> dict:
                         
                         # Single item
                         if 'contentUrl' in data:
-                            logger.info("✅ Method 1: Found single item")
+                            logger.info("✅ Method 1: Found single item from JSON-LD")
                             return {
                                 "success": True,
                                 "type": "single",
@@ -105,46 +106,73 @@ async def get_instagram_media_official(url: str) -> dict:
                                 "media_type": 'video' if data.get('@type') == 'VideoObject' else 'photo'
                             }
                             
-                    except json.JSONDecodeError:
-                        logger.warning("⚠️ Method 1: JSON parse failed")
+                    except json.JSONDecodeError as je:
+                        logger.warning(f"⚠️ Method 1: JSON parse failed: {je}")
                 
-                # Alternative: Find all image/video URLs in HTML
-                logger.info("🔄 Method 1b: Extracting media from HTML...")
+                # Alternative: Find all image/video URLs in HTML using regex
+                logger.info("🔄 Method 1b: Extracting media URLs from HTML...")
                 
-                # Find high-res images
-                image_matches = re.findall(r'"display_url":"(https://[^"]+)"', html)
-                video_matches = re.findall(r'"video_url":"(https://[^"]+)"', html)
+                # Find video URLs
+                video_patterns = [
+                    r'"video_url":"(https://[^"]+)"',
+                    r'"VideoUrl":"(https://[^"]+)"',
+                    r'"src":"(https://[^"]+\.mp4[^"]*)"'
+                ]
+                
+                # Find image URLs  
+                image_patterns = [
+                    r'"display_url":"(https://[^"]+)"',
+                    r'"DisplayUrl":"(https://[^"]+)"',
+                    r'"thumbnail_src":"(https://[^"]+)"',
+                    r'"src":"(https://scontent[^"]+\.jpg[^"]*)"'
+                ]
                 
                 media_urls = []
+                seen_urls = set()
                 
-                for video_url in video_matches:
-                    # Unescape the URL
-                    video_url = video_url.replace(r'\u0026', '&')
-                    media_urls.append({'url': video_url, 'type': 'video'})
+                # Extract videos
+                for pattern in video_patterns:
+                    matches = re.findall(pattern, html)
+                    for video_url in matches:
+                        # Unescape the URL
+                        video_url = video_url.replace(r'\u0026', '&').replace(r'\/', '/')
+                        if video_url not in seen_urls and 'cdninstagram.com' in video_url:
+                            seen_urls.add(video_url)
+                            media_urls.append({'url': video_url, 'type': 'video'})
+                            logger.info(f"   Found video: {video_url[:60]}...")
                 
-                for img_url in image_matches:
-                    img_url = img_url.replace(r'\u0026', '&')
-                    if img_url not in [m['url'] for m in media_urls]:  # Avoid duplicates
-                        media_urls.append({'url': img_url, 'type': 'photo'})
+                # Extract images
+                for pattern in image_patterns:
+                    matches = re.findall(pattern, html)
+                    for img_url in matches:
+                        img_url = img_url.replace(r'\u0026', '&').replace(r'\/', '/')
+                        if img_url not in seen_urls and 'cdninstagram.com' in img_url:
+                            seen_urls.add(img_url)
+                            media_urls.append({'url': img_url, 'type': 'photo'})
+                
+                if media_urls:
+                    logger.info(f"✅ Method 1b: Found {len(media_urls)} media items")
                 
                 if len(media_urls) > 1:
-                    logger.info(f"✅ Method 1b: Found {len(media_urls)} items")
+                    logger.info(f"✅ Method 1b: Returning carousel with {len(media_urls)} items")
                     return {
                         "success": True,
                         "type": "carousel",
                         "media_urls": media_urls[:10]  # Limit to 10
                     }
                 elif len(media_urls) == 1:
-                    logger.info("✅ Method 1b: Found single item")
+                    logger.info("✅ Method 1b: Returning single item")
                     return {
                         "success": True,
                         "type": "single",
                         "media_url": media_urls[0]['url'],
                         "media_type": media_urls[0]['type']
                     }
+                else:
+                    logger.warning("⚠️ Method 1b: No media URLs found in HTML")
                     
         except Exception as e:
-            logger.error(f"❌ Method 1 failed: {e}")
+            logger.error(f"❌ Method 1 failed: {e}", exc_info=True)
         
         # ==================== METHOD 2: Instagram oEmbed API ====================
         logger.info("🔄 Method 2: Trying oEmbed API...")
@@ -154,7 +182,13 @@ async def get_instagram_media_official(url: str) -> dict:
             response = await client.get(oembed_url)
             
             if response.status_code == 200:
-                data = response.json()
+                # Handle encoding issues
+                try:
+                    data = response.json()
+                except:
+                    # Try with different encoding
+                    response.encoding = 'utf-8'
+                    data = json.loads(response.text)
                 
                 if 'thumbnail_url' in data:
                     logger.info("✅ Method 2: oEmbed success")
@@ -177,7 +211,12 @@ async def get_instagram_media_official(url: str) -> dict:
             response = await client.get(api_url, params={"url": url})
             
             if response.status_code == 200:
-                data = response.json()
+                # Handle encoding issues
+                try:
+                    data = response.json()
+                except:
+                    response.encoding = 'utf-8'
+                    data = json.loads(response.text)
                 
                 if "result" in data:
                     result = data["result"]

@@ -1,6 +1,9 @@
 import logging
 import re
 import httpx
+import tempfile
+import os
+import asyncio
 from pyrogram import Client, filters
 from pyrogram.types import Message, InputMediaPhoto, InputMediaVideo
 from pyrogram.enums import ChatMemberStatus
@@ -20,9 +23,8 @@ INSTAGRAM_PATTERN = re.compile(
 
 # API Endpoints
 TIKTOK_API = "https://tiktok-dl.hazex.workers.dev/"
-INSTAGRAM_API = "https://insta-dl.hazex.workers.dev/"
 
-# Support group link (update this with your actual support group)
+# Support group link
 SUPPORT_GROUP = "https://t.me/Samuraissupportchat"
 
 
@@ -79,75 +81,181 @@ async def download_tiktok(url: str) -> dict:
         return {"success": False, "error": str(e)}
 
 
-async def download_instagram(url: str) -> dict:
+async def download_instagram_ytdlp(url: str) -> dict:
     """
-    Download Instagram reel/post using API
+    Download Instagram media using yt-dlp (supports carousels)
     
     Args:
-        url: Instagram reel/post URL
+        url: Instagram post/reel URL
         
     Returns:
-        dict with 'success', 'type', 'media_url'/'media_urls', 'error' keys
+        dict with success status and media info
     """
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.get(INSTAGRAM_API, params={"url": url})
+        # Run yt-dlp command to get info
+        cmd = f'yt-dlp -J "{url}"'
+        
+        process = await asyncio.create_subprocess_shell(
+            cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        
+        stdout, stderr = await process.communicate()
+        
+        if process.returncode != 0:
+            logger.error(f"yt-dlp error: {stderr.decode()}")
+            return {"success": False, "error": "Failed to fetch Instagram data"}
+        
+        import json
+        data = json.loads(stdout.decode())
+        
+        # Check if it's a carousel (multiple entries)
+        if "entries" in data and len(data["entries"]) > 1:
+            # Multiple images/videos
+            media_urls = []
             
-            if response.status_code != 200:
-                return {"success": False, "error": "API request failed"}
+            for entry in data["entries"]:
+                if "url" in entry:
+                    media_type = "video" if entry.get("ext") in ["mp4", "webm"] else "photo"
+                    media_urls.append({
+                        "url": entry["url"],
+                        "type": media_type
+                    })
+                elif "thumbnail" in entry:
+                    # Fallback to thumbnail for images
+                    media_urls.append({
+                        "url": entry["thumbnail"],
+                        "type": "photo"
+                    })
             
-            data = response.json()
-            
-            if "result" not in data:
-                return {"success": False, "error": "Invalid API response"}
-            
-            result = data["result"]
-            
-            # Check if it's a carousel (multiple images/videos)
-            if isinstance(result, list) and len(result) > 0:
-                # Multiple media items
-                media_urls = []
-                for item in result:
-                    if isinstance(item, dict) and "url" in item:
-                        media_urls.append({
-                            "url": item.get("url"),
-                            "type": item.get("type", "image"),
-                            "quality": item.get("quality", "Unknown")
-                        })
-                    elif isinstance(item, str):
-                        media_urls.append({
-                            "url": item,
-                            "type": "image",
-                            "quality": "Unknown"
-                        })
-                
-                if media_urls:
-                    return {
-                        "success": True,
-                        "type": "carousel",
-                        "media_urls": media_urls,
-                        "size": result[0].get("formattedSize", "Unknown") if isinstance(result[0], dict) else "Unknown"
-                    }
-            
-            # Single media item
-            media_url = result.get("url")
-            
-            if not media_url:
-                return {"success": False, "error": "Media URL not found"}
-            
+            if media_urls:
+                return {
+                    "success": True,
+                    "type": "carousel",
+                    "media_urls": media_urls,
+                    "title": data.get("title", "Instagram Post")
+                }
+        
+        # Single media
+        if "url" in data:
             return {
                 "success": True,
                 "type": "single",
-                "media_url": media_url,
-                "quality": result.get("quality", "Unknown"),
-                "size": result.get("formattedSize", "Unknown")
+                "media_url": data["url"],
+                "media_type": "video" if data.get("ext") in ["mp4", "webm"] else "photo",
+                "title": data.get("title", "Instagram Media")
             }
-            
-    except httpx.TimeoutException:
-        return {"success": False, "error": "Request timeout"}
+        elif "thumbnail" in data:
+            return {
+                "success": True,
+                "type": "single",
+                "media_url": data["thumbnail"],
+                "media_type": "photo",
+                "title": data.get("title", "Instagram Media")
+            }
+        
+        return {"success": False, "error": "No media found"}
+        
     except Exception as e:
-        logger.error(f"Instagram download error: {e}")
+        logger.error(f"yt-dlp Instagram download error: {e}")
         return {"success": False, "error": str(e)}
+
+
+async def download_instagram_gallery_dl(url: str) -> dict:
+    """
+    Download Instagram media using gallery-dl (best for carousels)
+    
+    Args:
+        url: Instagram post/reel URL
+        
+    Returns:
+        dict with success status and media info
+    """
+    try:
+        # Run gallery-dl command to get info
+        cmd = f'gallery-dl -j --no-download "{url}"'
+        
+        process = await asyncio.create_subprocess_shell(
+            cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        
+        stdout, stderr = await process.communicate()
+        
+        if process.returncode != 0:
+            logger.error(f"gallery-dl error: {stderr.decode()}")
+            return {"success": False, "error": "Failed to fetch Instagram data"}
+        
+        import json
+        
+        # Parse JSON lines output
+        media_urls = []
+        for line in stdout.decode().strip().split('\n'):
+            if line.strip():
+                try:
+                    data = json.loads(line)
+                    
+                    if "url" in data:
+                        # Determine if it's video or photo
+                        media_type = "video" if data.get("typename") == "GraphVideo" else "photo"
+                        
+                        media_urls.append({
+                            "url": data["url"],
+                            "type": media_type
+                        })
+                except json.JSONDecodeError:
+                    continue
+        
+        if len(media_urls) > 1:
+            return {
+                "success": True,
+                "type": "carousel",
+                "media_urls": media_urls
+            }
+        elif len(media_urls) == 1:
+            return {
+                "success": True,
+                "type": "single",
+                "media_url": media_urls[0]["url"],
+                "media_type": media_urls[0]["type"]
+            }
+        
+        return {"success": False, "error": "No media found"}
+        
+    except Exception as e:
+        logger.error(f"gallery-dl Instagram download error: {e}")
+        return {"success": False, "error": str(e)}
+
+
+async def download_instagram(url: str) -> dict:
+    """
+    Download Instagram media with fallback methods
+    
+    Args:
+        url: Instagram post/reel URL
+        
+    Returns:
+        dict with success status and media info
+    """
+    # Try gallery-dl first (best for carousels)
+    result = await download_instagram_gallery_dl(url)
+    if result["success"]:
+        logger.info("✅ gallery-dl succeeded")
+        return result
+    
+    logger.warning(f"⚠️ gallery-dl failed: {result.get('error')}")
+    
+    # Try yt-dlp as fallback
+    result = await download_instagram_ytdlp(url)
+    if result["success"]:
+        logger.info("✅ yt-dlp succeeded")
+        return result
+    
+    logger.warning(f"⚠️ yt-dlp failed: {result.get('error')}")
+    
+    return {"success": False, "error": "All download methods failed"}
 
 
 async def is_bot_admin(client: Client, chat_id: int) -> bool:
@@ -175,14 +283,16 @@ async def send_instagram_media(message: Message, result: dict, processing_msg: M
     try:
         if result["type"] == "carousel":
             # Multiple images/videos
+            media_count = len(result['media_urls'])
+            
             if processing_msg:
                 await processing_msg.edit_text(
-                    f"⏳ **Downloading {len(result['media_urls'])} items...**"
+                    f"⏳ **Downloading {media_count} items...**"
                 )
             
             media_group = []
             for idx, media in enumerate(result['media_urls'][:10]):  # Telegram limit: 10 items
-                caption = f"📸 **Instagram Post**\nSize: {result['size']}" if idx == 0 else ""
+                caption = f"📸 **Instagram Carousel Post**\n{media_count} items total" if idx == 0 else ""
                 
                 if media.get("type") == "video":
                     media_group.append(InputMediaVideo(media=media["url"], caption=caption))
@@ -195,27 +305,31 @@ async def send_instagram_media(message: Message, result: dict, processing_msg: M
         
         elif result["type"] == "single":
             # Single video or image
-            await message.reply_video(
-                video=result["media_url"],
-                caption=f"📸 **Instagram Media**\n"
-                        f"Quality: {result['quality']}\n"
-                        f"Size: {result['size']}"
-            )
+            media_type = result.get("media_type", "photo")
+            title = result.get("title", "Instagram Media")
+            
+            if media_type == "video":
+                await message.reply_video(
+                    video=result["media_url"],
+                    caption=f"📸 **{title}**"
+                )
+            else:
+                await message.reply_photo(
+                    photo=result["media_url"],
+                    caption=f"📸 **{title}**"
+                )
+            
             if processing_msg:
                 await processing_msg.delete()
     
     except Exception as e:
         logger.error(f"Error sending Instagram media: {e}")
+        error_msg = f"❌ Failed to send media: {str(e)}\nPlease report to [Support Group]({SUPPORT_GROUP})."
+        
         if processing_msg:
-            await processing_msg.edit_text(
-                f"❌ Failed to send media.\n"
-                f"Please report to [Support Group]({SUPPORT_GROUP})."
-            )
+            await processing_msg.edit_text(error_msg)
         else:
-            await message.reply_text(
-                f"❌ Failed to send media.\n"
-                f"Please report to [Support Group]({SUPPORT_GROUP})."
-            )
+            await message.reply_text(error_msg)
 
 
 async def setup_extra_handlers(client: Client):

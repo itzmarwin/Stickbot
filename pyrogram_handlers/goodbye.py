@@ -416,13 +416,13 @@ async def setup_goodbye_handlers(client: Client):
                     time_str = format_time(delete_after)
                     
                     await message.reply_text(
-                        f"✅ <b>Auto-delete goodbye is enabled</b>\n\n"
-                        f"⏰ Goodbye messages will be deleted after: <b>{time_str}</b>",
+                        f"<b>Auto-delete for goodbye messages is enabled.</b>\n\n"
+                        f"Goodbye messages will be deleted after: <b>{time_str}</b>",
                         parse_mode=ParseMode.HTML
                     )
                 else:
                     await message.reply_text(
-                        "❌ <b>Auto-delete goodbye is disabled for this group</b>",
+                        "<b>Auto-delete for goodbye messages is currently disabled in this group.</b>",
                         parse_mode=ParseMode.HTML
                     )
                 return
@@ -439,7 +439,7 @@ async def setup_goodbye_handlers(client: Client):
                 auto_delete = settings.get('goodbye', {}).get('auto_delete', {})
                 if auto_delete.get('enabled'):
                     await message.reply_text(
-                        "✅ Auto-delete goodbye is already enabled!",
+                        "Auto-delete goodbye is already enabled!",
                         parse_mode=ParseMode.HTML
                     )
                     return
@@ -451,8 +451,8 @@ async def setup_goodbye_handlers(client: Client):
                     GOODBYE_CACHE[chat_id] = settings['goodbye']
                 
                 await message.reply_text(
-                    "✅ <b>Auto-delete goodbye enabled!</b>\n\n"
-                    "⏰ Goodbye messages will be deleted after: <b>10 minutes</b>",
+                    "<b>Auto-delete for goodbye messages has been enabled.</b>\n\n"
+                    "Goodbye messages will be deleted after: <b>10 minutes</b>",
                     parse_mode=ParseMode.HTML
                 )
             
@@ -461,7 +461,7 @@ async def setup_goodbye_handlers(client: Client):
                 
                 if not settings:
                     await message.reply_text(
-                        "❌ Auto-delete is not configured for this group.",
+                        "Auto-delete is not enabled for this group.",
                         parse_mode=ParseMode.HTML
                     )
                     return
@@ -469,7 +469,7 @@ async def setup_goodbye_handlers(client: Client):
                 auto_delete = settings.get('goodbye', {}).get('auto_delete', {})
                 if not auto_delete.get('enabled'):
                     await message.reply_text(
-                        "❌ Auto-delete goodbye is already disabled!",
+                        "Auto-delete for goodbye messages is already disabled.",
                         parse_mode=ParseMode.HTML
                     )
                     return
@@ -486,8 +486,7 @@ async def setup_goodbye_handlers(client: Client):
                         del GOODBYE_DELETE_TASKS[msg_id]
                 
                 await message.reply_text(
-                    "❌ <b>Auto-delete goodbye disabled!</b>\n\n"
-                    "Goodbye messages will not be deleted automatically.",
+                    "<b>Auto-delete for goodbye messages is disabled.</b>",
                     parse_mode=ParseMode.HTML
                 )
             
@@ -496,14 +495,14 @@ async def setup_goodbye_handlers(client: Client):
                 
                 if delete_after < 10:
                     await message.reply_text(
-                        "⚠️ Minimum delete time is 10 seconds!",
+                        "Auto-delete time cannot be less than 10 seconds.",
                         parse_mode=ParseMode.HTML
                     )
                     return
                 
                 if delete_after > 86400:
                     await message.reply_text(
-                        "⚠️ Maximum delete time is 24 hours (86400 seconds)!",
+                        "The maximum auto-delete time is 24 hours (86,400 seconds).",
                         parse_mode=ParseMode.HTML
                     )
                     return
@@ -517,8 +516,8 @@ async def setup_goodbye_handlers(client: Client):
                 time_str = format_time(delete_after)
                 
                 await message.reply_text(
-                    f"✅ <b>Auto-delete goodbye updated!</b>\n\n"
-                    f"⏰ Goodbye messages will be deleted after: <b>{time_str}</b>",
+                    f"<b>Auto-delete for goodbye messages has been updated.</b>\n\n"
+                    f"Goodbye messages will be deleted after: <b>{time_str}</b>",
                     parse_mode=ParseMode.HTML
                 )
             

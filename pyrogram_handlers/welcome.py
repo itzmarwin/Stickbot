@@ -1,5 +1,6 @@
 import logging
 import re
+import asyncio
 from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, ChatMemberUpdated
 from pyrogram.enums import ChatMemberStatus, ParseMode
@@ -9,12 +10,14 @@ from database_management import (
     create_default_welcome_settings,
     update_welcome_status,
     set_custom_welcome,
-    delete_custom_welcome
+    delete_custom_welcome,
+    update_welcome_auto_delete
 )
 
 logger = logging.getLogger(__name__)
 
 WELCOME_CACHE = {}
+WELCOME_DELETE_TASKS = {}
 
 
 def parse_buttons(text: str) -> tuple:
@@ -87,12 +90,30 @@ def format_welcome_text(text: str, user, chat) -> str:
     return formatted
 
 
+def format_time(seconds: int) -> str:
+    if seconds < 60:
+        return f"{seconds} second{'s' if seconds != 1 else ''}"
+    
+    hours = seconds // 3600
+    minutes = (seconds % 3600) // 60
+    secs = seconds % 60
+    
+    parts = []
+    if hours > 0:
+        parts.append(f"{hours} hour{'s' if hours != 1 else ''}")
+    if minutes > 0:
+        parts.append(f"{minutes} minute{'s' if minutes != 1 else ''}")
+    if secs > 0:
+        parts.append(f"{secs} second{'s' if secs != 1 else ''}")
+    
+    return " ".join(parts)
+
+
 def create_button_markup(button_rows: list) -> InlineKeyboardMarkup:
     if not button_rows:
         return None
     
     keyboard = []
-    
     for row in button_rows:
         keyboard_row = []
         for btn in row:
@@ -106,8 +127,7 @@ async def is_user_admin(client: Client, chat_id: int, user_id: int) -> bool:
     try:
         member = await client.get_chat_member(chat_id, user_id)
         return member.status in [ChatMemberStatus.OWNER, ChatMemberStatus.ADMINISTRATOR]
-    except Exception as e:
-        logger.error(f"Error checking admin status: {e}")
+    except Exception:
         return False
 
 
@@ -116,9 +136,20 @@ async def is_bot_admin(client: Client, chat_id: int) -> bool:
         bot = await client.get_me()
         bot_member = await client.get_chat_member(chat_id, bot.id)
         return bot_member.status in [ChatMemberStatus.ADMINISTRATOR]
-    except Exception as e:
-        logger.error(f"Error checking bot admin status: {e}")
+    except Exception:
         return False
+
+
+async def delete_message_after(message: Message, seconds: int, chat_id: int, message_id: int):
+    try:
+        await asyncio.sleep(seconds)
+        await message.delete()
+        if message_id in WELCOME_DELETE_TASKS:
+            del WELCOME_DELETE_TASKS[message_id]
+    except Exception as e:
+        logger.error(f"Failed to delete welcome message {message_id}: {e}")
+        if message_id in WELCOME_DELETE_TASKS:
+            del WELCOME_DELETE_TASKS[message_id]
 
 
 async def setup_welcome_handlers(client: Client):
@@ -130,10 +161,7 @@ async def setup_welcome_handlers(client: Client):
             user_id = message.from_user.id
             
             if not await is_user_admin(client, chat_id, user_id):
-                await message.reply_text(
-                    "Only admins can use this command!",
-                    parse_mode=ParseMode.HTML
-                )
+                await message.reply_text("Only admins can use this command!", parse_mode=ParseMode.HTML)
                 return
             
             command_parts = message.text.split(maxsplit=1)
@@ -148,7 +176,7 @@ async def setup_welcome_handlers(client: Client):
                 is_enabled = settings.get('welcome', {}).get('enabled', False)
                 status_text = "enabled" if is_enabled else "disabled"
                 
-                status_msg = await message.reply_text(
+                await message.reply_text(
                     f"<b>Welcome messages are currently {status_text}.</b>",
                     parse_mode=ParseMode.HTML
                 )
@@ -170,28 +198,13 @@ async def setup_welcome_handlers(client: Client):
                         media_id = welcome_config['media_id']
                         
                         if media_type == "photo":
-                            await message.reply_photo(
-                                photo=media_id,
-                                caption=text,
-                                reply_markup=reply_markup
-                            )
+                            await message.reply_photo(photo=media_id, caption=text, reply_markup=reply_markup)
                         elif media_type == "video":
-                            await message.reply_video(
-                                video=media_id,
-                                caption=text,
-                                reply_markup=reply_markup
-                            )
+                            await message.reply_video(video=media_id, caption=text, reply_markup=reply_markup)
                         elif media_type == "animation":
-                            await message.reply_animation(
-                                animation=media_id,
-                                caption=text,
-                                reply_markup=reply_markup
-                            )
+                            await message.reply_animation(animation=media_id, caption=text, reply_markup=reply_markup)
                     else:
-                        await message.reply_text(
-                            text=text,
-                            reply_markup=reply_markup
-                        )
+                        await message.reply_text(text=text, reply_markup=reply_markup)
                 
                 return
             
@@ -212,37 +225,28 @@ async def setup_welcome_handlers(client: Client):
             
             if action == "on":
                 if settings['welcome']['enabled']:
-                    await message.reply_text(
-                        "Welcome is already enabled!",
-                        parse_mode=ParseMode.HTML
-                    )
+                    await message.reply_text("Welcome is already enabled!", parse_mode=ParseMode.HTML)
                     return
                 
                 await update_welcome_status(chat_id, True)
-                
                 settings = await get_welcome_settings(chat_id)
                 WELCOME_CACHE[chat_id] = settings['welcome']
                 
                 if settings['welcome']['custom_set']:
                     await message.reply_text(
-                        "<b>Welcome enabled!</b>\n\n"
-                        "Custom welcome message will be sent to new members.",
+                        "<b>Welcome enabled!</b>\n\nCustom welcome message will be sent to new members.",
                         parse_mode=ParseMode.HTML
                     )
                 else:
                     await message.reply_text(
-                        "<b>Welcome enabled!</b>\n\n"
-                        "Default welcome message will be sent to new members.\n"
+                        "<b>Welcome enabled!</b>\n\nDefault welcome message will be sent to new members.\n"
                         "Use <code>/setwelcome</code> to set a custom message.",
                         parse_mode=ParseMode.HTML
                     )
             
             elif action == "off":
                 if not settings['welcome']['enabled']:
-                    await message.reply_text(
-                        "Welcome is already disabled!",
-                        parse_mode=ParseMode.HTML
-                    )
+                    await message.reply_text("Welcome is already disabled!", parse_mode=ParseMode.HTML)
                     return
                 
                 await update_welcome_status(chat_id, False)
@@ -251,8 +255,7 @@ async def setup_welcome_handlers(client: Client):
                     del WELCOME_CACHE[chat_id]
                 
                 await message.reply_text(
-                    "<b>Welcome disabled!</b>\n\n"
-                    "New members will not receive welcome messages.",
+                    "<b>Welcome disabled!</b>\n\nNew members will not receive welcome messages.",
                     parse_mode=ParseMode.HTML
                 )
             
@@ -277,10 +280,7 @@ async def setup_welcome_handlers(client: Client):
             user_id = message.from_user.id
             
             if not await is_user_admin(client, chat_id, user_id):
-                await message.reply_text(
-                    "Only admins can use this command!",
-                    parse_mode=ParseMode.HTML
-                )
+                await message.reply_text("Only admins can use this command!", parse_mode=ParseMode.HTML)
                 return
             
             if not await is_bot_admin(client, chat_id):
@@ -291,10 +291,7 @@ async def setup_welcome_handlers(client: Client):
                 return
             
             if not message.reply_to_message:
-                await message.reply_text(
-                    "<b>Please reply to a message.</b>",
-                    parse_mode=ParseMode.HTML
-                )
+                await message.reply_text("<b>Please reply to a message.</b>", parse_mode=ParseMode.HTML)
                 return
             
             settings = await get_welcome_settings(chat_id)
@@ -305,8 +302,7 @@ async def setup_welcome_handlers(client: Client):
             
             if settings['welcome']['custom_set']:
                 await message.reply_text(
-                    "<b>A welcome message is already active.</b>"
-                    "Use /delwelcome to remove it before adding a new one.",
+                    "<b>A welcome message is already active.</b>Use /delwelcome to remove it before adding a new one.",
                     parse_mode=ParseMode.HTML
                 )
                 return
@@ -322,20 +318,16 @@ async def setup_welcome_handlers(client: Client):
                 media_type = "photo"
                 media_id = replied_msg.photo.file_id
                 text = replied_msg.caption or ""
-            
             elif replied_msg.video:
                 media_type = "video"
                 media_id = replied_msg.video.file_id
                 text = replied_msg.caption or ""
-            
             elif replied_msg.animation:
                 media_type = "animation"
                 media_id = replied_msg.animation.file_id
                 text = replied_msg.caption or ""
-            
             elif replied_msg.text:
                 text = replied_msg.text
-            
             else:
                 await message.reply_text(
                     "<b>The selected message type is not supported.</b>",
@@ -347,14 +339,9 @@ async def setup_welcome_handlers(client: Client):
                 text, button_rows, error = parse_buttons(text)
                 if error:
                     await message.reply_text(
-                        f"<b>Button Error:</b> {error}\n\n"
-                        "<b>Rules:</b>\n"
-                        "• Max 2 buttons per row\n"
-                        "• Max 6 buttons total\n"
-                        "• Use | to put buttons in same row\n\n"
-                        "<b>Examples:</b>\n"
-                        "<code>[Btn1](url) | [Btn2](url)</code>\n"
-                        "<code>[Btn3](url)</code>",
+                        f"<b>Button Error:</b> {error}\n\n<b>Rules:</b>\n• Max 2 buttons per row\n"
+                        "• Max 6 buttons total\n• Use | to put buttons in same row\n\n<b>Examples:</b>\n"
+                        "<code>[Btn1](url) | [Btn2](url)</code>\n<code>[Btn3](url)</code>",
                         parse_mode=ParseMode.HTML
                     )
                     return
@@ -372,13 +359,13 @@ async def setup_welcome_handlers(client: Client):
             
             if success:
                 await update_welcome_status(chat_id, True)
-                
                 settings = await get_welcome_settings(chat_id)
                 WELCOME_CACHE[chat_id] = settings['welcome']
                 
-                response = "<b>Welcome message has been set successfully!</b>\n\nWelcome is now <b>enabled</b>"
-                
-                await message.reply_text(response, parse_mode=ParseMode.HTML)
+                await message.reply_text(
+                    "<b>Welcome message has been set successfully!</b>\n\nWelcome is now <b>enabled</b>",
+                    parse_mode=ParseMode.HTML
+                )
             else:
                 await message.reply_text(
                     "Unable to set the welcome message at this time. Please try again later.",
@@ -400,38 +387,151 @@ async def setup_welcome_handlers(client: Client):
             user_id = message.from_user.id
             
             if not await is_user_admin(client, chat_id, user_id):
-                await message.reply_text(
-                    "Only admins can use this command!",
-                    parse_mode=ParseMode.HTML
-                )
+                await message.reply_text("Only admins can use this command!", parse_mode=ParseMode.HTML)
                 return
             
-            settings = await get_welcome_settings(chat_id)
+            command_parts = message.text.split()
             
-            if not settings or not settings['welcome']['custom_set']:
-                await message.reply_text(
-                    "<b>No welcome message is set.</b>\n\n"
-                    "Set it using <code>/setwelcome</code>.",
-                    parse_mode=ParseMode.HTML
-                )
+            if len(command_parts) == 1:
+                settings = await get_welcome_settings(chat_id)
+                
+                if not settings:
+                    await create_default_welcome_settings(chat_id)
+                    settings = await get_welcome_settings(chat_id)
+                
+                auto_delete = settings.get('welcome', {}).get('auto_delete', {})
+                is_enabled = auto_delete.get('enabled', False)
+                
+                if is_enabled:
+                    delete_after = auto_delete.get('delete_after', 600)
+                    time_str = format_time(delete_after)
+                    
+                    await message.reply_text(
+                        f"✅ <b>Auto-delete welcome is enabled</b>\n\n"
+                        f"⏰ Welcome messages will be deleted after: <b>{time_str}</b>",
+                        parse_mode=ParseMode.HTML
+                    )
+                else:
+                    await message.reply_text(
+                        "❌ <b>Auto-delete welcome is disabled for this group</b>",
+                        parse_mode=ParseMode.HTML
+                    )
                 return
             
-            success = await delete_custom_welcome(chat_id)
+            action = command_parts[1].lower()
             
-            if success:
+            if action == "on":
+                settings = await get_welcome_settings(chat_id)
+                
+                if not settings:
+                    await create_default_welcome_settings(chat_id)
+                    settings = await get_welcome_settings(chat_id)
+                
+                auto_delete = settings.get('welcome', {}).get('auto_delete', {})
+                if auto_delete.get('enabled'):
+                    await message.reply_text(
+                        "✅ Auto-delete welcome is already enabled!",
+                        parse_mode=ParseMode.HTML
+                    )
+                    return
+                
+                await update_welcome_auto_delete(chat_id, True, 600)
+                
+                settings = await get_welcome_settings(chat_id)
                 if chat_id in WELCOME_CACHE:
-                    del WELCOME_CACHE[chat_id]
-                    logger.info(f"Cleared welcome cache for chat {chat_id}")
+                    WELCOME_CACHE[chat_id] = settings['welcome']
                 
                 await message.reply_text(
-                    "<b>Welcome message deleted.</b>",
+                    "✅ <b>Auto-delete welcome enabled!</b>\n\n"
+                    "⏰ Welcome messages will be deleted after: <b>10 minutes</b>",
                     parse_mode=ParseMode.HTML
                 )
-            else:
+            
+            elif action == "off":
+                settings = await get_welcome_settings(chat_id)
+                
+                if not settings:
+                    await message.reply_text(
+                        "❌ Auto-delete is not configured for this group.",
+                        parse_mode=ParseMode.HTML
+                    )
+                    return
+                
+                auto_delete = settings.get('welcome', {}).get('auto_delete', {})
+                if not auto_delete.get('enabled'):
+                    await message.reply_text(
+                        "❌ Auto-delete welcome is already disabled!",
+                        parse_mode=ParseMode.HTML
+                    )
+                    return
+                
+                await update_welcome_auto_delete(chat_id, False, None)
+                
+                if chat_id in WELCOME_CACHE:
+                    settings = await get_welcome_settings(chat_id)
+                    WELCOME_CACHE[chat_id] = settings['welcome']
+                
+                for msg_id in list(WELCOME_DELETE_TASKS.keys()):
+                    if msg_id in WELCOME_DELETE_TASKS:
+                        WELCOME_DELETE_TASKS[msg_id].cancel()
+                        del WELCOME_DELETE_TASKS[msg_id]
+                
                 await message.reply_text(
-                    "Unable to delete the welcome message.",
+                    "❌ <b>Auto-delete welcome disabled!</b>\n\n"
+                    "Welcome messages will not be deleted automatically.",
                     parse_mode=ParseMode.HTML
                 )
+            
+            elif action.isdigit():
+                delete_after = int(action)
+                
+                if delete_after < 10:
+                    await message.reply_text(
+                        "⚠️ Minimum delete time is 10 seconds!",
+                        parse_mode=ParseMode.HTML
+                    )
+                    return
+                
+                if delete_after > 86400:
+                    await message.reply_text(
+                        "⚠️ Maximum delete time is 24 hours (86400 seconds)!",
+                        parse_mode=ParseMode.HTML
+                    )
+                    return
+                
+                await update_welcome_auto_delete(chat_id, True, delete_after)
+                
+                settings = await get_welcome_settings(chat_id)
+                if chat_id in WELCOME_CACHE:
+                    WELCOME_CACHE[chat_id] = settings['welcome']
+                
+                time_str = format_time(delete_after)
+                
+                await message.reply_text(
+                    f"✅ <b>Auto-delete welcome updated!</b>\n\n"
+                    f"⏰ Welcome messages will be deleted after: <b>{time_str}</b>",
+                    parse_mode=ParseMode.HTML
+                )
+            
+            else:
+                settings = await get_welcome_settings(chat_id)
+                
+                if not settings or not settings['welcome']['custom_set']:
+                    await message.reply_text(
+                        "<b>No welcome message is set.</b>\n\nSet it using <code>/setwelcome</code>.",
+                        parse_mode=ParseMode.HTML
+                    )
+                    return
+                
+                success = await delete_custom_welcome(chat_id)
+                
+                if success:
+                    if chat_id in WELCOME_CACHE:
+                        del WELCOME_CACHE[chat_id]
+                    
+                    await message.reply_text("<b>Welcome message deleted.</b>", parse_mode=ParseMode.HTML)
+                else:
+                    await message.reply_text("Unable to delete the welcome message.", parse_mode=ParseMode.HTML)
         
         except Exception as e:
             logger.error(f"Error in delwelcome_command: {e}", exc_info=True)
@@ -462,9 +562,6 @@ async def setup_welcome_handlers(client: Client):
                 
                 if not welcome_config.get('enabled'):
                     return
-                
-                logger.info(f"Using cached welcome for chat {chat_id}")
-            
             else:
                 settings = await get_welcome_settings(chat_id)
                 
@@ -476,10 +573,7 @@ async def setup_welcome_handlers(client: Client):
                     return
                 
                 welcome_config = settings['welcome']
-                
                 WELCOME_CACHE[chat_id] = welcome_config
-                
-                logger.info(f"Cached welcome for chat {chat_id}")
             
             if welcome_config.get('custom_set') and welcome_config.get('text'):
                 text = welcome_config['text']
@@ -492,13 +586,15 @@ async def setup_welcome_handlers(client: Client):
             if welcome_config.get('buttons'):
                 reply_markup = create_button_markup(welcome_config['buttons'])
             
+            sent_message = None
+            
             try:
                 if welcome_config.get('media_type') and welcome_config.get('media_id'):
                     media_type = welcome_config['media_type']
                     media_id = welcome_config['media_id']
                     
                     if media_type == "photo":
-                        await client.send_photo(
+                        sent_message = await client.send_photo(
                             chat_id=chat_id,
                             photo=media_id,
                             caption=formatted_text,
@@ -506,7 +602,7 @@ async def setup_welcome_handlers(client: Client):
                             parse_mode=ParseMode.HTML
                         )
                     elif media_type == "video":
-                        await client.send_video(
+                        sent_message = await client.send_video(
                             chat_id=chat_id,
                             video=media_id,
                             caption=formatted_text,
@@ -514,7 +610,7 @@ async def setup_welcome_handlers(client: Client):
                             parse_mode=ParseMode.HTML
                         )
                     elif media_type == "animation":
-                        await client.send_animation(
+                        sent_message = await client.send_animation(
                             chat_id=chat_id,
                             animation=media_id,
                             caption=formatted_text,
@@ -522,14 +618,21 @@ async def setup_welcome_handlers(client: Client):
                             parse_mode=ParseMode.HTML
                         )
                 else:
-                    await client.send_message(
+                    sent_message = await client.send_message(
                         chat_id=chat_id,
                         text=formatted_text,
                         reply_markup=reply_markup,
                         parse_mode=ParseMode.HTML
                     )
                 
-                logger.info(f"Welcome sent to {user.id} in chat {chat_id}")
+                auto_delete = welcome_config.get('auto_delete', {})
+                if auto_delete.get('enabled') and sent_message:
+                    delete_after = auto_delete.get('delete_after', 600)
+                    
+                    task = asyncio.create_task(
+                        delete_message_after(sent_message, delete_after, chat_id, sent_message.id)
+                    )
+                    WELCOME_DELETE_TASKS[sent_message.id] = task
                 
             except Exception as send_error:
                 logger.error(f"Send failed: {send_error}", exc_info=True)
@@ -537,4 +640,4 @@ async def setup_welcome_handlers(client: Client):
         except Exception as e:
             logger.error(f"Critical error in welcome handler: {e}", exc_info=True)
     
-    logger.info("Welcome handlers setup complete")
+    logger.info("✅ Welcome handlers setup complete")

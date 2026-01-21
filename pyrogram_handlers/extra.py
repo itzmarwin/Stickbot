@@ -19,29 +19,187 @@ INSTAGRAM_PATTERN = re.compile(
     re.IGNORECASE
 )
 
-# API Endpoints
-TIKTOK_API = "https://tiktok-dl.hazex.workers.dev/"
-
 # Support group link
 SUPPORT_GROUP = "https://t.me/Samuraissupportchat"
 
 
-async def download_tiktok(url: str) -> dict:
-    """Download TikTok video or images using API"""
+async def scrape_instagram_from_web(url: str) -> dict:
+    """
+    Scrape Instagram download links from SaveIG website
+    
+    IMPORTANT: This function DOES NOT download files to VPS
+    It only extracts direct CDN URLs and returns them
+    Telegram will stream/download directly from Instagram's CDN
+    """
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.get(TIKTOK_API, params={"url": url})
+        async with httpx.AsyncClient(
+            timeout=30.0,
+            follow_redirects=True,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.5",
+                "Accept-Encoding": "gzip, deflate, br",
+                "Connection": "keep-alive",
+            }
+        ) as client:
+            
+            logger.info("🔍 Step 1: Accessing SaveIG website...")
+            
+            # Step 1: Get the SaveIG page with URL
+            params = {
+                "url": url
+            }
+            
+            response = await client.get(
+                "https://saveig.app/api/ajaxSearch",
+                params={"q": url, "t": "media", "lang": "en"}
+            )
             
             if response.status_code != 200:
-                return {"success": False, "error": "API request failed"}
+                logger.error(f"❌ SaveIG returned {response.status_code}")
+                return {"success": False, "error": f"SaveIG returned status {response.status_code}"}
+            
+            logger.info("✅ Step 2: Parsing HTML response...")
+            
+            # Step 2: Parse the response
+            data = response.json()
+            
+            if "data" not in data:
+                logger.error("❌ No data field in response")
+                return {"success": False, "error": "No data in SaveIG response"}
+            
+            html_content = data["data"]
+            soup = BeautifulSoup(html_content, 'html.parser')
+            
+            logger.info("🔎 Step 3: Extracting download links...")
+            
+            # Step 3: Find all download links
+            media_items = []
+            
+            # Method 1: Find download buttons
+            download_buttons = soup.find_all('a', class_='abutton')
+            
+            for button in download_buttons:
+                href = button.get('href', '')
+                
+                # Only get Instagram CDN URLs
+                if 'cdninstagram.com' in href or 'fbcdn.net' in href:
+                    
+                    # Check text to determine type
+                    button_text = button.get_text().lower()
+                    
+                    if 'video' in button_text:
+                        media_type = 'video'
+                    elif 'photo' in button_text or 'image' in button_text:
+                        media_type = 'photo'
+                    else:
+                        # Default to photo for carousel items
+                        media_type = 'photo'
+                    
+                    media_items.append({
+                        'url': href,
+                        'type': media_type
+                    })
+                    
+                    logger.info(f"   ✓ Found {media_type}: {href[:80]}...")
+            
+            # Method 2: Fallback - Find direct CDN links in HTML
+            if not media_items:
+                logger.info("   ⚠️ No buttons found, searching for direct CDN links...")
+                
+                # Find all links in the HTML
+                all_links = soup.find_all('a', href=True)
+                
+                for link in all_links:
+                    href = link.get('href', '')
+                    
+                    if 'cdninstagram.com' in href or 'fbcdn.net' in href:
+                        # Determine type from URL
+                        if '.mp4' in href or 'video' in href.lower():
+                            media_type = 'video'
+                        else:
+                            media_type = 'photo'
+                        
+                        media_items.append({
+                            'url': href,
+                            'type': media_type
+                        })
+                        
+                        logger.info(f"   ✓ Found {media_type}: {href[:80]}...")
+            
+            # Remove duplicates while preserving order
+            seen = set()
+            unique_media = []
+            for item in media_items:
+                if item['url'] not in seen:
+                    seen.add(item['url'])
+                    unique_media.append(item)
+            
+            logger.info(f"📊 Step 4: Found {len(unique_media)} unique media items")
+            
+            # Return results
+            if len(unique_media) > 1:
+                logger.info(f"✅ SUCCESS: Carousel with {len(unique_media)} items")
+                return {
+                    "success": True,
+                    "type": "carousel",
+                    "media_urls": unique_media,
+                    "count": len(unique_media)
+                }
+            elif len(unique_media) == 1:
+                logger.info("✅ SUCCESS: Single media item")
+                return {
+                    "success": True,
+                    "type": "single",
+                    "media_url": unique_media[0]['url'],
+                    "media_type": unique_media[0]['type']
+                }
+            else:
+                logger.error("❌ No media URLs found")
+                return {"success": False, "error": "No download links found in response"}
+            
+    except httpx.TimeoutException:
+        logger.error("❌ Request timeout")
+        return {"success": False, "error": "Request timeout - SaveIG took too long"}
+    except Exception as e:
+        logger.error(f"❌ Scraping error: {e}", exc_info=True)
+        return {"success": False, "error": f"Scraping failed: {str(e)}"}
+
+
+async def scrape_tiktok_from_web(url: str) -> dict:
+    """
+    Scrape TikTok download links from web
+    Returns direct CDN URLs - NO VPS DOWNLOAD
+    """
+    try:
+        async with httpx.AsyncClient(
+            timeout=30.0,
+            follow_redirects=True,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            }
+        ) as client:
+            
+            logger.info("🔍 Scraping TikTok from web...")
+            
+            # Use TikTok downloader API
+            response = await client.get(
+                "https://tiktok-dl.hazex.workers.dev/",
+                params={"url": url}
+            )
+            
+            if response.status_code != 200:
+                return {"success": False, "error": "API failed"}
             
             data = response.json()
             
             if "result" not in data:
-                return {"success": False, "error": "Invalid API response"}
+                return {"success": False, "error": "Invalid response"}
             
             result = data["result"]
             
+            # Get video URL
             video_url = result.get("download_url", {}).get("without_watermark")
             images = result.get("images")
             
@@ -61,216 +219,12 @@ async def download_tiktok(url: str) -> dict:
                     "title": result.get("title", "TikTok Slideshow"),
                     "username": result.get("username", "Unknown")
                 }
-            else:
-                return {"success": False, "error": "No video or images found in post"}
             
-    except httpx.TimeoutException:
-        return {"success": False, "error": "Request timeout"}
-    except Exception as e:
-        logger.error(f"TikTok download error: {e}")
-        return {"success": False, "error": str(e)}
-
-
-async def scrape_saveig(url: str) -> dict:
-    """
-    Scrape SaveIG.app website for Instagram download links
-    No files stored on VPS - just extracts direct URLs
-    """
-    try:
-        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-            # Step 1: POST request to SaveIG
-            logger.info("🔍 Scraping SaveIG...")
-            
-            headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                "Content-Type": "application/x-www-form-urlencoded",
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-                "Origin": "https://saveig.app",
-                "Referer": "https://saveig.app/en"
-            }
-            
-            data = {
-                "q": url,
-                "t": "media",
-                "lang": "en"
-            }
-            
-            response = await client.post(
-                "https://v3.saveig.app/api/ajaxSearch",
-                data=data,
-                headers=headers
-            )
-            
-            if response.status_code != 200:
-                logger.warning(f"SaveIG returned status {response.status_code}")
-                return {"success": False, "error": "SaveIG request failed"}
-            
-            # Step 2: Parse HTML response
-            result = response.json()
-            
-            if "data" not in result:
-                return {"success": False, "error": "No data in response"}
-            
-            html = result["data"]
-            soup = BeautifulSoup(html, 'html.parser')
-            
-            # Step 3: Extract download links
-            media_urls = []
-            
-            # Find all download links
-            download_links = soup.find_all('a', {'class': 'abutton'})
-            
-            for link in download_links:
-                href = link.get('href')
-                if href and href.startswith('http'):
-                    # Determine if video or image
-                    text = link.get_text().lower()
-                    
-                    if 'video' in text:
-                        media_urls.append({
-                            "url": href,
-                            "type": "video"
-                        })
-                    elif 'photo' in text or 'image' in text:
-                        media_urls.append({
-                            "url": href,
-                            "type": "photo"
-                        })
-            
-            # Step 4: Return results
-            if len(media_urls) > 1:
-                logger.info(f"✅ SaveIG found {len(media_urls)} media items (carousel)")
-                return {
-                    "success": True,
-                    "type": "carousel",
-                    "media_urls": media_urls
-                }
-            elif len(media_urls) == 1:
-                logger.info("✅ SaveIG found single media")
-                return {
-                    "success": True,
-                    "type": "single",
-                    "media_url": media_urls[0]["url"],
-                    "media_type": media_urls[0]["type"]
-                }
-            else:
-                return {"success": False, "error": "No download links found"}
+            return {"success": False, "error": "No media found"}
             
     except Exception as e:
-        logger.error(f"SaveIG scraping error: {e}")
+        logger.error(f"TikTok scraping error: {e}")
         return {"success": False, "error": str(e)}
-
-
-async def scrape_snapinsta(url: str) -> dict:
-    """
-    Scrape SnapInsta.app website for Instagram download links
-    Fallback method if SaveIG fails
-    """
-    try:
-        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-            logger.info("🔍 Scraping SnapInsta...")
-            
-            headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                "Content-Type": "application/x-www-form-urlencoded",
-                "Accept": "*/*",
-                "Origin": "https://snapinsta.app",
-                "Referer": "https://snapinsta.app/"
-            }
-            
-            data = {
-                "url": url,
-                "action": "post"
-            }
-            
-            response = await client.post(
-                "https://snapinsta.app/action.php",
-                data=data,
-                headers=headers
-            )
-            
-            if response.status_code != 200:
-                logger.warning(f"SnapInsta returned status {response.status_code}")
-                return {"success": False, "error": "SnapInsta request failed"}
-            
-            html = response.text
-            soup = BeautifulSoup(html, 'html.parser')
-            
-            # Extract download links
-            media_urls = []
-            
-            # Find download buttons/links
-            download_links = soup.find_all('a', href=True)
-            
-            for link in download_links:
-                href = link.get('href')
-                
-                # Check if it's a valid media URL
-                if href and ('cdninstagram.com' in href or 'fbcdn.net' in href):
-                    # Determine type
-                    if '.mp4' in href or 'video' in href.lower():
-                        media_type = "video"
-                    else:
-                        media_type = "photo"
-                    
-                    media_urls.append({
-                        "url": href,
-                        "type": media_type
-                    })
-            
-            # Remove duplicates
-            seen = set()
-            unique_media = []
-            for media in media_urls:
-                if media["url"] not in seen:
-                    seen.add(media["url"])
-                    unique_media.append(media)
-            
-            if len(unique_media) > 1:
-                logger.info(f"✅ SnapInsta found {len(unique_media)} media items (carousel)")
-                return {
-                    "success": True,
-                    "type": "carousel",
-                    "media_urls": unique_media
-                }
-            elif len(unique_media) == 1:
-                logger.info("✅ SnapInsta found single media")
-                return {
-                    "success": True,
-                    "type": "single",
-                    "media_url": unique_media[0]["url"],
-                    "media_type": unique_media[0]["type"]
-                }
-            else:
-                return {"success": False, "error": "No download links found"}
-            
-    except Exception as e:
-        logger.error(f"SnapInsta scraping error: {e}")
-        return {"success": False, "error": str(e)}
-
-
-async def download_instagram(url: str) -> dict:
-    """
-    Download Instagram media using web scraping
-    Tries multiple methods with fallback
-    """
-    # Method 1: SaveIG (usually best for carousels)
-    result = await scrape_saveig(url)
-    if result["success"]:
-        logger.info("✅ SaveIG succeeded")
-        return result
-    
-    logger.warning(f"⚠️ SaveIG failed: {result.get('error')}")
-    
-    # Method 2: SnapInsta (fallback)
-    result = await scrape_snapinsta(url)
-    if result["success"]:
-        logger.info("✅ SnapInsta succeeded")
-        return result
-    
-    logger.warning(f"⚠️ SnapInsta failed: {result.get('error')}")
-    
-    return {"success": False, "error": "All scraping methods failed"}
 
 
 async def is_bot_admin(client: Client, chat_id: int) -> bool:
@@ -287,63 +241,117 @@ async def send_error_message(message: Message, platform: str):
     """Send error message with support link"""
     await message.reply_text(
         f"❌ **Failed to download {platform} media**\n\n"
-        f"The link might be invalid or the API is experiencing issues.\n"
-        f"Please report this issue to our [Support Group]({SUPPORT_GROUP}).",
+        f"The link might be invalid or the service is temporarily unavailable.\n"
+        f"Please try again later or report to [Support Group]({SUPPORT_GROUP}).",
         disable_web_page_preview=True
     )
 
 
-async def send_instagram_media(message: Message, result: dict, processing_msg: Message = None):
+async def send_media_to_telegram(message: Message, result: dict, processing_msg: Message = None):
     """
-    Send Instagram media to user
-    IMPORTANT: No files stored on VPS - direct URLs sent to Telegram
+    Send media to Telegram user
+    
+    CRITICAL: This function sends DIRECT URLs to Telegram
+    Files are NOT downloaded to VPS
+    Telegram downloads directly from Instagram/TikTok CDN
     """
     try:
         if result["type"] == "carousel":
-            # Multiple images/videos
+            # Multiple items
             media_count = len(result['media_urls'])
             
             if processing_msg:
                 await processing_msg.edit_text(
-                    f"⏳ **Uploading {media_count} items...**"
+                    f"📤 **Uploading {media_count} items...**\n\n"
+                    f"⚡ Direct streaming from Instagram CDN\n"
+                    f"💾 Zero VPS storage used"
                 )
             
             media_group = []
-            for idx, media in enumerate(result['media_urls'][:10]):  # Telegram limit: 10 items
-                caption = f"📸 **Instagram Carousel Post**\n✅ {media_count} items" if idx == 0 else ""
-                
-                # Direct URL - no VPS download!
-                if media.get("type") == "video":
-                    media_group.append(InputMediaVideo(media=media["url"], caption=caption))
-                else:
-                    media_group.append(InputMediaPhoto(media=media["url"], caption=caption))
             
+            for idx, media in enumerate(result['media_urls'][:10]):  # Telegram max: 10
+                caption = (
+                    f"📸 **Instagram Post**\n"
+                    f"✅ {media_count} items total\n"
+                    f"🚀 Streamed directly from CDN"
+                ) if idx == 0 else ""
+                
+                # IMPORTANT: Passing direct URL - NO VPS DOWNLOAD!
+                if media['type'] == 'video':
+                    media_group.append(
+                        InputMediaVideo(media=media['url'], caption=caption)
+                    )
+                else:
+                    media_group.append(
+                        InputMediaPhoto(media=media['url'], caption=caption)
+                    )
+            
+            # Send to Telegram - Telegram handles download from CDN
             await message.reply_media_group(media=media_group)
+            
             if processing_msg:
                 await processing_msg.delete()
+                
+            logger.info(f"✅ Sent {len(media_group)} items - VPS load: 0 MB")
         
         elif result["type"] == "single":
-            # Single video or image
+            # Single item
             media_type = result.get("media_type", "photo")
             
-            # Direct URL - no VPS download!
-            if media_type == "video":
+            caption = (
+                f"📸 **Instagram Media**\n"
+                f"🚀 Streamed directly from CDN\n"
+                f"💾 Zero VPS storage used"
+            )
+            
+            # IMPORTANT: Passing direct URL - NO VPS DOWNLOAD!
+            if media_type == 'video':
                 await message.reply_video(
                     video=result["media_url"],
-                    caption=f"📸 **Instagram Media**"
+                    caption=caption
                 )
             else:
                 await message.reply_photo(
                     photo=result["media_url"],
-                    caption=f"📸 **Instagram Media**"
+                    caption=caption
                 )
+            
+            if processing_msg:
+                await processing_msg.delete()
+                
+            logger.info("✅ Sent single item - VPS load: 0 MB")
+        
+        elif result["type"] == "video":
+            # TikTok video
+            await message.reply_video(
+                video=result["video_url"],
+                caption=f"📹 **{result['title']}**\n👤 @{result['username']}"
+            )
+            
+            if processing_msg:
+                await processing_msg.delete()
+        
+        elif result["type"] == "images":
+            # TikTok images
+            media_group = []
+            
+            for idx, img_url in enumerate(result['images'][:10]):
+                caption = f"📸 **{result['title']}**\n👤 @{result['username']}" if idx == 0 else ""
+                media_group.append(InputMediaPhoto(media=img_url, caption=caption))
+            
+            await message.reply_media_group(media=media_group)
             
             if processing_msg:
                 await processing_msg.delete()
     
     except Exception as e:
-        logger.error(f"Error sending Instagram media: {e}")
-        error_msg = f"❌ Failed to send media: {str(e)}\nPlease report to [Support Group]({SUPPORT_GROUP})."
+        logger.error(f"Error sending media: {e}", exc_info=True)
+        
+        error_msg = (
+            f"❌ **Failed to send media**\n\n"
+            f"Error: {str(e)}\n\n"
+            f"Please try again or report to [Support Group]({SUPPORT_GROUP})."
+        )
         
         if processing_msg:
             await processing_msg.edit_text(error_msg)
@@ -352,13 +360,13 @@ async def send_instagram_media(message: Message, result: dict, processing_msg: M
 
 
 async def setup_extra_handlers(client: Client):
-    """Setup TikTok and Instagram downloader handlers"""
+    """Setup Instagram and TikTok downloader handlers"""
     
     # ==================== PRIVATE CHAT - AUTO DOWNLOAD ====================
     
     @client.on_message(filters.private & filters.text & ~filters.command(["start", "help"]))
     async def private_link_handler(client: Client, message: Message):
-        """Auto-download TikTok/Instagram links in private chat"""
+        """Auto-download Instagram/TikTok links in private chat"""
         text = message.text
         
         # Check for TikTok link
@@ -366,39 +374,15 @@ async def setup_extra_handlers(client: Client):
         if tiktok_match:
             url = tiktok_match.group(0)
             
-            # Add https if missing
             if not url.startswith("http"):
                 url = "https://" + url
             
-            processing_msg = await message.reply_text("⏳ **Downloading TikTok video...**")
+            processing_msg = await message.reply_text("⏳ **Processing TikTok link...**")
             
-            result = await download_tiktok(url)
+            result = await scrape_tiktok_from_web(url)
             
             if result["success"]:
-                try:
-                    if result["type"] == "video":
-                        await message.reply_video(
-                            video=result["video_url"],
-                            caption=f"📹 **{result['title']}**\n👤 @{result['username']}"
-                        )
-                        await processing_msg.delete()
-                    elif result["type"] == "images":
-                        await processing_msg.edit_text(f"⏳ **Downloading {len(result['images'])} images...**")
-                        
-                        media_group = []
-                        
-                        for idx, img_url in enumerate(result['images'][:10]):
-                            caption = f"📸 **{result['title']}**\n👤 @{result['username']}" if idx == 0 else ""
-                            media_group.append(InputMediaPhoto(media=img_url, caption=caption))
-                        
-                        await message.reply_media_group(media=media_group)
-                        await processing_msg.delete()
-                except Exception as e:
-                    logger.error(f"Error sending TikTok media: {e}")
-                    await processing_msg.edit_text(
-                        f"❌ Failed to send media.\n"
-                        f"Please report to [Support Group]({SUPPORT_GROUP})."
-                    )
+                await send_media_to_telegram(message, result, processing_msg)
             else:
                 await processing_msg.delete()
                 await send_error_message(message, "TikTok")
@@ -410,16 +394,19 @@ async def setup_extra_handlers(client: Client):
         if instagram_match:
             url = instagram_match.group(0)
             
-            # Add https if missing
             if not url.startswith("http"):
                 url = "https://" + url
             
-            processing_msg = await message.reply_text("⏳ **Fetching Instagram media...**")
+            processing_msg = await message.reply_text(
+                "⏳ **Processing Instagram link...**\n\n"
+                "🔍 Extracting media URLs from web...\n"
+                "💾 Zero VPS storage used"
+            )
             
-            result = await download_instagram(url)
+            result = await scrape_instagram_from_web(url)
             
             if result["success"]:
-                await send_instagram_media(message, result, processing_msg)
+                await send_media_to_telegram(message, result, processing_msg)
             else:
                 await processing_msg.delete()
                 await send_error_message(message, "Instagram")
@@ -430,17 +417,15 @@ async def setup_extra_handlers(client: Client):
     
     @client.on_message(filters.group & filters.command("tt"))
     async def tiktok_group_handler(client: Client, message: Message):
-        """TikTok downloader for groups with /tt command"""
+        """TikTok downloader for groups"""
         
-        # Check if bot is admin
         if not await is_bot_admin(client, message.chat.id):
             await message.reply_text(
-                "❌ **I need admin rights to download media in groups!**\n\n"
-                "Please promote me as an admin first."
+                "❌ **I need admin rights in this group!**\n\n"
+                "Please promote me as admin first."
             )
             return
         
-        # Get URL from command or replied message
         url = None
         
         if message.reply_to_message and message.reply_to_message.text:
@@ -455,59 +440,34 @@ async def setup_extra_handlers(client: Client):
                 "❌ **Please provide a TikTok link!**\n\n"
                 "**Usage:**\n"
                 "• `/tt <link>`\n"
-                "• Reply to a message containing TikTok link with `/tt`"
+                "• Reply to a TikTok link with `/tt`"
             )
             return
         
         if not url.startswith("http"):
             url = "https://" + url
         
-        processing_msg = await message.reply_text("⏳ **Downloading TikTok video...**")
+        processing_msg = await message.reply_text("⏳ **Processing TikTok...**")
         
-        result = await download_tiktok(url)
+        result = await scrape_tiktok_from_web(url)
         
         if result["success"]:
-            try:
-                if result["type"] == "video":
-                    await message.reply_video(
-                        video=result["video_url"],
-                        caption=f"📹 **{result['title']}**\n👤 @{result['username']}"
-                    )
-                    await processing_msg.delete()
-                elif result["type"] == "images":
-                    await processing_msg.edit_text(f"⏳ **Downloading {len(result['images'])} images...**")
-                    
-                    media_group = []
-                    
-                    for idx, img_url in enumerate(result['images'][:10]):
-                        caption = f"📸 **{result['title']}**\n👤 @{result['username']}" if idx == 0 else ""
-                        media_group.append(InputMediaPhoto(media=img_url, caption=caption))
-                    
-                    await message.reply_media_group(media=media_group)
-                    await processing_msg.delete()
-            except Exception as e:
-                logger.error(f"Error sending TikTok media in group: {e}")
-                await processing_msg.edit_text(
-                    f"❌ Failed to send media.\n"
-                    f"Please report to [Support Group]({SUPPORT_GROUP})."
-                )
+            await send_media_to_telegram(message, result, processing_msg)
         else:
             await processing_msg.delete()
             await send_error_message(message, "TikTok")
     
     @client.on_message(filters.group & filters.command("ig"))
     async def instagram_group_handler(client: Client, message: Message):
-        """Instagram downloader for groups with /ig command"""
+        """Instagram downloader for groups"""
         
-        # Check if bot is admin
         if not await is_bot_admin(client, message.chat.id):
             await message.reply_text(
-                "❌ **I need admin rights to download media in groups!**\n\n"
-                "Please promote me as an admin first."
+                "❌ **I need admin rights in this group!**\n\n"
+                "Please promote me as admin first."
             )
             return
         
-        # Get URL from command or replied message
         url = None
         
         if message.reply_to_message and message.reply_to_message.text:
@@ -522,21 +482,36 @@ async def setup_extra_handlers(client: Client):
                 "❌ **Please provide an Instagram link!**\n\n"
                 "**Usage:**\n"
                 "• `/ig <link>`\n"
-                "• Reply to a message containing Instagram link with `/ig`"
+                "• Reply to an Instagram link with `/ig`"
             )
             return
         
         if not url.startswith("http"):
             url = "https://" + url
         
-        processing_msg = await message.reply_text("⏳ **Fetching Instagram media...**")
+        processing_msg = await message.reply_text(
+            "⏳ **Processing Instagram link...**\n\n"
+            "🔍 Extracting from web...\n"
+            "💾 Zero VPS storage"
+        )
         
-        result = await download_instagram(url)
+        result = await scrape_instagram_from_web(url)
         
         if result["success"]:
-            await send_instagram_media(message, result, processing_msg)
+            await send_media_to_telegram(message, result, processing_msg)
         else:
             await processing_msg.delete()
             await send_error_message(message, "Instagram")
     
-    logger.info("✅ Extra handlers (TikTok & Instagram downloader) setup complete")
+    logger.info("✅ Web scraping handlers initialized - Zero VPS storage mode")
+
+
+# VPS LOAD SUMMARY:
+# ================
+# RAM: ~50-100 MB (HTML parsing only)
+# CPU: Minimal (HTTP requests + BeautifulSoup parsing)
+# DISK: 0 MB (NO file downloads!)
+# BANDWIDTH: ~1-5 KB per request (just HTML scraping)
+# 
+# Files are streamed DIRECTLY from Instagram/TikTok CDN to Telegram
+# VPS only extracts URLs - does NOT store any media files

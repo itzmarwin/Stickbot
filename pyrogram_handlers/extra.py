@@ -2,7 +2,7 @@ import logging
 import re
 import httpx
 from pyrogram import Client, filters
-from pyrogram.types import Message
+from pyrogram.types import Message, InputMediaPhoto, InputMediaVideo
 from pyrogram.enums import ChatMemberStatus
 
 logger = logging.getLogger(__name__)
@@ -87,7 +87,7 @@ async def download_instagram(url: str) -> dict:
         url: Instagram reel/post URL
         
     Returns:
-        dict with 'success', 'media_url', 'error' keys
+        dict with 'success', 'type', 'media_url'/'media_urls', 'error' keys
     """
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -102,6 +102,34 @@ async def download_instagram(url: str) -> dict:
                 return {"success": False, "error": "Invalid API response"}
             
             result = data["result"]
+            
+            # Check if it's a carousel (multiple images/videos)
+            if isinstance(result, list) and len(result) > 0:
+                # Multiple media items
+                media_urls = []
+                for item in result:
+                    if isinstance(item, dict) and "url" in item:
+                        media_urls.append({
+                            "url": item.get("url"),
+                            "type": item.get("type", "image"),
+                            "quality": item.get("quality", "Unknown")
+                        })
+                    elif isinstance(item, str):
+                        media_urls.append({
+                            "url": item,
+                            "type": "image",
+                            "quality": "Unknown"
+                        })
+                
+                if media_urls:
+                    return {
+                        "success": True,
+                        "type": "carousel",
+                        "media_urls": media_urls,
+                        "size": result[0].get("formattedSize", "Unknown") if isinstance(result[0], dict) else "Unknown"
+                    }
+            
+            # Single media item
             media_url = result.get("url")
             
             if not media_url:
@@ -109,6 +137,7 @@ async def download_instagram(url: str) -> dict:
             
             return {
                 "success": True,
+                "type": "single",
                 "media_url": media_url,
                 "quality": result.get("quality", "Unknown"),
                 "size": result.get("formattedSize", "Unknown")
@@ -139,6 +168,54 @@ async def send_error_message(message: Message, platform: str):
         f"Please report this issue to our [Support Group]({SUPPORT_GROUP}).",
         disable_web_page_preview=True
     )
+
+
+async def send_instagram_media(message: Message, result: dict, processing_msg: Message = None):
+    """Helper function to send Instagram media (single or carousel)"""
+    try:
+        if result["type"] == "carousel":
+            # Multiple images/videos
+            if processing_msg:
+                await processing_msg.edit_text(
+                    f"⏳ **Downloading {len(result['media_urls'])} items...**"
+                )
+            
+            media_group = []
+            for idx, media in enumerate(result['media_urls'][:10]):  # Telegram limit: 10 items
+                caption = f"📸 **Instagram Post**\nSize: {result['size']}" if idx == 0 else ""
+                
+                if media.get("type") == "video":
+                    media_group.append(InputMediaVideo(media=media["url"], caption=caption))
+                else:
+                    media_group.append(InputMediaPhoto(media=media["url"], caption=caption))
+            
+            await message.reply_media_group(media=media_group)
+            if processing_msg:
+                await processing_msg.delete()
+        
+        elif result["type"] == "single":
+            # Single video or image
+            await message.reply_video(
+                video=result["media_url"],
+                caption=f"📸 **Instagram Media**\n"
+                        f"Quality: {result['quality']}\n"
+                        f"Size: {result['size']}"
+            )
+            if processing_msg:
+                await processing_msg.delete()
+    
+    except Exception as e:
+        logger.error(f"Error sending Instagram media: {e}")
+        if processing_msg:
+            await processing_msg.edit_text(
+                f"❌ Failed to send media.\n"
+                f"Please report to [Support Group]({SUPPORT_GROUP})."
+            )
+        else:
+            await message.reply_text(
+                f"❌ Failed to send media.\n"
+                f"Please report to [Support Group]({SUPPORT_GROUP})."
+            )
 
 
 async def setup_extra_handlers(client: Client):
@@ -175,7 +252,6 @@ async def setup_extra_handlers(client: Client):
                     elif result["type"] == "images":
                         await processing_msg.edit_text(f"⏳ **Downloading {len(result['images'])} images...**")
                         
-                        from pyrogram.types import InputMediaPhoto
                         media_group = []
                         
                         for idx, img_url in enumerate(result['images'][:10]):
@@ -210,20 +286,7 @@ async def setup_extra_handlers(client: Client):
             result = await download_instagram(url)
             
             if result["success"]:
-                try:
-                    await message.reply_video(
-                        video=result["media_url"],
-                        caption=f"📸 **Instagram Media**\n"
-                                f"Quality: {result['quality']}\n"
-                                f"Size: {result['size']}"
-                    )
-                    await processing_msg.delete()
-                except Exception as e:
-                    logger.error(f"Error sending Instagram media: {e}")
-                    await processing_msg.edit_text(
-                        f"❌ Failed to send media.\n"
-                        f"Please report to [Support Group]({SUPPORT_GROUP})."
-                    )
+                await send_instagram_media(message, result, processing_msg)
             else:
                 await processing_msg.delete()
                 await send_error_message(message, "Instagram")
@@ -284,7 +347,6 @@ async def setup_extra_handlers(client: Client):
                 elif result["type"] == "images":
                     await processing_msg.edit_text(f"⏳ **Downloading {len(result['images'])} images...**")
                     
-                    from pyrogram.types import InputMediaPhoto
                     media_group = []
                     
                     for idx, img_url in enumerate(result['images'][:10]):
@@ -345,20 +407,7 @@ async def setup_extra_handlers(client: Client):
         result = await download_instagram(url)
         
         if result["success"]:
-            try:
-                await message.reply_video(
-                    video=result["media_url"],
-                    caption=f"📸 **Instagram Media**\n"
-                            f"Quality: {result['quality']}\n"
-                            f"Size: {result['size']}"
-                )
-                await processing_msg.delete()
-            except Exception as e:
-                logger.error(f"Error sending Instagram media in group: {e}")
-                await processing_msg.edit_text(
-                    f"❌ Failed to send media.\n"
-                    f"Please report to [Support Group]({SUPPORT_GROUP})."
-                )
+            await send_instagram_media(message, result, processing_msg)
         else:
             await processing_msg.delete()
             await send_error_message(message, "Instagram")

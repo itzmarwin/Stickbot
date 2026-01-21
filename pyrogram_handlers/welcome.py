@@ -387,7 +387,7 @@ async def setup_welcome_handlers(client: Client):
             user_id = message.from_user.id
             
             if not await is_user_admin(client, chat_id, user_id):
-                await message.reply_text("Only admins can use this command!", parse_mode=ParseMode.HTML)
+                await message.reply_text("Only admins can use this command.", parse_mode=ParseMode.HTML)
                 return
             
             command_parts = message.text.split()
@@ -407,13 +407,13 @@ async def setup_welcome_handlers(client: Client):
                     time_str = format_time(delete_after)
                     
                     await message.reply_text(
-                        f"✅ <b>Auto-delete welcome is enabled</b>\n\n"
-                        f"⏰ Welcome messages will be deleted after: <b>{time_str}</b>",
+                        f"<b>Auto-delete for welcome messages is enabled.</b>\n\n"
+                        f"Welcome messages will be deleted after: <b>{time_str}</b>",
                         parse_mode=ParseMode.HTML
                     )
                 else:
                     await message.reply_text(
-                        "❌ <b>Auto-delete welcome is disabled for this group</b>",
+                        "<b>Auto-delete for welcome messages is disabled for this group.</b>",
                         parse_mode=ParseMode.HTML
                     )
                 return
@@ -430,7 +430,7 @@ async def setup_welcome_handlers(client: Client):
                 auto_delete = settings.get('welcome', {}).get('auto_delete', {})
                 if auto_delete.get('enabled'):
                     await message.reply_text(
-                        "✅ Auto-delete welcome is already enabled!",
+                        "Auto-delete for welcome messages is already enabled.",
                         parse_mode=ParseMode.HTML
                     )
                     return
@@ -442,8 +442,8 @@ async def setup_welcome_handlers(client: Client):
                     WELCOME_CACHE[chat_id] = settings['welcome']
                 
                 await message.reply_text(
-                    "✅ <b>Auto-delete welcome enabled!</b>\n\n"
-                    "⏰ Welcome messages will be deleted after: <b>10 minutes</b>",
+                    "<b>Auto-delete for welcome messages is enabled.</b>\n\n"
+                    "Welcome messages will be deleted after: <b>10 minutes</b>",
                     parse_mode=ParseMode.HTML
                 )
             
@@ -452,7 +452,7 @@ async def setup_welcome_handlers(client: Client):
                 
                 if not settings:
                     await message.reply_text(
-                        "❌ Auto-delete is not configured for this group.",
+                        "Auto-delete is not enabled for this group.",
                         parse_mode=ParseMode.HTML
                     )
                     return
@@ -460,7 +460,7 @@ async def setup_welcome_handlers(client: Client):
                 auto_delete = settings.get('welcome', {}).get('auto_delete', {})
                 if not auto_delete.get('enabled'):
                     await message.reply_text(
-                        "❌ Auto-delete welcome is already disabled!",
+                        "Auto-delete for welcome messages is already disabled.",
                         parse_mode=ParseMode.HTML
                     )
                     return
@@ -477,8 +477,7 @@ async def setup_welcome_handlers(client: Client):
                         del WELCOME_DELETE_TASKS[msg_id]
                 
                 await message.reply_text(
-                    "❌ <b>Auto-delete welcome disabled!</b>\n\n"
-                    "Welcome messages will not be deleted automatically.",
+                    "<b>Auto-delete for Welcome messages is disabled.</b>",
                     parse_mode=ParseMode.HTML
                 )
             
@@ -487,14 +486,14 @@ async def setup_welcome_handlers(client: Client):
                 
                 if delete_after < 10:
                     await message.reply_text(
-                        "⚠️ Minimum delete time is 10 seconds!",
+                        "Minimum auto-delete time is 10 seconds.",
                         parse_mode=ParseMode.HTML
                     )
                     return
                 
                 if delete_after > 86400:
                     await message.reply_text(
-                        "⚠️ Maximum delete time is 24 hours (86400 seconds)!",
+                        "Maximum auto-delete time is 24 hours (86,400 seconds).",
                         parse_mode=ParseMode.HTML
                     )
                     return
@@ -508,8 +507,8 @@ async def setup_welcome_handlers(client: Client):
                 time_str = format_time(delete_after)
                 
                 await message.reply_text(
-                    f"✅ <b>Auto-delete welcome updated!</b>\n\n"
-                    f"⏰ Welcome messages will be deleted after: <b>{time_str}</b>",
+                    f"<b>Auto-delete for welcome messages has been updated.</b>\n\n"
+                    f"Welcome messages will be deleted after: <b>{time_str}</b>",
                     parse_mode=ParseMode.HTML
                 )
             

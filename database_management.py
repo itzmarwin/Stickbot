@@ -29,10 +29,10 @@ async def init_management_db():
             serverSelectionTimeoutMS=5000,
             connectTimeoutMS=10000,
             socketTimeoutMS=30000,
-            maxPoolSize=20,              # ✅ FIXED: Reduced from 100 (prevents pool exhaustion)
-            minPoolSize=2,               # ✅ FIXED: Reduced from 10 (lower baseline)
+            maxPoolSize=20,
+            minPoolSize=2,
             waitQueueTimeoutMS=10000,
-            maxIdleTimeMS=45000,         # ✅ NEW: Close idle connections after 45s
+            maxIdleTimeMS=45000,
             retryWrites=True,
             retryReads=True
         )
@@ -83,7 +83,6 @@ async def close_management_db():
     try:
         if management_client:
             logger.info("Closing management MongoDB connection...")
-            # ✅ Close all connections in pool
             management_client.close()
         
         logger.info("✅ Management database connection closed")
@@ -139,7 +138,11 @@ async def create_default_welcome_settings(chat_id: int) -> bool:
                 "media_id": None,
                 "text": None,
                 "buttons": [],
-                "default_text": "Welcome {MENTION} Hope you have a great time here."
+                "default_text": "Welcome {MENTION} Hope you have a great time here.",
+                "auto_delete": {
+                    "enabled": False,
+                    "delete_after": None
+                }
             },
             "goodbye": {
                 "enabled": False,
@@ -148,7 +151,11 @@ async def create_default_welcome_settings(chat_id: int) -> bool:
                 "media_id": None,
                 "text": None,
                 "buttons": [],
-                "default_text": "Goodbye {MENTION} We hope to see you again."
+                "default_text": "Goodbye {MENTION} We hope to see you again.",
+                "auto_delete": {
+                    "enabled": False,
+                    "delete_after": None
+                }
             },
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow()
@@ -362,6 +369,82 @@ async def delete_custom_goodbye(chat_id: int) -> bool:
 
 
 # ============================================================================
+# 🆕 AUTO-DELETE FUNCTIONS (NEW)
+# ============================================================================
+
+async def update_welcome_auto_delete(chat_id: int, enabled: bool, delete_after: Optional[int] = None) -> bool:
+    """
+    Update welcome auto-delete settings
+    
+    Args:
+        chat_id: Chat ID
+        enabled: True to enable auto-delete, False to disable
+        delete_after: Seconds after which to delete (None if disabled)
+        
+    Returns:
+        True if successful
+    """
+    try:
+        if enabled and delete_after is None:
+            delete_after = 600  # Default 10 minutes
+        
+        update_data = {
+            "welcome.auto_delete.enabled": enabled,
+            "welcome.auto_delete.delete_after": delete_after if enabled else None,
+            "updated_at": datetime.utcnow()
+        }
+        
+        result = await management_db.welcome_settings.update_one(
+            {"chat_id": chat_id},
+            {"$set": update_data},
+            upsert=True
+        )
+        
+        logger.info(f"Updated welcome auto-delete for chat {chat_id}: enabled={enabled}, delete_after={delete_after}")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Error updating welcome auto-delete for chat {chat_id}: {e}")
+        return False
+
+
+async def update_goodbye_auto_delete(chat_id: int, enabled: bool, delete_after: Optional[int] = None) -> bool:
+    """
+    Update goodbye auto-delete settings
+    
+    Args:
+        chat_id: Chat ID
+        enabled: True to enable auto-delete, False to disable
+        delete_after: Seconds after which to delete (None if disabled)
+        
+    Returns:
+        True if successful
+    """
+    try:
+        if enabled and delete_after is None:
+            delete_after = 600  # Default 10 minutes
+        
+        update_data = {
+            "goodbye.auto_delete.enabled": enabled,
+            "goodbye.auto_delete.delete_after": delete_after if enabled else None,
+            "updated_at": datetime.utcnow()
+        }
+        
+        result = await management_db.welcome_settings.update_one(
+            {"chat_id": chat_id},
+            {"$set": update_data},
+            upsert=True
+        )
+        
+        logger.info(f"Updated goodbye auto-delete for chat {chat_id}: enabled={enabled}, delete_after={delete_after}")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Error updating goodbye auto-delete for chat {chat_id}: {e}")
+        return False
+
+
+# ============================================================================
 # HEALTH CHECK
 # ============================================================================
 
@@ -381,7 +464,6 @@ async def check_management_db_health() -> Dict[str, Any]:
         await management_client.admin.command('ping')
         latency = (time.time() - start) * 1000
         
-        # ✅ NEW: Add connection pool stats
         pool_stats = {
             "max_pool_size": 20,
             "min_pool_size": 2,

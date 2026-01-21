@@ -1,9 +1,7 @@
 import logging
 import re
 import httpx
-import tempfile
-import os
-import asyncio
+import json
 from pyrogram import Client, filters
 from pyrogram.types import Message, InputMediaPhoto, InputMediaVideo
 from pyrogram.enums import ChatMemberStatus
@@ -17,7 +15,7 @@ TIKTOK_PATTERN = re.compile(
 )
 
 INSTAGRAM_PATTERN = re.compile(
-    r'(?:https?://)?(?:www\.)?instagram\.com/(?:p|reel|tv)/[\w\-]+/?.*',
+    r'(?:https?://)?(?:www\.)?instagram\.com/(?:p|reel|tv)/([\w\-]+)/?.*',
     re.IGNORECASE
 )
 
@@ -29,15 +27,7 @@ SUPPORT_GROUP = "https://t.me/Samuraissupportchat"
 
 
 async def download_tiktok(url: str) -> dict:
-    """
-    Download TikTok video or images using API
-    
-    Args:
-        url: TikTok video/slideshow URL
-        
-    Returns:
-        dict with 'success', 'type', 'video_url'/'images', 'title', 'error' keys
-    """
+    """Download TikTok video or images using API"""
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get(TIKTOK_API, params={"url": url})
@@ -81,181 +71,237 @@ async def download_tiktok(url: str) -> dict:
         return {"success": False, "error": str(e)}
 
 
-async def download_instagram_ytdlp(url: str) -> dict:
+async def download_instagram_api_multiple(url: str) -> dict:
     """
-    Download Instagram media using yt-dlp (supports carousels)
+    Try multiple Instagram download APIs
+    """
+    # Extract shortcode from URL
+    shortcode_match = INSTAGRAM_PATTERN.search(url)
+    if not shortcode_match:
+        return {"success": False, "error": "Invalid Instagram URL"}
     
-    Args:
-        url: Instagram post/reel URL
-        
-    Returns:
-        dict with success status and media info
-    """
+    shortcode = shortcode_match.group(1)
+    logger.info(f"📌 Shortcode extracted: {shortcode}")
+    
+    apis_to_try = [
+        # API 1: InstaDownloader
+        {
+            "name": "InstaDownloader",
+            "url": f"https://v3.saveig.app/api/ajaxSearch",
+            "method": "POST",
+            "data": {
+                "q": f"https://www.instagram.com/p/{shortcode}/",
+                "t": "media",
+                "lang": "en"
+            },
+            "headers": {
+                "Content-Type": "application/x-www-form-urlencoded"
+            }
+        },
+        # API 2: Inflact
+        {
+            "name": "Inflact",
+            "url": f"https://inflact.com/downloader/instagram/post-photo-video/api/?url=https://www.instagram.com/p/{shortcode}/",
+            "method": "GET",
+            "headers": {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            }
+        },
+        # API 3: SnapInsta
+        {
+            "name": "SnapInsta",
+            "url": "https://snapinsta.app/action.php",
+            "method": "POST",
+            "data": {
+                "url": f"https://www.instagram.com/p/{shortcode}/",
+                "action": "post"
+            },
+            "headers": {
+                "Content-Type": "application/x-www-form-urlencoded",
+                "User-Agent": "Mozilla/5.0"
+            }
+        }
+    ]
+    
+    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+        for api in apis_to_try:
+            try:
+                logger.info(f"🔄 Trying {api['name']}...")
+                
+                if api["method"] == "POST":
+                    response = await client.post(
+                        api["url"],
+                        data=api.get("data", {}),
+                        headers=api.get("headers", {})
+                    )
+                else:
+                    response = await client.get(
+                        api["url"],
+                        headers=api.get("headers", {})
+                    )
+                
+                if response.status_code != 200:
+                    logger.warning(f"❌ {api['name']} returned status {response.status_code}")
+                    continue
+                
+                # Parse response
+                try:
+                    data = response.json()
+                except:
+                    # Try parsing HTML response
+                    html = response.text
+                    data = {"html": html}
+                
+                logger.info(f"📦 {api['name']} response received")
+                
+                # Parse based on API
+                result = None
+                
+                if api["name"] == "InstaDownloader":
+                    result = parse_instadownloader_response(data)
+                elif api["name"] == "Inflact":
+                    result = parse_inflact_response(data)
+                elif api["name"] == "SnapInsta":
+                    result = parse_snapinsta_response(data)
+                
+                if result and result["success"]:
+                    logger.info(f"✅ {api['name']} succeeded!")
+                    return result
+                
+            except Exception as e:
+                logger.error(f"❌ {api['name']} error: {e}")
+                continue
+    
+    return {"success": False, "error": "All APIs failed"}
+
+
+def parse_instadownloader_response(data: dict) -> dict:
+    """Parse InstaDownloader API response"""
     try:
-        # Run yt-dlp command to get info
-        cmd = f'yt-dlp -J "{url}"'
-        
-        process = await asyncio.create_subprocess_shell(
-            cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
-        )
-        
-        stdout, stderr = await process.communicate()
-        
-        if process.returncode != 0:
-            logger.error(f"yt-dlp error: {stderr.decode()}")
-            return {"success": False, "error": "Failed to fetch Instagram data"}
-        
-        import json
-        data = json.loads(stdout.decode())
-        
-        # Check if it's a carousel (multiple entries)
-        if "entries" in data and len(data["entries"]) > 1:
-            # Multiple images/videos
+        if "data" in data:
+            html = data["data"]
+            
+            # Extract all image/video URLs from HTML
+            import re
+            
+            # Find all download links
+            video_urls = re.findall(r'href="([^"]+)"[^>]*>Download \(Video\)', html)
+            image_urls = re.findall(r'href="([^"]+)"[^>]*>Download \(Image\)', html)
+            
             media_urls = []
             
-            for entry in data["entries"]:
-                if "url" in entry:
-                    media_type = "video" if entry.get("ext") in ["mp4", "webm"] else "photo"
-                    media_urls.append({
-                        "url": entry["url"],
-                        "type": media_type
-                    })
-                elif "thumbnail" in entry:
-                    # Fallback to thumbnail for images
-                    media_urls.append({
-                        "url": entry["thumbnail"],
-                        "type": "photo"
-                    })
+            for url in video_urls:
+                media_urls.append({"url": url, "type": "video"})
             
-            if media_urls:
+            for url in image_urls:
+                media_urls.append({"url": url, "type": "photo"})
+            
+            if len(media_urls) > 1:
                 return {
                     "success": True,
                     "type": "carousel",
-                    "media_urls": media_urls,
-                    "title": data.get("title", "Instagram Post")
+                    "media_urls": media_urls
+                }
+            elif len(media_urls) == 1:
+                return {
+                    "success": True,
+                    "type": "single",
+                    "media_url": media_urls[0]["url"],
+                    "media_type": media_urls[0]["type"]
                 }
         
-        # Single media
+        return {"success": False, "error": "No media found"}
+        
+    except Exception as e:
+        logger.error(f"Parse error: {e}")
+        return {"success": False, "error": str(e)}
+
+
+def parse_inflact_response(data: dict) -> dict:
+    """Parse Inflact API response"""
+    try:
         if "url" in data:
+            # Single media
             return {
                 "success": True,
                 "type": "single",
                 "media_url": data["url"],
-                "media_type": "video" if data.get("ext") in ["mp4", "webm"] else "photo",
-                "title": data.get("title", "Instagram Media")
+                "media_type": "photo" if data.get("type") == "image" else "video"
             }
-        elif "thumbnail" in data:
-            return {
-                "success": True,
-                "type": "single",
-                "media_url": data["thumbnail"],
-                "media_type": "photo",
-                "title": data.get("title", "Instagram Media")
-            }
+        elif "items" in data:
+            # Multiple media
+            media_urls = []
+            for item in data["items"]:
+                if "url" in item:
+                    media_urls.append({
+                        "url": item["url"],
+                        "type": "photo" if item.get("type") == "image" else "video"
+                    })
+            
+            if len(media_urls) > 1:
+                return {
+                    "success": True,
+                    "type": "carousel",
+                    "media_urls": media_urls
+                }
+            elif len(media_urls) == 1:
+                return {
+                    "success": True,
+                    "type": "single",
+                    "media_url": media_urls[0]["url"],
+                    "media_type": media_urls[0]["type"]
+                }
         
         return {"success": False, "error": "No media found"}
         
     except Exception as e:
-        logger.error(f"yt-dlp Instagram download error: {e}")
+        logger.error(f"Parse error: {e}")
         return {"success": False, "error": str(e)}
 
 
-async def download_instagram_gallery_dl(url: str) -> dict:
-    """
-    Download Instagram media using gallery-dl (best for carousels)
-    
-    Args:
-        url: Instagram post/reel URL
-        
-    Returns:
-        dict with success status and media info
-    """
+def parse_snapinsta_response(data: dict) -> dict:
+    """Parse SnapInsta API response"""
     try:
-        # Run gallery-dl command to get info
-        cmd = f'gallery-dl -j --no-download "{url}"'
-        
-        process = await asyncio.create_subprocess_shell(
-            cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
-        )
-        
-        stdout, stderr = await process.communicate()
-        
-        if process.returncode != 0:
-            logger.error(f"gallery-dl error: {stderr.decode()}")
-            return {"success": False, "error": "Failed to fetch Instagram data"}
-        
-        import json
-        
-        # Parse JSON lines output
-        media_urls = []
-        for line in stdout.decode().strip().split('\n'):
-            if line.strip():
-                try:
-                    data = json.loads(line)
-                    
-                    if "url" in data:
-                        # Determine if it's video or photo
-                        media_type = "video" if data.get("typename") == "GraphVideo" else "photo"
-                        
-                        media_urls.append({
-                            "url": data["url"],
-                            "type": media_type
-                        })
-                except json.JSONDecodeError:
-                    continue
-        
-        if len(media_urls) > 1:
-            return {
-                "success": True,
-                "type": "carousel",
-                "media_urls": media_urls
-            }
-        elif len(media_urls) == 1:
-            return {
-                "success": True,
-                "type": "single",
-                "media_url": media_urls[0]["url"],
-                "media_type": media_urls[0]["type"]
-            }
+        if "html" in data:
+            html = data["html"]
+            
+            # Extract download URLs
+            import re
+            urls = re.findall(r'href="([^"]+)"[^>]*class="[^"]*download[^"]*"', html)
+            
+            media_urls = []
+            for url in urls:
+                # Determine type based on URL or extension
+                media_type = "video" if any(ext in url.lower() for ext in ['.mp4', 'video']) else "photo"
+                media_urls.append({"url": url, "type": media_type})
+            
+            if len(media_urls) > 1:
+                return {
+                    "success": True,
+                    "type": "carousel",
+                    "media_urls": media_urls
+                }
+            elif len(media_urls) == 1:
+                return {
+                    "success": True,
+                    "type": "single",
+                    "media_url": media_urls[0]["url"],
+                    "media_type": media_urls[0]["type"]
+                }
         
         return {"success": False, "error": "No media found"}
         
     except Exception as e:
-        logger.error(f"gallery-dl Instagram download error: {e}")
+        logger.error(f"Parse error: {e}")
         return {"success": False, "error": str(e)}
 
 
 async def download_instagram(url: str) -> dict:
     """
-    Download Instagram media with fallback methods
-    
-    Args:
-        url: Instagram post/reel URL
-        
-    Returns:
-        dict with success status and media info
+    Download Instagram media with multiple API fallbacks
     """
-    # Try gallery-dl first (best for carousels)
-    result = await download_instagram_gallery_dl(url)
-    if result["success"]:
-        logger.info("✅ gallery-dl succeeded")
-        return result
-    
-    logger.warning(f"⚠️ gallery-dl failed: {result.get('error')}")
-    
-    # Try yt-dlp as fallback
-    result = await download_instagram_ytdlp(url)
-    if result["success"]:
-        logger.info("✅ yt-dlp succeeded")
-        return result
-    
-    logger.warning(f"⚠️ yt-dlp failed: {result.get('error')}")
-    
-    return {"success": False, "error": "All download methods failed"}
+    result = await download_instagram_api_multiple(url)
+    return result
 
 
 async def is_bot_admin(client: Client, chat_id: int) -> bool:
@@ -306,17 +352,16 @@ async def send_instagram_media(message: Message, result: dict, processing_msg: M
         elif result["type"] == "single":
             # Single video or image
             media_type = result.get("media_type", "photo")
-            title = result.get("title", "Instagram Media")
             
             if media_type == "video":
                 await message.reply_video(
                     video=result["media_url"],
-                    caption=f"📸 **{title}**"
+                    caption=f"📸 **Instagram Media**"
                 )
             else:
                 await message.reply_photo(
                     photo=result["media_url"],
-                    caption=f"📸 **{title}**"
+                    caption=f"📸 **Instagram Media**"
                 )
             
             if processing_msg:

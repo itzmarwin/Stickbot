@@ -154,7 +154,6 @@ async def _create_indexes():
         await management_db.welcome_settings.create_index(
             [("updated_at", 1)],
             name="idx_updated_at",
-            expireAfterSeconds=None  # Manual cleanup, not TTL
         )
         
         logger.info("✅ Optimized indexes created (3 total instead of 6)")

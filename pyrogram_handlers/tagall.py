@@ -9,7 +9,7 @@ from pyrogram.errors import FloodWait
 logger = logging.getLogger(__name__)
 
 BATCH_SIZE = 10
-DELAY_BETWEEN_BATCHES = 4
+DELAY_BETWEEN_BATCHES = 3
 MAX_RETRIES = 3
 MAX_MESSAGE_LENGTH = 3900
 

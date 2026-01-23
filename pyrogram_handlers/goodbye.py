@@ -1,9 +1,71 @@
+"""
+Goodbye Message Handler for Pyrogram
+Handles goodbye messages for members leaving groups
+
+FIXES APPLIED:
+- Issue #1: Race condition in cache (utils cache with locks)
+- Issue #2: Memory leak (utils task management)
+- Issue #3: Orphaned tasks (proper tracking)
+- Issue #5: Duplicate code (using utils)
+- Issue #11: Bot permission check (utils function)
+- Issue #12: Input validation (utils validators)
+- Issue #13: Caption length check (utils validator)
+- Issue #22: Reduce DB calls (caching)
+- Issue #24: Cache TTL (utils TTL cache)
+- Issue #32: Magic numbers (utils constants)
+- Issue #33: Exception handling (specific errors)
+"""
+
 import logging
-import re
-import asyncio
 from pyrogram import Client, filters
-from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
-from pyrogram.enums import ChatMemberStatus, ParseMode
+from pyrogram.types import Message
+from pyrogram.enums import ParseMode
+from pyrogram.errors import (
+    ChatAdminRequired,
+    MessageDeleteForbidden,
+    BadRequest,
+    FloodWait
+)
+
+# Import utils functions (Fix Issue #5 - No duplicate code)
+from pyrogram_handlers.utils import (
+    # Button parsing
+    parse_buttons,
+    create_button_markup,
+    
+    # Text formatting
+    format_message_text,
+    format_time,
+    
+    # Validation
+    validate_text_length,
+    validate_auto_delete_time,
+    get_default_auto_delete_time,
+    
+    # Permission checks
+    is_user_admin,
+    is_bot_admin,
+    bot_can_delete_messages,
+    
+    # Cache management (Fix Issue #1, #24)
+    get_cached_settings,
+    update_cached_settings,
+    clear_cached_settings,
+    
+    # Task management (Fix Issue #2, #3)
+    schedule_message_deletion,
+    cancel_pending_deletions,
+    
+    # Constants (Fix Issue #32)
+    MIN_AUTO_DELETE_SECONDS,
+    MAX_AUTO_DELETE_SECONDS,
+    DEFAULT_AUTO_DELETE_SECONDS,
+    MAX_TEXT_LENGTH,
+    MAX_CAPTION_LENGTH,
+    
+    # Error handling
+    log_error
+)
 
 from database_management import (
     get_welcome_settings,
@@ -16,174 +78,57 @@ from database_management import (
 
 logger = logging.getLogger(__name__)
 
-GOODBYE_CACHE = {}
-GOODBYE_DELETE_TASKS = {}
 
-
-def parse_buttons(text: str) -> tuple:
-    cleaned_text = text
-    button_rows = []
-    
-    lines = text.split('\n')
-    button_pattern = r'\[([^\]]+)\]\(([^\)]+)\)'
-    
-    total_buttons = 0
-    for line in lines:
-        if '|' in line:
-            parts = line.split('|')
-            row_buttons = []
-            
-            for part in parts:
-                matches = re.findall(button_pattern, part.strip())
-                for match in matches:
-                    if total_buttons >= 6:
-                        break
-                    row_buttons.append({"text": match[0].strip(), "url": match[1].strip()})
-                    total_buttons += 1
-                
-                if len(row_buttons) > 2:
-                    return None, None, "Maximum 2 buttons per row allowed!"
-            
-            if row_buttons:
-                button_rows.append(row_buttons)
-        else:
-            matches = re.findall(button_pattern, line)
-            for match in matches:
-                if total_buttons >= 6:
-                    break
-                button_rows.append([{"text": match[0].strip(), "url": match[1].strip()}])
-                total_buttons += 1
-    
-    if total_buttons > 6:
-        return None, None, "Maximum 6 buttons allowed!"
-    
-    cleaned_text = re.sub(button_pattern, '', text)
-    cleaned_text = re.sub(r'\|', '', cleaned_text)
-    cleaned_text = cleaned_text.strip()
-    
-    return cleaned_text, button_rows, None
-
-
-def format_goodbye_text(text: str, user, chat) -> str:
-    from datetime import datetime
-    
-    user_mention = f'<a href="tg://user?id={user.id}">{user.first_name}</a>'
-    first_name = user.first_name or "User"
-    last_name = user.last_name or ""
-    full_name = f"{first_name} {last_name}".strip()
-    username = f"@{user.username}" if user.username else "None"
-    
-    now = datetime.now()
-    current_date = now.strftime("%d-%m-%Y")
-    current_time = now.strftime("%H:%M")
-    
-    formatted = text.replace("{ID}", str(user.id))
-    formatted = formatted.replace("{NAME}", first_name)
-    formatted = formatted.replace("{SURNAME}", last_name)
-    formatted = formatted.replace("{NAMESURNAME}", full_name)
-    formatted = formatted.replace("{DATE}", current_date)
-    formatted = formatted.replace("{TIME}", current_time)
-    formatted = formatted.replace("{MENTION}", user_mention)
-    formatted = formatted.replace("{USERNAME}", username)
-    formatted = formatted.replace("{GROUPNAME}", chat.title)
-    
-    return formatted
-
-
-def format_time(seconds: int) -> str:
-    if seconds < 60:
-        return f"{seconds} second{'s' if seconds != 1 else ''}"
-    
-    hours = seconds // 3600
-    minutes = (seconds % 3600) // 60
-    secs = seconds % 60
-    
-    parts = []
-    if hours > 0:
-        parts.append(f"{hours} hour{'s' if hours != 1 else ''}")
-    if minutes > 0:
-        parts.append(f"{minutes} minute{'s' if minutes != 1 else ''}")
-    if secs > 0:
-        parts.append(f"{secs} second{'s' if secs != 1 else ''}")
-    
-    return " ".join(parts)
-
-
-def create_button_markup(button_rows: list) -> InlineKeyboardMarkup:
-    if not button_rows:
-        return None
-    
-    keyboard = []
-    for row in button_rows:
-        keyboard_row = []
-        for btn in row:
-            keyboard_row.append(InlineKeyboardButton(text=btn['text'], url=btn['url']))
-        keyboard.append(keyboard_row)
-    
-    return InlineKeyboardMarkup(keyboard) if keyboard else None
-
-
-async def is_user_admin(client: Client, chat_id: int, user_id: int) -> bool:
-    try:
-        member = await client.get_chat_member(chat_id, user_id)
-        return member.status in [ChatMemberStatus.OWNER, ChatMemberStatus.ADMINISTRATOR]
-    except Exception:
-        return False
-
-
-async def is_bot_admin(client: Client, chat_id: int) -> bool:
-    try:
-        bot = await client.get_me()
-        bot_member = await client.get_chat_member(chat_id, bot.id)
-        return bot_member.status in [ChatMemberStatus.ADMINISTRATOR]
-    except Exception:
-        return False
-
-
-async def delete_message_after(message: Message, seconds: int, chat_id: int, message_id: int):
-    try:
-        await asyncio.sleep(seconds)
-        await message.delete()
-        if message_id in GOODBYE_DELETE_TASKS:
-            del GOODBYE_DELETE_TASKS[message_id]
-    except Exception as e:
-        logger.error(f"Failed to delete goodbye message {message_id}: {e}")
-        if message_id in GOODBYE_DELETE_TASKS:
-            del GOODBYE_DELETE_TASKS[message_id]
-
+# ============================================================================
+# COMMAND HANDLERS
+# ============================================================================
 
 async def setup_goodbye_handlers(client: Client):
     
     @client.on_message(filters.command("goodbye") & filters.group)
     async def goodbye_command(client: Client, message: Message):
+        """
+        Handle /goodbye command
+        Usage: /goodbye [on|off]
+        
+        FIXES:
+            - Issue #22: Reduced duplicate DB calls
+            - Issue #33: Specific exception handling
+        """
         try:
             chat_id = message.chat.id
             user_id = message.from_user.id
             
+            # Permission check
             if not await is_user_admin(client, chat_id, user_id):
-                await message.reply_text("Only admins can use this command!", parse_mode=ParseMode.HTML)
+                await message.reply_text(
+                    "❌ Only admins can use this command!",
+                    parse_mode=ParseMode.HTML
+                )
                 return
             
             command_parts = message.text.split(maxsplit=1)
             
+            # No argument - show status and preview
             if len(command_parts) < 2:
+                # Fix Issue #22: Single DB call
                 settings = await get_welcome_settings(chat_id)
                 
                 if not settings:
                     await create_default_welcome_settings(chat_id)
                     settings = await get_welcome_settings(chat_id)
                 
-                is_enabled = settings.get('goodbye', {}).get('enabled', False)
-                status_text = "enabled" if is_enabled else "disabled"
+                goodbye_config = settings.get('goodbye', {})
+                is_enabled = goodbye_config.get('enabled', False)
+                status_text = "✅ enabled" if is_enabled else "❌ disabled"
                 
                 await message.reply_text(
                     f"<b>Goodbye messages are currently {status_text}.</b>",
                     parse_mode=ParseMode.HTML
                 )
                 
+                # Show preview if enabled
                 if is_enabled:
-                    goodbye_config = settings['goodbye']
-                    
                     if goodbye_config.get('custom_set') and goodbye_config.get('text'):
                         text = goodbye_config['text']
                     else:
@@ -193,135 +138,204 @@ async def setup_goodbye_handlers(client: Client):
                     if goodbye_config.get('buttons'):
                         reply_markup = create_button_markup(goodbye_config['buttons'])
                     
-                    if goodbye_config.get('media_type') and goodbye_config.get('media_id'):
-                        media_type = goodbye_config['media_type']
-                        media_id = goodbye_config['media_id']
-                        
-                        if media_type == "photo":
-                            await message.reply_photo(photo=media_id, caption=text, reply_markup=reply_markup)
-                        elif media_type == "video":
-                            await message.reply_video(video=media_id, caption=text, reply_markup=reply_markup)
-                        elif media_type == "animation":
-                            await message.reply_animation(animation=media_id, caption=text, reply_markup=reply_markup)
-                    else:
-                        await message.reply_text(text=text, reply_markup=reply_markup)
+                    # Send preview
+                    try:
+                        if goodbye_config.get('media_type') and goodbye_config.get('media_id'):
+                            media_type = goodbye_config['media_type']
+                            media_id = goodbye_config['media_id']
+                            
+                            if media_type == "photo":
+                                await message.reply_photo(
+                                    photo=media_id,
+                                    caption=text,
+                                    reply_markup=reply_markup
+                                )
+                            elif media_type == "video":
+                                await message.reply_video(
+                                    video=media_id,
+                                    caption=text,
+                                    reply_markup=reply_markup
+                                )
+                            elif media_type == "animation":
+                                await message.reply_animation(
+                                    animation=media_id,
+                                    caption=text,
+                                    reply_markup=reply_markup
+                                )
+                        else:
+                            await message.reply_text(
+                                text=text,
+                                reply_markup=reply_markup
+                            )
+                    except BadRequest as e:
+                        log_error("Goodbye preview failed", e, chat_id=chat_id)
+                        await message.reply_text(
+                            "⚠️ Preview unavailable (media may have expired)",
+                            parse_mode=ParseMode.HTML
+                        )
                 
                 return
             
+            # Action specified (on/off)
             action = command_parts[1].lower()
             
+            # Check bot admin status
             if not await is_bot_admin(client, chat_id):
                 await message.reply_text(
-                    "<b>Please promote the bot to admin to enable goodbye messages.</b>",
+                    "⚠️ <b>Please promote the bot to admin to enable goodbye messages.</b>",
                     parse_mode=ParseMode.HTML
                 )
                 return
             
+            # Fix Issue #22: Single fetch, reuse settings
             settings = await get_welcome_settings(chat_id)
             
             if not settings:
                 await create_default_welcome_settings(chat_id)
                 settings = await get_welcome_settings(chat_id)
             
+            goodbye_config = settings.get('goodbye', {})
+            
             if action == "on":
-                if settings['goodbye']['enabled']:
-                    await message.reply_text("Goodbye is already enabled!", parse_mode=ParseMode.HTML)
+                if goodbye_config.get('enabled'):
+                    await message.reply_text(
+                        "ℹ️ Goodbye is already enabled!",
+                        parse_mode=ParseMode.HTML
+                    )
                     return
                 
-                await update_goodbye_status(chat_id, True)
-                settings = await get_welcome_settings(chat_id)
-                GOODBYE_CACHE[chat_id] = settings['goodbye']
+                success = await update_goodbye_status(chat_id, True)
                 
-                if settings['goodbye']['custom_set']:
-                    await message.reply_text(
-                        "<b>Goodbye enabled!</b>\n\nCustom goodbye message will be sent when members leave.",
-                        parse_mode=ParseMode.HTML
-                    )
-                else:
-                    await message.reply_text(
-                        "<b>Goodbye enabled!</b>\n\nDefault goodbye message will be sent when members leave.\n"
-                        "Use <code>/setgoodbye</code> to set a custom message.",
-                        parse_mode=ParseMode.HTML
-                    )
+                if success:
+                    # Fix Issue #1: Thread-safe cache update
+                    settings = await get_welcome_settings(chat_id)
+                    await update_cached_settings(chat_id, 'goodbye', settings['goodbye'])
+                    
+                    if goodbye_config.get('custom_set'):
+                        await message.reply_text(
+                            "✅ <b>Goodbye enabled!</b>\n\n"
+                            "Custom goodbye message will be sent when members leave.",
+                            parse_mode=ParseMode.HTML
+                        )
+                    else:
+                        await message.reply_text(
+                            "✅ <b>Goodbye enabled!</b>\n\n"
+                            "Default goodbye message will be sent when members leave.\n"
+                            "Use <code>/setgoodbye</code> to set a custom message.",
+                            parse_mode=ParseMode.HTML
+                        )
             
             elif action == "off":
-                if not settings['goodbye']['enabled']:
-                    await message.reply_text("Goodbye is already disabled!", parse_mode=ParseMode.HTML)
+                if not goodbye_config.get('enabled'):
+                    await message.reply_text(
+                        "ℹ️ Goodbye is already disabled!",
+                        parse_mode=ParseMode.HTML
+                    )
                     return
                 
-                await update_goodbye_status(chat_id, False)
+                success = await update_goodbye_status(chat_id, False)
                 
-                if chat_id in GOODBYE_CACHE:
-                    del GOODBYE_CACHE[chat_id]
-                
-                await message.reply_text(
-                    "<b>Goodbye disabled!</b>\n\nMembers leaving will not receive goodbye messages.",
-                    parse_mode=ParseMode.HTML
-                )
+                if success:
+                    # Fix Issue #1: Thread-safe cache clear
+                    await clear_cached_settings(chat_id, 'goodbye')
+                    
+                    await message.reply_text(
+                        "✅ <b>Goodbye disabled!</b>\n\n"
+                        "Members leaving will not receive goodbye messages.",
+                        parse_mode=ParseMode.HTML
+                    )
             
             else:
                 await message.reply_text(
-                    "<b>Use <code>/goodbye on</code> or <code>/goodbye off</code></b>",
+                    "❌ Invalid option!\n\n"
+                    "Use <code>/goodbye on</code> or <code>/goodbye off</code>",
                     parse_mode=ParseMode.HTML
                 )
         
-        except Exception as e:
-            logger.error(f"Error in goodbye_command: {e}", exc_info=True)
+        except ChatAdminRequired:
             await message.reply_text(
-                "Please try again shortly. If the problem continues, contact our support group.",
+                "❌ Bot needs admin privileges to manage goodbye messages.",
+                parse_mode=ParseMode.HTML
+            )
+        except FloodWait as e:
+            logger.warning(f"FloodWait: {e.value} seconds")
+            await message.reply_text(
+                f"⏳ Please wait {e.value} seconds before trying again.",
+                parse_mode=ParseMode.HTML
+            )
+        except Exception as e:
+            log_error("goodbye_command", e, chat_id=chat_id, user_id=user_id)
+            await message.reply_text(
+                "❌ An error occurred. Please try again shortly.",
                 parse_mode=ParseMode.HTML
             )
     
     
     @client.on_message(filters.command("setgoodbye") & filters.group)
     async def setgoodbye_command(client: Client, message: Message):
+        """
+        Handle /setgoodbye command
+        Usage: Reply to a message with /setgoodbye
+        
+        FIXES:
+            - Issue #12: Input validation
+            - Issue #13: Caption length check
+            - Issue #22: Reduced DB calls
+            - Issue #33: Specific exceptions
+        """
         try:
             chat_id = message.chat.id
             user_id = message.from_user.id
             
+            # Permission check
             if not await is_user_admin(client, chat_id, user_id):
-                await message.reply_text("Only admins can use this command!", parse_mode=ParseMode.HTML)
+                await message.reply_text(
+                    "❌ Only admins can use this command!",
+                    parse_mode=ParseMode.HTML
+                )
                 return
             
+            # Bot admin check
             if not await is_bot_admin(client, chat_id):
                 await message.reply_text(
-                    "<b>Please promote the bot to admin to enable goodbye messages.</b>",
+                    "⚠️ <b>Please promote the bot to admin first.</b>",
                     parse_mode=ParseMode.HTML
                 )
                 return
             
+            # Must reply to a message
             if not message.reply_to_message:
                 await message.reply_text(
-                    "<b>Please reply to a message!</b>\n\n<b>Usage:</b>\n"
-                    "1. Send/forward a photo/video/GIF with caption\n2. Or send a text message\n"
-                    "3. Reply to it with <code>/setgoodbye</code>\n\n<b>Variables:</b>\n"
-                    "<code>{ID}</code> {NAME} {SURNAME} {NAMESURNAME}\n<code>{DATE}</code> {TIME} {MENTION} {USERNAME}\n"
-                    "<code>{GROUPNAME}</code>\n\n<b>Buttons Format:</b>\n<code>[Button](URL)</code> - Single button\n"
-                    "<code>[Btn1](URL) | [Btn2](URL)</code> - Two buttons in one row\nMax 2 buttons per row, Max 6 buttons total",
+                    "❌ <b>Please reply to a message!</b>\n\n"
+                    "<b>Supported:</b> Text, Photo, Video, GIF\n"
+                    "<b>Variables:</b> <code>{MENTION} {NAME} {GROUPNAME}</code>\n"
+                    "<b>Buttons:</b> <code>[Text](URL)</code>",
                     parse_mode=ParseMode.HTML
                 )
                 return
             
+            # Fix Issue #22: Single fetch
             settings = await get_welcome_settings(chat_id)
             
             if not settings:
                 await create_default_welcome_settings(chat_id)
                 settings = await get_welcome_settings(chat_id)
             
-            if settings['goodbye']['custom_set']:
+            # Check if custom already set
+            if settings.get('goodbye', {}).get('custom_set'):
                 await message.reply_text(
-                    "<b>Custom goodbye already set!</b>\n\nFirst use <code>/delgoodbye</code> to remove the existing custom goodbye,\n"
-                    "then set the new one.\n\nThis prevents accidental overwrites.",
+                    "⚠️ <b>Goodbye message already set!</b>\n\n"
+                    "Use <code>/delgoodbye delete</code> first to remove it.",
                     parse_mode=ParseMode.HTML
                 )
                 return
             
             replied_msg = message.reply_to_message
             
+            # Parse message
             media_type = None
             media_id = None
             text = None
-            button_rows = []
             
             if replied_msg.photo:
                 media_type = "photo"
@@ -339,25 +353,40 @@ async def setup_goodbye_handlers(client: Client):
                 text = replied_msg.text
             else:
                 await message.reply_text(
-                    "<b>The selected message type is not supported.</b>",
+                    "❌ <b>Unsupported message type!</b>\n\n"
+                    "Supported: Text, Photo, Video, GIF",
                     parse_mode=ParseMode.HTML
                 )
                 return
             
+            # Fix Issue #12, #13: Validate text length
+            is_caption = media_type is not None
+            validation_error = validate_text_length(text, is_caption)
+            if validation_error:
+                await message.reply_text(
+                    f"❌ {validation_error}",
+                    parse_mode=ParseMode.HTML
+                )
+                return
+            
+            # Parse buttons (with validation)
+            button_rows = []
             if text:
                 text, button_rows, error = parse_buttons(text)
                 if error:
                     await message.reply_text(
-                        f"<b>Button Error:</b> {error}\n\n<b>Rules:</b>\n• Max 2 buttons per row\n"
-                        "• Max 6 buttons total\n• Use | to put buttons in same row\n\n<b>Examples:</b>\n"
-                        "<code>[Btn1](url) | [Btn2](url)</code>\n<code>[Btn3](url)</code>",
+                        f"❌ <b>Button Error:</b> {error}\n\n"
+                        "<b>Format:</b> <code>[Text](URL)</code>\n"
+                        "<b>Multiple:</b> <code>[Btn1](url) | [Btn2](url)</code>",
                         parse_mode=ParseMode.HTML
                     )
                     return
             
+            # Default text if empty
             if not text or len(text.strip()) == 0:
                 text = "Goodbye {MENTION}! 👋 We hope to see you again."
             
+            # Save to database
             success = await set_custom_goodbye(
                 chat_id=chat_id,
                 media_type=media_type,
@@ -367,166 +396,182 @@ async def setup_goodbye_handlers(client: Client):
             )
             
             if success:
+                # Enable goodbye automatically
                 await update_goodbye_status(chat_id, True)
+                
+                # Fix Issue #1: Thread-safe cache update
                 settings = await get_welcome_settings(chat_id)
-                GOODBYE_CACHE[chat_id] = settings['goodbye']
+                await update_cached_settings(chat_id, 'goodbye', settings['goodbye'])
                 
                 await message.reply_text(
-                    "<b>Goodbye message has been set successfully!</b>\n\nGoodbye is now <b>enabled</b>",
+                    "✅ <b>Goodbye message set successfully!</b>\n\n"
+                    "Goodbye is now <b>enabled</b>.",
                     parse_mode=ParseMode.HTML
                 )
             else:
                 await message.reply_text(
-                    "Unable to set the goodbye message at this time. Please try again later.",
+                    "❌ Failed to set goodbye message. Please try again.",
                     parse_mode=ParseMode.HTML
                 )
         
-        except Exception as e:
-            logger.error(f"Error in setgoodbye_command: {e}", exc_info=True)
+        except ChatAdminRequired:
             await message.reply_text(
-                "Please try again later or contact the support group if the issue persists.",
+                "❌ Bot needs admin privileges.",
+                parse_mode=ParseMode.HTML
+            )
+        except Exception as e:
+            log_error("setgoodbye_command", e, chat_id=chat_id, user_id=user_id)
+            await message.reply_text(
+                "❌ An error occurred. Please try again.",
                 parse_mode=ParseMode.HTML
             )
     
     
     @client.on_message(filters.command("delgoodbye") & filters.group)
     async def delgoodbye_command(client: Client, message: Message):
+        """
+        Handle /delgoodbye command
+        Usage: 
+            /delgoodbye - Show auto-delete status
+            /delgoodbye on - Enable auto-delete
+            /delgoodbye off - Disable auto-delete
+            /delgoodbye <seconds> - Set custom time
+            /delgoodbye delete - Delete custom message
+        
+        FIXES:
+            - Issue #22: Reduced DB calls
+            - Issue #32: Use constants for validation
+            - Issue #33: Specific exceptions
+        """
         try:
             chat_id = message.chat.id
             user_id = message.from_user.id
             
+            # Permission check
             if not await is_user_admin(client, chat_id, user_id):
-                await message.reply_text("Only admins can use this command!", parse_mode=ParseMode.HTML)
+                await message.reply_text(
+                    "❌ Only admins can use this command!",
+                    parse_mode=ParseMode.HTML
+                )
                 return
             
             command_parts = message.text.split()
             
-            if len(command_parts) == 1:
+            # Fix Issue #22: Single fetch
+            settings = await get_welcome_settings(chat_id)
+            
+            if not settings:
+                await create_default_welcome_settings(chat_id)
                 settings = await get_welcome_settings(chat_id)
-                
-                if not settings:
-                    await create_default_welcome_settings(chat_id)
-                    settings = await get_welcome_settings(chat_id)
-                
+            
+            # No argument - show auto-delete status
+            if len(command_parts) == 1:
                 auto_delete = settings.get('goodbye', {}).get('auto_delete', {})
                 is_enabled = auto_delete.get('enabled', False)
                 
                 if is_enabled:
-                    delete_after = auto_delete.get('delete_after', 600)
+                    delete_after = auto_delete.get('delete_after', DEFAULT_AUTO_DELETE_SECONDS)
                     time_str = format_time(delete_after)
                     
                     await message.reply_text(
-                        f"<b>Auto-delete for goodbye messages is enabled.</b>\n\n"
+                        f"✅ <b>Auto-delete is enabled</b>\n\n"
                         f"Goodbye messages will be deleted after: <b>{time_str}</b>",
                         parse_mode=ParseMode.HTML
                     )
                 else:
                     await message.reply_text(
-                        "<b>Auto-delete for goodbye messages is currently disabled in this group.</b>",
+                        "ℹ️ <b>Auto-delete is disabled</b>",
                         parse_mode=ParseMode.HTML
                     )
                 return
             
             action = command_parts[1].lower()
             
+            # Enable auto-delete
             if action == "on":
-                settings = await get_welcome_settings(chat_id)
-                
-                if not settings:
-                    await create_default_welcome_settings(chat_id)
-                    settings = await get_welcome_settings(chat_id)
-                
                 auto_delete = settings.get('goodbye', {}).get('auto_delete', {})
                 if auto_delete.get('enabled'):
                     await message.reply_text(
-                        "Auto-delete goodbye is already enabled!",
+                        "ℹ️ Auto-delete is already enabled!",
                         parse_mode=ParseMode.HTML
                     )
                     return
                 
-                await update_goodbye_auto_delete(chat_id, True, 600)
-                
-                settings = await get_welcome_settings(chat_id)
-                if chat_id in GOODBYE_CACHE:
-                    GOODBYE_CACHE[chat_id] = settings['goodbye']
-                
-                await message.reply_text(
-                    "<b>Auto-delete for goodbye messages has been enabled.</b>\n\n"
-                    "Goodbye messages will be deleted after: <b>10 minutes</b>",
-                    parse_mode=ParseMode.HTML
+                # Fix Issue #32: Use constant
+                success = await update_goodbye_auto_delete(
+                    chat_id, True, DEFAULT_AUTO_DELETE_SECONDS
                 )
-            
-            elif action == "off":
-                settings = await get_welcome_settings(chat_id)
                 
-                if not settings:
+                if success:
+                    # Fix Issue #1: Update cache
+                    settings = await get_welcome_settings(chat_id)
+                    await update_cached_settings(chat_id, 'goodbye', settings['goodbye'])
+                    
                     await message.reply_text(
-                        "Auto-delete is not enabled for this group.",
+                        f"✅ <b>Auto-delete enabled</b>\n\n"
+                        f"Goodbye messages will be deleted after: <b>{format_time(DEFAULT_AUTO_DELETE_SECONDS)}</b>",
                         parse_mode=ParseMode.HTML
                     )
-                    return
-                
+            
+            # Disable auto-delete
+            elif action == "off":
                 auto_delete = settings.get('goodbye', {}).get('auto_delete', {})
                 if not auto_delete.get('enabled'):
                     await message.reply_text(
-                        "Auto-delete for goodbye messages is already disabled.",
+                        "ℹ️ Auto-delete is already disabled!",
                         parse_mode=ParseMode.HTML
                     )
                     return
                 
-                await update_goodbye_auto_delete(chat_id, False, None)
+                success = await update_goodbye_auto_delete(chat_id, False, None)
                 
-                if chat_id in GOODBYE_CACHE:
+                if success:
+                    # Fix Issue #1: Update cache
                     settings = await get_welcome_settings(chat_id)
-                    GOODBYE_CACHE[chat_id] = settings['goodbye']
-                
-                for msg_id in list(GOODBYE_DELETE_TASKS.keys()):
-                    if msg_id in GOODBYE_DELETE_TASKS:
-                        GOODBYE_DELETE_TASKS[msg_id].cancel()
-                        del GOODBYE_DELETE_TASKS[msg_id]
-                
-                await message.reply_text(
-                    "<b>Auto-delete for goodbye messages is disabled.</b>",
-                    parse_mode=ParseMode.HTML
-                )
+                    await update_cached_settings(chat_id, 'goodbye', settings['goodbye'])
+                    
+                    # Fix Issue #2, #3: Cancel pending tasks
+                    cancelled = await cancel_pending_deletions(chat_id, 'goodbye')
+                    
+                    await message.reply_text(
+                        "✅ <b>Auto-delete disabled</b>",
+                        parse_mode=ParseMode.HTML
+                    )
             
+            # Set custom time
             elif action.isdigit():
                 delete_after = int(action)
                 
-                if delete_after < 10:
+                # Fix Issue #32: Use constants for validation
+                validation_error = validate_auto_delete_time(delete_after)
+                if validation_error:
                     await message.reply_text(
-                        "Auto-delete time cannot be less than 10 seconds.",
+                        f"❌ {validation_error}",
                         parse_mode=ParseMode.HTML
                     )
                     return
                 
-                if delete_after > 86400:
+                success = await update_goodbye_auto_delete(chat_id, True, delete_after)
+                
+                if success:
+                    # Fix Issue #1: Update cache
+                    settings = await get_welcome_settings(chat_id)
+                    await update_cached_settings(chat_id, 'goodbye', settings['goodbye'])
+                    
+                    time_str = format_time(delete_after)
+                    
                     await message.reply_text(
-                        "The maximum auto-delete time is 24 hours (86,400 seconds).",
+                        f"✅ <b>Auto-delete time updated</b>\n\n"
+                        f"Goodbye messages will be deleted after: <b>{time_str}</b>",
                         parse_mode=ParseMode.HTML
                     )
-                    return
-                
-                await update_goodbye_auto_delete(chat_id, True, delete_after)
-                
-                settings = await get_welcome_settings(chat_id)
-                if chat_id in GOODBYE_CACHE:
-                    GOODBYE_CACHE[chat_id] = settings['goodbye']
-                
-                time_str = format_time(delete_after)
-                
-                await message.reply_text(
-                    f"<b>Auto-delete for goodbye messages has been updated.</b>\n\n"
-                    f"Goodbye messages will be deleted after: <b>{time_str}</b>",
-                    parse_mode=ParseMode.HTML
-                )
             
-            else:
-                settings = await get_welcome_settings(chat_id)
-                
-                if not settings or not settings['goodbye']['custom_set']:
+            # Delete custom message
+            elif action == "delete":
+                if not settings.get('goodbye', {}).get('custom_set'):
                     await message.reply_text(
-                        "<b>No goodbye message is set.</b>\n\nSet it using <code>/setgoodbye</code>.",
+                        "ℹ️ No custom goodbye message set.\n\n"
+                        "Use <code>/setgoodbye</code> to set one.",
                         parse_mode=ParseMode.HTML
                     )
                     return
@@ -534,36 +579,63 @@ async def setup_goodbye_handlers(client: Client):
                 success = await delete_custom_goodbye(chat_id)
                 
                 if success:
-                    if chat_id in GOODBYE_CACHE:
-                        del GOODBYE_CACHE[chat_id]
+                    # Fix Issue #1: Clear cache
+                    await clear_cached_settings(chat_id, 'goodbye')
                     
-                    await message.reply_text("<b>Goodbye message deleted.</b>", parse_mode=ParseMode.HTML)
+                    await message.reply_text(
+                        "✅ <b>Goodbye message deleted</b>",
+                        parse_mode=ParseMode.HTML
+                    )
                 else:
-                    await message.reply_text("Unable to delete the goodbye message.", parse_mode=ParseMode.HTML)
+                    await message.reply_text(
+                        "❌ Failed to delete goodbye message.",
+                        parse_mode=ParseMode.HTML
+                    )
+            
+            else:
+                await message.reply_text(
+                    "❌ Invalid option!\n\n"
+                    "<b>Usage:</b>\n"
+                    "<code>/delgoodbye</code> - Status\n"
+                    "<code>/delgoodbye on</code> - Enable auto-delete\n"
+                    "<code>/delgoodbye off</code> - Disable auto-delete\n"
+                    "<code>/delgoodbye 300</code> - Set 5 min\n"
+                    "<code>/delgoodbye delete</code> - Remove custom message",
+                    parse_mode=ParseMode.HTML
+                )
         
         except Exception as e:
-            logger.error(f"Error in delgoodbye_command: {e}", exc_info=True)
+            log_error("delgoodbye_command", e, chat_id=chat_id, user_id=user_id)
             await message.reply_text(
-                "Please try again later. If the problem continues, contact the support group.",
+                "❌ An error occurred. Please try again.",
                 parse_mode=ParseMode.HTML
             )
     
     
     @client.on_message(filters.left_chat_member & filters.group)
     async def goodbye_left_member(client: Client, message: Message):
+        """
+        Send goodbye message when members leave
+        
+        FIXES:
+            - Issue #1: Thread-safe cache
+            - Issue #2, #3: Proper task management
+            - Issue #11: Check delete permission
+            - Issue #22: Efficient caching
+        """
         try:
             chat_id = message.chat.id
             left_member = message.left_chat_member
             
+            # Skip bots
             if left_member.is_bot:
                 return
             
-            if chat_id in GOODBYE_CACHE:
-                goodbye_config = GOODBYE_CACHE[chat_id]
-                
-                if not goodbye_config.get('enabled'):
-                    return
-            else:
+            # Fix Issue #1, #22: Try cache first (thread-safe)
+            goodbye_config = await get_cached_settings(chat_id, 'goodbye')
+            
+            if not goodbye_config:
+                # Cache miss - fetch from DB
                 settings = await get_welcome_settings(chat_id)
                 
                 if not settings:
@@ -574,67 +646,97 @@ async def setup_goodbye_handlers(client: Client):
                     return
                 
                 goodbye_config = settings['goodbye']
-                GOODBYE_CACHE[chat_id] = goodbye_config
+                
+                # Fix Issue #1: Thread-safe cache update
+                await update_cached_settings(chat_id, 'goodbye', goodbye_config)
             
+            # Check if enabled
+            if not goodbye_config.get('enabled'):
+                return
+            
+            # Get text
             if goodbye_config.get('custom_set') and goodbye_config.get('text'):
                 text = goodbye_config['text']
             else:
                 text = goodbye_config.get('default_text', 'Goodbye {MENTION}! 👋 We hope to see you again.')
             
-            formatted_text = format_goodbye_text(text, left_member, message.chat)
+            # Format text with variables
+            formatted_text = format_message_text(text, left_member, message.chat)
             
+            # Create buttons
             reply_markup = None
             if goodbye_config.get('buttons'):
                 reply_markup = create_button_markup(goodbye_config['buttons'])
             
+            # Send message
             sent_message = None
             
-            if goodbye_config.get('media_type') and goodbye_config.get('media_id'):
-                media_type = goodbye_config['media_type']
-                media_id = goodbye_config['media_id']
+            try:
+                if goodbye_config.get('media_type') and goodbye_config.get('media_id'):
+                    media_type = goodbye_config['media_type']
+                    media_id = goodbye_config['media_id']
+                    
+                    if media_type == "photo":
+                        sent_message = await client.send_photo(
+                            chat_id=chat_id,
+                            photo=media_id,
+                            caption=formatted_text,
+                            reply_markup=reply_markup,
+                            parse_mode=ParseMode.HTML
+                        )
+                    elif media_type == "video":
+                        sent_message = await client.send_video(
+                            chat_id=chat_id,
+                            video=media_id,
+                            caption=formatted_text,
+                            reply_markup=reply_markup,
+                            parse_mode=ParseMode.HTML
+                        )
+                    elif media_type == "animation":
+                        sent_message = await client.send_animation(
+                            chat_id=chat_id,
+                            animation=media_id,
+                            caption=formatted_text,
+                            reply_markup=reply_markup,
+                            parse_mode=ParseMode.HTML
+                        )
+                else:
+                    sent_message = await client.send_message(
+                        chat_id=chat_id,
+                        text=formatted_text,
+                        reply_markup=reply_markup,
+                        parse_mode=ParseMode.HTML
+                    )
                 
-                if media_type == "photo":
-                    sent_message = await client.send_photo(
-                        chat_id=chat_id,
-                        photo=media_id,
-                        caption=formatted_text,
-                        reply_markup=reply_markup,
-                        parse_mode=ParseMode.HTML
-                    )
-                elif media_type == "video":
-                    sent_message = await client.send_video(
-                        chat_id=chat_id,
-                        video=media_id,
-                        caption=formatted_text,
-                        reply_markup=reply_markup,
-                        parse_mode=ParseMode.HTML
-                    )
-                elif media_type == "animation":
-                    sent_message = await client.send_animation(
-                        chat_id=chat_id,
-                        animation=media_id,
-                        caption=formatted_text,
-                        reply_markup=reply_markup,
-                        parse_mode=ParseMode.HTML
-                    )
-            else:
-                sent_message = await client.send_message(
-                    chat_id=chat_id,
-                    text=formatted_text,
-                    reply_markup=reply_markup,
-                    parse_mode=ParseMode.HTML
-                )
-            
-            auto_delete = goodbye_config.get('auto_delete', {})
-            if auto_delete.get('enabled') and sent_message:
-                delete_after = auto_delete.get('delete_after', 600)
+                # Fix Issue #2, #3, #11: Proper task management with permission check
+                auto_delete = goodbye_config.get('auto_delete', {})
+                if auto_delete.get('enabled') and sent_message:
+                    delete_after = auto_delete.get('delete_after', DEFAULT_AUTO_DELETE_SECONDS)
+                    
+                    # Fix Issue #11: Check if bot can delete
+                    can_delete = await bot_can_delete_messages(client, chat_id)
+                    
+                    if can_delete:
+                        # Fix Issue #2, #3: Use utils task management
+                        await schedule_message_deletion(
+                            sent_message,
+                            delete_after,
+                            chat_id,
+                            'goodbye'
+                        )
+                    else:
+                        logger.warning(f"Bot lacks delete permission in {chat_id}, skipping auto-delete")
                 
-                task = asyncio.create_task(
-                    delete_message_after(sent_message, delete_after, chat_id, sent_message.id)
-                )
-                GOODBYE_DELETE_TASKS[sent_message.id] = task
+            except BadRequest as e:
+                log_error("Send goodbye failed", e, chat_id=chat_id, error_type="BadRequest")
+            except MessageDeleteForbidden:
+                logger.warning(f"Cannot delete messages in {chat_id}")
+            except FloodWait as e:
+                logger.warning(f"FloodWait in goodbye: {e.value}s")
+            except Exception as send_error:
+                log_error("Send goodbye failed", send_error, chat_id=chat_id)
         
         except Exception as e:
-            logger.error(f"Error in goodbye_left_member: {e}", exc_info=True)
+            log_error("goodbye_left_member", e, chat_id=message.chat.id)
     
     logger.info("✅ Goodbye handlers setup complete")

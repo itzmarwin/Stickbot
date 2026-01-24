@@ -407,18 +407,13 @@ async def setup_goodbye_handlers(client: Client):
             
             else:
                 await message.reply_text(
-                    "❌ Invalid option!\n\n"
-                    "<b>Usage:</b>\n"
-                    "<code>/cleangoodbye</code> - Show status\n"
-                    "<code>/cleangoodbye on</code> - Enable auto-delete\n"
-                    "<code>/cleangoodbye off</code> - Disable auto-delete\n"
-                    "<code>/cleangoodbye 300</code> - Set 5 min",
+                    "Use <code>/cleangoodbye on</code> or <code>/cleangoodbye off</code>",
                     parse_mode=ParseMode.HTML
                 )
         
         except Exception as e:
             log_error("cleangoodbye_command", e, chat_id=chat_id, user_id=user_id)
-            await message.reply_text("❌ An error occurred. Please try again.", parse_mode=ParseMode.HTML)
+            await message.reply_text("Please try again later. If it still doesn’t work contact the support group.", parse_mode=ParseMode.HTML)
     
     
     @client.on_message(filters.left_chat_member & filters.group)

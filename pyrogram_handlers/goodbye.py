@@ -43,8 +43,16 @@ async def setup_goodbye_handlers(client: Client):
             chat_id = message.chat.id
             user_id = message.from_user.id
             
-            if not await is_user_admin(client, chat_id, user_id):
-                await message.reply_text("Only admins can use this command!", parse_mode=ParseMode.HTML)
+            try:
+                is_admin = await is_user_admin(client, chat_id, user_id)
+                if not is_admin:
+                    await message.reply_text("Only admins can use this command")
+                    return
+            except ChatAdminRequired:
+                await message.reply_text(
+                    "𝖸𝗈𝗎'𝗋𝖾 𝖠𝗇 𝖠𝗇𝗈𝗇𝗒𝗆𝗈𝗎𝗌 𝖠𝖽𝗆𝗂𝗇 𝖨𝗇 𝖳𝗁𝗂𝗌 𝖦𝗋𝗈𝗎𝗉 !\n"
+                    "𝖯𝗅𝖾𝖺𝗌𝖾 𝖱𝖾𝗏𝖾𝗋𝗍 𝖡𝖺𝖼𝗄 𝖳𝗈 𝖴𝗌𝖾𝗋 𝖠𝖼𝖼𝗈𝗎𝗇𝗍."
+                )
                 return
             
             command_parts = message.text.split(maxsplit=1)

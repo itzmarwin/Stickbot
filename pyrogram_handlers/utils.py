@@ -8,6 +8,7 @@ from collections import defaultdict
 from pyrogram import Client
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.enums import ChatMemberStatus
+from pyrogram.errors import ChatAdminRequired, UserNotParticipant
 from cachetools import TTLCache
 
 logger = logging.getLogger(__name__)
@@ -196,9 +197,26 @@ def format_time(seconds: int) -> str:
 
 
 async def is_user_admin(client: Client, chat_id: int, user_id: int) -> bool:
+    """
+    Check if a user is admin in the chat.
+    Returns:
+        bool: True if user is admin, False otherwise
+    Raises:
+        ChatAdminRequired: If user is an anonymous admin
+    """
     try:
         member = await client.get_chat_member(chat_id, user_id)
         return member.status in [ChatMemberStatus.OWNER, ChatMemberStatus.ADMINISTRATOR]
+    
+    except ChatAdminRequired:
+        # This happens when user is an anonymous admin
+        # Re-raise the exception so we can handle it in the command handler
+        raise
+    
+    except UserNotParticipant:
+        # User is not in the group
+        return False
+    
     except Exception as e:
         logger.error(f"Error checking admin status for user {user_id} in chat {chat_id}: {e}")
         return False

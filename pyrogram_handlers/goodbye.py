@@ -43,12 +43,7 @@ async def setup_goodbye_handlers(client: Client):
         user_id = None
         try:
             chat_id = message.chat.id
-            
-            if not message.from_user:
-                await message.reply_text("Cannot identify sender. Please use your user account.", parse_mode=ParseMode.HTML)
-                return
-            
-            user_id = message.from_user.id
+            user_id = message.from_user.id if message.from_user else None
             
             try:
                 is_admin = await is_user_admin(client, chat_id, user_id)
@@ -178,12 +173,7 @@ async def setup_goodbye_handlers(client: Client):
         user_id = None
         try:
             chat_id = message.chat.id
-            
-            if not message.from_user:
-                await message.reply_text("Cannot identify sender. Please use your user account.", parse_mode=ParseMode.HTML)
-                return
-            
-            user_id = message.from_user.id
+            user_id = message.from_user.id if message.from_user else None
             
             try:
                 is_admin = await is_user_admin(client, chat_id, user_id)
@@ -299,12 +289,7 @@ async def setup_goodbye_handlers(client: Client):
         user_id = None
         try:
             chat_id = message.chat.id
-            
-            if not message.from_user:
-                await message.reply_text("Cannot identify sender. Please use your user account.", parse_mode=ParseMode.HTML)
-                return
-            
-            user_id = message.from_user.id
+            user_id = message.from_user.id if message.from_user else None
             
             try:
                 is_admin = await is_user_admin(client, chat_id, user_id)
@@ -352,12 +337,7 @@ async def setup_goodbye_handlers(client: Client):
         user_id = None
         try:
             chat_id = message.chat.id
-            
-            if not message.from_user:
-                await message.reply_text("Cannot identify sender. Please use your user account.", parse_mode=ParseMode.HTML)
-                return
-            
-            user_id = message.from_user.id
+            user_id = message.from_user.id if message.from_user else None
             
             try:
                 is_admin = await is_user_admin(client, chat_id, user_id)

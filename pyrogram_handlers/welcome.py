@@ -1,22 +1,3 @@
-"""
-Welcome Message Handler for Pyrogram
-Handles welcome messages for new members in groups
-
-FIXES APPLIED:
-- Issue #1: Race condition in cache (utils cache with locks)
-- Issue #2: Memory leak (utils task management)
-- Issue #3: Orphaned tasks (proper tracking)
-- Issue #5: Duplicate code (using utils)
-- Issue #11: Bot permission check (utils function)
-- Issue #12: Input validation (utils validators)
-- Issue #13: Caption length check (utils validator)
-- Issue #22: Reduce DB calls (caching)
-- Issue #24: Cache TTL (utils TTL cache)
-- Issue #32: Magic numbers (utils constants)
-- Issue #33: Exception handling (specific errors)
-- Issue #35: Anti-flood protection (utils anti-flood)
-"""
-
 import logging
 from pyrogram import Client, filters
 from pyrogram.types import Message, ChatMemberUpdated
@@ -28,9 +9,7 @@ from pyrogram.errors import (
     FloodWait
 )
 
-# Import utils functions (Fix Issue #5 - No duplicate code)
 from pyrogram_handlers.utils import (
-    # Button parsing
     parse_buttons,
     create_button_markup,
     

@@ -58,7 +58,7 @@ async def setup_goodbye_handlers(client: Client):
                 
                 goodbye_config = settings.get('goodbye', {})
                 is_enabled = goodbye_config.get('enabled', False)
-                status_text = "✅ enabled" if is_enabled else "❌ disabled"
+                status_text = "enabled" if is_enabled else "disabled"
                 
                 await message.reply_text(
                     f"<b>Goodbye messages are currently {status_text}.</b>",

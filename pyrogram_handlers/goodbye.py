@@ -44,7 +44,7 @@ async def setup_goodbye_handlers(client: Client):
             user_id = message.from_user.id
             
             if not await is_user_admin(client, chat_id, user_id):
-                await message.reply_text("❌ Only admins can use this command!", parse_mode=ParseMode.HTML)
+                await message.reply_text("Only admins can use this command!", parse_mode=ParseMode.HTML)
                 return
             
             command_parts = message.text.split(maxsplit=1)
@@ -89,14 +89,14 @@ async def setup_goodbye_handlers(client: Client):
                         else:
                             await message.reply_text(text=text, reply_markup=reply_markup)
                     except BadRequest:
-                        await message.reply_text("⚠️ Preview unavailable (media may have expired)", parse_mode=ParseMode.HTML)
+                        await message.reply_text("Preview unavailable (media may have expired)", parse_mode=ParseMode.HTML)
                 
                 return
             
             action = command_parts[1].lower()
             
             if not await is_bot_admin(client, chat_id):
-                await message.reply_text("⚠️ <b>Please promote the bot to admin to enable goodbye messages.</b>", parse_mode=ParseMode.HTML)
+                await message.reply_text("<b>Please promote the bot to admin to enable goodbye messages.</b>", parse_mode=ParseMode.HTML)
                 return
             
             settings = await get_welcome_settings(chat_id)
@@ -109,7 +109,7 @@ async def setup_goodbye_handlers(client: Client):
             
             if action == "on":
                 if goodbye_config.get('enabled'):
-                    await message.reply_text("ℹ️ Goodbye is already enabled!", parse_mode=ParseMode.HTML)
+                    await message.reply_text("Goodbye is already enabled.", parse_mode=ParseMode.HTML)
                     return
                 
                 success = await update_goodbye_status(chat_id, True)
@@ -120,21 +120,18 @@ async def setup_goodbye_handlers(client: Client):
                     
                     if goodbye_config.get('custom_set'):
                         await message.reply_text(
-                            "✅ <b>Goodbye enabled!</b>\n\n"
-                            "Custom goodbye message will be sent when members leave.",
+                            "<b>Goodbye enabled.</b>",
                             parse_mode=ParseMode.HTML
                         )
                     else:
                         await message.reply_text(
-                            "✅ <b>Goodbye enabled!</b>\n\n"
-                            "Default goodbye message will be sent when members leave.\n"
-                            "Use <code>/setgoodbye</code> to set a custom message.",
+                            "<b>Goodbye enabled.</b>",
                             parse_mode=ParseMode.HTML
                         )
             
             elif action == "off":
                 if not goodbye_config.get('enabled'):
-                    await message.reply_text("ℹ️ Goodbye is already disabled!", parse_mode=ParseMode.HTML)
+                    await message.reply_text("Goodbye is already disabled.", parse_mode=ParseMode.HTML)
                     return
                 
                 success = await update_goodbye_status(chat_id, False)
@@ -142,25 +139,24 @@ async def setup_goodbye_handlers(client: Client):
                 if success:
                     await clear_cached_settings(chat_id, 'goodbye')
                     await message.reply_text(
-                        "✅ <b>Goodbye disabled!</b>\n\n"
+                        "<b>Goodbye disabled</b>\n\n"
                         "Members leaving will not receive goodbye messages.",
                         parse_mode=ParseMode.HTML
                     )
             
             else:
                 await message.reply_text(
-                    "❌ Invalid option!\n\n"
                     "Use <code>/goodbye on</code> or <code>/goodbye off</code>",
                     parse_mode=ParseMode.HTML
                 )
         
         except ChatAdminRequired:
-            await message.reply_text("❌ Bot needs admin privileges to manage goodbye messages.", parse_mode=ParseMode.HTML)
+            await message.reply_text("Bot needs admin to manage goodbye messages.", parse_mode=ParseMode.HTML)
         except FloodWait as e:
             await message.reply_text(f"⏳ Please wait {e.value} seconds before trying again.", parse_mode=ParseMode.HTML)
         except Exception as e:
             log_error("goodbye_command", e, chat_id=chat_id, user_id=user_id)
-            await message.reply_text("❌ An error occurred. Please try again shortly.", parse_mode=ParseMode.HTML)
+            await message.reply_text("An error occurred. Please try again shortly.", parse_mode=ParseMode.HTML)
     
     
     @client.on_message(filters.command("setgoodbye") & filters.group)
@@ -170,19 +166,16 @@ async def setup_goodbye_handlers(client: Client):
             user_id = message.from_user.id
             
             if not await is_user_admin(client, chat_id, user_id):
-                await message.reply_text("❌ Only admins can use this command!", parse_mode=ParseMode.HTML)
+                await message.reply_text("Only admins can use this command!", parse_mode=ParseMode.HTML)
                 return
             
             if not await is_bot_admin(client, chat_id):
-                await message.reply_text("⚠️ <b>Please promote the bot to admin first.</b>", parse_mode=ParseMode.HTML)
+                await message.reply_text("<b>Please promote the bot to admin first.</b>", parse_mode=ParseMode.HTML)
                 return
             
             if not message.reply_to_message:
                 await message.reply_text(
-                    "❌ <b>Please reply to a message!</b>\n\n"
-                    "<b>Supported:</b> Text, Photo, Video, GIF\n"
-                    "<b>Variables:</b> <code>{MENTION} {NAME} {GROUPNAME}</code>\n"
-                    "<b>Buttons:</b> <code>[Text](URL)</code>",
+                    "<b>Please reply to a message.</b>",
                     parse_mode=ParseMode.HTML
                 )
                 return
@@ -195,7 +188,7 @@ async def setup_goodbye_handlers(client: Client):
             
             if settings.get('goodbye', {}).get('custom_set'):
                 await message.reply_text(
-                    "⚠️ <b>Goodbye message already set!</b>\n\n"
+                    "<b>Goodbye message already set.</b>\n\n"
                     "Use <code>/delgoodbye</code> first to remove it.",
                     parse_mode=ParseMode.HTML
                 )
@@ -223,8 +216,7 @@ async def setup_goodbye_handlers(client: Client):
                 text = replied_msg.text
             else:
                 await message.reply_text(
-                    "❌ <b>Unsupported message type!</b>\n\n"
-                    "Supported: Text, Photo, Video, GIF",
+                    "<b>Unsupported message type.</b>",
                     parse_mode=ParseMode.HTML
                 )
                 return
@@ -232,7 +224,7 @@ async def setup_goodbye_handlers(client: Client):
             is_caption = media_type is not None
             validation_error = validate_text_length(text, is_caption)
             if validation_error:
-                await message.reply_text(f"❌ {validation_error}", parse_mode=ParseMode.HTML)
+                await message.reply_text(f"{validation_error}", parse_mode=ParseMode.HTML)
                 return
             
             button_rows = []
@@ -240,7 +232,7 @@ async def setup_goodbye_handlers(client: Client):
                 text, button_rows, error = parse_buttons(text)
                 if error:
                     await message.reply_text(
-                        f"❌ <b>Button Error:</b> {error}\n\n"
+                        f"<b>Button Error:</b> {error}\n\n"
                         "<b>Format:</b> <code>[Text](URL)</code>\n"
                         "<b>Multiple:</b> <code>[Btn1](url) | [Btn2](url)</code>",
                         parse_mode=ParseMode.HTML
@@ -264,18 +256,18 @@ async def setup_goodbye_handlers(client: Client):
                 await update_cached_settings(chat_id, 'goodbye', settings['goodbye'])
                 
                 await message.reply_text(
-                    "✅ <b>Goodbye message set successfully!</b>\n\n"
+                    "<b>Goodbye message set successfully!</b>\n\n"
                     "Goodbye is now <b>enabled</b>.",
                     parse_mode=ParseMode.HTML
                 )
             else:
-                await message.reply_text("❌ Failed to set goodbye message. Please try again.", parse_mode=ParseMode.HTML)
+                await message.reply_text("Failed to set goodbye message. Please try again.", parse_mode=ParseMode.HTML)
         
         except ChatAdminRequired:
-            await message.reply_text("❌ Bot needs admin privileges.", parse_mode=ParseMode.HTML)
+            await message.reply_text("Nigga Bot needs Admin Rights", parse_mode=ParseMode.HTML)
         except Exception as e:
             log_error("setgoodbye_command", e, chat_id=chat_id, user_id=user_id)
-            await message.reply_text("❌ An error occurred. Please try again.", parse_mode=ParseMode.HTML)
+            await message.reply_text("Please try again later. If the problem continues, contact the support group.", parse_mode=ParseMode.HTML)
     
     
     @client.on_message(filters.command("delgoodbye") & filters.group)
@@ -285,18 +277,18 @@ async def setup_goodbye_handlers(client: Client):
             user_id = message.from_user.id
             
             if not await is_user_admin(client, chat_id, user_id):
-                await message.reply_text("❌ Only admins can use this command!", parse_mode=ParseMode.HTML)
+                await message.reply_text("Only admins can use this command.", parse_mode=ParseMode.HTML)
                 return
             
             settings = await get_welcome_settings(chat_id)
             
             if not settings:
-                await message.reply_text("ℹ️ No goodbye settings found for this group.", parse_mode=ParseMode.HTML)
+                await message.reply_text("No goodbye settings found for this group.", parse_mode=ParseMode.HTML)
                 return
             
             if not settings.get('goodbye', {}).get('custom_set'):
                 await message.reply_text(
-                    "ℹ️ <b>No custom goodbye message set.</b>\n\n"
+                    "<b>No custom goodbye message set.</b>\n\n"
                     "Use <code>/setgoodbye</code> to set a custom message.",
                     parse_mode=ParseMode.HTML
                 )
@@ -307,17 +299,16 @@ async def setup_goodbye_handlers(client: Client):
             if success:
                 await clear_cached_settings(chat_id, 'goodbye')
                 await message.reply_text(
-                    "✅ <b>Custom goodbye message deleted successfully!</b>\n\n"
-                    "Goodbye is now <b>disabled</b>.\n"
-                    "Use <code>/goodbye on</code> to enable default message.",
+                    "<b>Goodbye message deleted successfully!</b>\n"
+                    "Use <code>/goodbye on</code> to enable.",
                     parse_mode=ParseMode.HTML
                 )
             else:
-                await message.reply_text("❌ Failed to delete goodbye message. Please try again.", parse_mode=ParseMode.HTML)
+                await message.reply_text("Please try again later. If the problem continues, contact the support group.", parse_mode=ParseMode.HTML)
         
         except Exception as e:
             log_error("delgoodbye_command", e, chat_id=chat_id, user_id=user_id)
-            await message.reply_text("❌ An error occurred. Please try again.", parse_mode=ParseMode.HTML)
+            await message.reply_text("Please try again later. If the problem continues, contact the support group.", parse_mode=ParseMode.HTML)
     
     
     @client.on_message(filters.command("cleangoodbye") & filters.group)
@@ -327,7 +318,7 @@ async def setup_goodbye_handlers(client: Client):
             user_id = message.from_user.id
             
             if not await is_user_admin(client, chat_id, user_id):
-                await message.reply_text("❌ Only admins can use this command!", parse_mode=ParseMode.HTML)
+                await message.reply_text("Only admins can use this command.", parse_mode=ParseMode.HTML)
                 return
             
             command_parts = message.text.split()
@@ -345,12 +336,12 @@ async def setup_goodbye_handlers(client: Client):
                     delete_after = auto_delete.get('delete_after', DEFAULT_AUTO_DELETE_SECONDS)
                     time_str = format_time(delete_after)
                     await message.reply_text(
-                        f"✅ <b>Auto-delete is enabled</b>\n\n"
+                        f"<b>Auto-delete is enabled</b>\n\n"
                         f"Goodbye messages will be deleted after: <b>{time_str}</b>",
                         parse_mode=ParseMode.HTML
                     )
                 else:
-                    await message.reply_text("ℹ️ <b>Auto-delete is disabled</b>", parse_mode=ParseMode.HTML)
+                    await message.reply_text("<b>Auto-delete is disabled</b>", parse_mode=ParseMode.HTML)
                 return
             
             action = command_parts[1].lower()
@@ -358,7 +349,7 @@ async def setup_goodbye_handlers(client: Client):
             if action == "on":
                 auto_delete = settings.get('goodbye', {}).get('auto_delete', {})
                 if auto_delete.get('enabled'):
-                    await message.reply_text("ℹ️ Auto-delete is already enabled!", parse_mode=ParseMode.HTML)
+                    await message.reply_text("Auto-delete is already enabled.", parse_mode=ParseMode.HTML)
                     return
                 
                 success = await update_goodbye_auto_delete(chat_id, True, DEFAULT_AUTO_DELETE_SECONDS)
@@ -367,7 +358,7 @@ async def setup_goodbye_handlers(client: Client):
                     settings = await get_welcome_settings(chat_id)
                     await update_cached_settings(chat_id, 'goodbye', settings['goodbye'])
                     await message.reply_text(
-                        f"✅ <b>Auto-delete enabled</b>\n\n"
+                        f"<b>Auto-delete enabled</b>\n\n"
                         f"Goodbye messages will be deleted after: <b>{format_time(DEFAULT_AUTO_DELETE_SECONDS)}</b>",
                         parse_mode=ParseMode.HTML
                     )
@@ -375,7 +366,7 @@ async def setup_goodbye_handlers(client: Client):
             elif action == "off":
                 auto_delete = settings.get('goodbye', {}).get('auto_delete', {})
                 if not auto_delete.get('enabled'):
-                    await message.reply_text("ℹ️ Auto-delete is already disabled!", parse_mode=ParseMode.HTML)
+                    await message.reply_text("Auto-delete is already disabled.", parse_mode=ParseMode.HTML)
                     return
                 
                 success = await update_goodbye_auto_delete(chat_id, False, None)
@@ -384,7 +375,7 @@ async def setup_goodbye_handlers(client: Client):
                     settings = await get_welcome_settings(chat_id)
                     await update_cached_settings(chat_id, 'goodbye', settings['goodbye'])
                     await cancel_pending_deletions(chat_id, 'goodbye')
-                    await message.reply_text("✅ <b>Auto-delete disabled</b>", parse_mode=ParseMode.HTML)
+                    await message.reply_text("<b>Auto-delete disabled</b>", parse_mode=ParseMode.HTML)
             
             elif action.isdigit():
                 delete_after = int(action)
@@ -400,7 +391,7 @@ async def setup_goodbye_handlers(client: Client):
                     await update_cached_settings(chat_id, 'goodbye', settings['goodbye'])
                     time_str = format_time(delete_after)
                     await message.reply_text(
-                        f"✅ <b>Auto-delete time updated</b>\n\n"
+                        f"<b>Auto-delete time updated</b>\n\n"
                         f"Goodbye messages will be deleted after: <b>{time_str}</b>",
                         parse_mode=ParseMode.HTML
                     )

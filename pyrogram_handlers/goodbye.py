@@ -39,8 +39,15 @@ async def setup_goodbye_handlers(client: Client):
     
     @client.on_message(filters.command("goodbye") & filters.group)
     async def goodbye_command(client: Client, message: Message):
+        chat_id = None
+        user_id = None
         try:
             chat_id = message.chat.id
+            
+            if not message.from_user:
+                await message.reply_text("Cannot identify sender. Please use your user account.", parse_mode=ParseMode.HTML)
+                return
+            
             user_id = message.from_user.id
             
             try:
@@ -158,23 +165,33 @@ async def setup_goodbye_handlers(client: Client):
                     parse_mode=ParseMode.HTML
                 )
         
-        except ChatAdminRequired:
-            await message.reply_text("Bot needs admin to manage goodbye messages.", parse_mode=ParseMode.HTML)
         except FloodWait as e:
             await message.reply_text(f"⏳ Please wait {e.value} seconds before trying again.", parse_mode=ParseMode.HTML)
         except Exception as e:
-            log_error("goodbye_command", e, chat_id=chat_id, user_id=user_id)
+            log_error("goodbye_command", e, chat_id=chat_id or 0, user_id=user_id or 0)
             await message.reply_text("An error occurred. Please try again shortly.", parse_mode=ParseMode.HTML)
     
     
     @client.on_message(filters.command("setgoodbye") & filters.group)
     async def setgoodbye_command(client: Client, message: Message):
+        chat_id = None
+        user_id = None
         try:
             chat_id = message.chat.id
+            
+            if not message.from_user:
+                await message.reply_text("Cannot identify sender. Please use your user account.", parse_mode=ParseMode.HTML)
+                return
+            
             user_id = message.from_user.id
             
-            if not await is_user_admin(client, chat_id, user_id):
-                await message.reply_text("Only admins can use this command!", parse_mode=ParseMode.HTML)
+            try:
+                is_admin = await is_user_admin(client, chat_id, user_id)
+                if not is_admin:
+                    await message.reply_text("Only admins can use this command!", parse_mode=ParseMode.HTML)
+                    return
+            except ChatAdminRequired:
+                await message.reply_text("𝖸𝗈𝗎'𝗋𝖾 𝖠𝗇 𝖠𝗇𝗈𝗇𝗒𝗆𝗈𝗎𝗌 𝖠𝖽𝗆𝗂𝗇 𝖨𝗇 𝖳𝗁𝗂𝗌 𝖦𝗋𝗈𝗎𝗉 !\n𝖯𝗅𝖾𝖺𝗌𝖾 𝖱𝖾𝗏𝖾𝗋𝗍 𝖡𝖺𝖼𝗄 𝖳𝗈 𝖴𝗌𝖾𝗋 𝖠𝖼𝖼𝗈𝗎𝗇𝗍.", parse_mode=ParseMode.HTML)
                 return
             
             if not await is_bot_admin(client, chat_id):
@@ -271,21 +288,31 @@ async def setup_goodbye_handlers(client: Client):
             else:
                 await message.reply_text("Failed to set goodbye message. Please try again.", parse_mode=ParseMode.HTML)
         
-        except ChatAdminRequired:
-            await message.reply_text("Nigga Bot needs Admin Rights", parse_mode=ParseMode.HTML)
         except Exception as e:
-            log_error("setgoodbye_command", e, chat_id=chat_id, user_id=user_id)
+            log_error("setgoodbye_command", e, chat_id=chat_id or 0, user_id=user_id or 0)
             await message.reply_text("Please try again later. If the problem continues, contact the support group.", parse_mode=ParseMode.HTML)
     
     
     @client.on_message(filters.command("delgoodbye") & filters.group)
     async def delgoodbye_command(client: Client, message: Message):
+        chat_id = None
+        user_id = None
         try:
             chat_id = message.chat.id
+            
+            if not message.from_user:
+                await message.reply_text("Cannot identify sender. Please use your user account.", parse_mode=ParseMode.HTML)
+                return
+            
             user_id = message.from_user.id
             
-            if not await is_user_admin(client, chat_id, user_id):
-                await message.reply_text("Only admins can use this command.", parse_mode=ParseMode.HTML)
+            try:
+                is_admin = await is_user_admin(client, chat_id, user_id)
+                if not is_admin:
+                    await message.reply_text("Only admins can use this command.", parse_mode=ParseMode.HTML)
+                    return
+            except ChatAdminRequired:
+                await message.reply_text("𝖸𝗈𝗎'𝗋𝖾 𝖠𝗇 𝖠𝗇𝗈𝗇𝗒𝗆𝗈𝗎𝗌 𝖠𝖽𝗆𝗂𝗇 𝖨𝗇 𝖳𝗁𝗂𝗌 𝖦𝗋𝗈𝗎𝗉 !\n𝖯𝗅𝖾𝖺𝗌𝖾 𝖱𝖾𝗏𝖾𝗋𝗍 𝖡𝖺𝖼𝗄 𝖳𝗈 𝖴𝗌𝖾𝗋 𝖠𝖼𝖼𝗈𝗎𝗇𝗍.", parse_mode=ParseMode.HTML)
                 return
             
             settings = await get_welcome_settings(chat_id)
@@ -315,18 +342,30 @@ async def setup_goodbye_handlers(client: Client):
                 await message.reply_text("Please try again later. If the problem continues, contact the support group.", parse_mode=ParseMode.HTML)
         
         except Exception as e:
-            log_error("delgoodbye_command", e, chat_id=chat_id, user_id=user_id)
+            log_error("delgoodbye_command", e, chat_id=chat_id or 0, user_id=user_id or 0)
             await message.reply_text("Please try again later. If the problem continues, contact the support group.", parse_mode=ParseMode.HTML)
     
     
     @client.on_message(filters.command("cleangoodbye") & filters.group)
     async def cleangoodbye_command(client: Client, message: Message):
+        chat_id = None
+        user_id = None
         try:
             chat_id = message.chat.id
+            
+            if not message.from_user:
+                await message.reply_text("Cannot identify sender. Please use your user account.", parse_mode=ParseMode.HTML)
+                return
+            
             user_id = message.from_user.id
             
-            if not await is_user_admin(client, chat_id, user_id):
-                await message.reply_text("Only admins can use this command.", parse_mode=ParseMode.HTML)
+            try:
+                is_admin = await is_user_admin(client, chat_id, user_id)
+                if not is_admin:
+                    await message.reply_text("Only admins can use this command.", parse_mode=ParseMode.HTML)
+                    return
+            except ChatAdminRequired:
+                await message.reply_text("𝖸𝗈𝗎'𝗋𝖾 𝖠𝗇 𝖠𝗇𝗈𝗇𝗒𝗆𝗈𝗎𝗌 𝖠𝖽𝗆𝗂𝗇 𝖨𝗇 𝖳𝗁𝗂𝗌 𝖦𝗋𝗈𝗎𝗉 !\n𝖯𝗅𝖾𝖺𝗌𝖾 𝖱𝖾𝗏𝖾𝗋𝗍 𝖡𝖺𝖼𝗄 𝖳𝗈 𝖴𝗌𝖾𝗋 𝖠𝖼𝖼𝗈𝗎𝗇𝗍.", parse_mode=ParseMode.HTML)
                 return
             
             command_parts = message.text.split()
@@ -389,7 +428,7 @@ async def setup_goodbye_handlers(client: Client):
                 delete_after = int(action)
                 validation_error = validate_auto_delete_time(delete_after)
                 if validation_error:
-                    await message.reply_text(f"❌ {validation_error}", parse_mode=ParseMode.HTML)
+                    await message.reply_text(f"{validation_error}", parse_mode=ParseMode.HTML)
                     return
                 
                 success = await update_goodbye_auto_delete(chat_id, True, delete_after)
@@ -411,8 +450,8 @@ async def setup_goodbye_handlers(client: Client):
                 )
         
         except Exception as e:
-            log_error("cleangoodbye_command", e, chat_id=chat_id, user_id=user_id)
-            await message.reply_text("Please try again later. If it still doesn’t work contact the support group.", parse_mode=ParseMode.HTML)
+            log_error("cleangoodbye_command", e, chat_id=chat_id or 0, user_id=user_id or 0)
+            await message.reply_text("Please try again later. If it still doesn't work contact the support group.", parse_mode=ParseMode.HTML)
     
     
     @client.on_message(filters.left_chat_member & filters.group)

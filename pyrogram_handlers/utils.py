@@ -1,5 +1,5 @@
 import re
-import asyncio
+import io
 import logging
 import time
 from typing import Optional, Tuple, List, Dict, Any
@@ -197,24 +197,17 @@ def format_time(seconds: int) -> str:
 
 
 async def is_user_admin(client: Client, chat_id: int, user_id: int) -> bool:
-    """
-    Check if a user is admin in the chat.
-    Returns:
-        bool: True if user is admin, False otherwise
-    Raises:
-        ChatAdminRequired: If user is an anonymous admin
-    """
+    if user_id is None:
+        raise ChatAdminRequired
+    
     try:
         member = await client.get_chat_member(chat_id, user_id)
         return member.status in [ChatMemberStatus.OWNER, ChatMemberStatus.ADMINISTRATOR]
     
     except ChatAdminRequired:
-        # This happens when user is an anonymous admin
-        # Re-raise the exception so we can handle it in the command handler
         raise
     
     except UserNotParticipant:
-        # User is not in the group
         return False
     
     except Exception as e:

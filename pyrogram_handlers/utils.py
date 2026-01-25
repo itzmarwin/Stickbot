@@ -42,7 +42,7 @@ delete_tasks: Dict[int, Dict[str, Any]] = {}
 join_tracker: Dict[int, List[float]] = defaultdict(list)
 flood_cooldown: Dict[int, float] = {}
 
-cache_locks: Dict[int, asyncio.Lock] = defaultdict(asyncio.Lock)
+cache_locks: Dict[int, asyncio.Lock] = defaultdict(lambda: asyncio.Lock())
 
 BUTTON_PATTERN = re.compile(r'\[([^\]]+)\]\(([^\)]+)\)')
 PIPE_SEPARATOR = re.compile(r'\|')

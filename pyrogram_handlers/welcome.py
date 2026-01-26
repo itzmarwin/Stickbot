@@ -49,7 +49,7 @@ async def setup_welcome_handlers(client: Client):
             try:
                 is_admin = await is_user_admin(client, chat_id, user_id)
                 if not is_admin:
-                    await message.reply_text("Only admins can use this command!", parse_mode=ParseMode.HTML)
+                    await message.reply_text("Only admins can use this command.", parse_mode=ParseMode.HTML)
                     return
             except ChatAdminRequired:
                 await message.reply_text("Looks like you’re using anonymous admin mode.\nSwitch back to your user account to continue~", parse_mode=ParseMode.HTML)
@@ -181,7 +181,7 @@ async def setup_welcome_handlers(client: Client):
                     await message.reply_text("Only admins can use this command!", parse_mode=ParseMode.HTML)
                     return
             except ChatAdminRequired:
-                await message.reply_text("𝖸𝗈𝗎'𝗋𝖾 𝖠𝗇 𝖠𝗇𝗈𝗇𝗒𝗆𝗈𝗎𝗌 𝖠𝖽𝗆𝗂𝗇 𝖨𝗇 𝖳𝗁𝗂𝗌 𝖦𝗋𝗈𝗎𝗉 !\n𝖯𝗅𝖾𝖺𝗌𝖾 𝖱𝖾𝗏𝖾𝗋𝗍 𝖡𝖺𝖼𝗄 𝖳𝗈 𝖴𝗌𝖾𝗋 𝖠𝖼𝖼𝗈𝗎𝗇𝗍.", parse_mode=ParseMode.HTML)
+                await message.reply_text("Looks like you’re using anonymous admin mode.\nSwitch back to your user account to continue~", parse_mode=ParseMode.HTML)
                 return
             
             if not await is_bot_admin(client, chat_id):
@@ -298,7 +298,7 @@ async def setup_welcome_handlers(client: Client):
                     await message.reply_text("Only admins can use this command!", parse_mode=ParseMode.HTML)
                     return
             except ChatAdminRequired:
-                await message.reply_text("𝖸𝗈𝗎'𝗋𝖾 𝖠𝗇 𝖠𝗇𝗈𝗇𝗒𝗆𝗈𝗎𝗌 𝖠𝖽𝗆𝗂𝗇 𝖨𝗇 𝖳𝗁𝗂𝗌 𝖦𝗋𝗈𝗎𝗉 !\n𝖯𝗅𝖾𝖺𝗌𝖾 𝖱𝖾𝗏𝖾𝗋𝗍 𝖡𝖺𝖼𝗄 𝖳𝗈 𝖴𝗌𝖾𝗋 𝖠𝖼𝖼𝗈𝗎𝗇𝗍.", parse_mode=ParseMode.HTML)
+                await message.reply_text("Looks like you’re using anonymous admin mode.\nSwitch back to your user account to continue~", parse_mode=ParseMode.HTML)
                 return
             
             settings = await get_welcome_settings(chat_id)
@@ -347,7 +347,7 @@ async def setup_welcome_handlers(client: Client):
                     await message.reply_text("Only admins can use this command", parse_mode=ParseMode.HTML)
                     return
             except ChatAdminRequired:
-                await message.reply_text("𝖸𝗈𝗎'𝗋𝖾 𝖠𝗇 𝖠𝗇𝗈𝗇𝗒𝗆𝗈𝗎𝗌 𝖠𝖽𝗆𝗂𝗇 𝖨𝗇 𝖳𝗁𝗂𝗌 𝖦𝗋𝗈𝗎𝗉 !\n𝖯𝗅𝖾𝖺𝗌𝖾 𝖱𝖾𝗏𝖾𝗋𝗍 𝖡𝖺𝖼𝗄 𝖳𝗈 𝖴𝗌𝖾𝗋 𝖠𝖼𝖼𝗈𝗎𝗇𝗍.", parse_mode=ParseMode.HTML)
+                await message.reply_text("Looks like you’re using anonymous admin mode.\nSwitch back to your user account to continue~", parse_mode=ParseMode.HTML)
                 return
             
             command_parts = message.text.split()

@@ -4,7 +4,9 @@ import random
 from pyrogram import Client, filters
 from pyrogram.types import Message
 from pyrogram.enums import ChatMemberStatus
-from pyrogram.errors import FloodWait
+from pyrogram.errors import FloodWait, ChatAdminRequired
+
+from pyrogram_handlers.utils import is_user_admin, is_bot_admin
 
 logger = logging.getLogger(__name__)
 
@@ -72,33 +74,27 @@ async def setup_tagall_handlers(client: Client):
     async def tagall_command(client: Client, message: Message):
         try:
             chat_id = message.chat.id
+            user_id = message.from_user.id if message.from_user else None
             
-            try:
-                bot_member = await client.get_chat_member(chat_id, client.me.id)
-                if bot_member.status not in [ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER]:
-                    await message.reply_text(
-                        "𝖨 𝗇𝖾𝖾𝖽 𝖺𝖽𝗆𝗂𝗇 𝗋𝗂𝗀𝗁𝗍𝗌 𝗍𝗈 𝗍𝖺𝗀 𝗆𝖾𝗆𝖻𝖾𝗋𝗌!\n\n"
-                        "𝖯𝗅𝖾𝖺𝗌𝖾 𝗉𝗋𝗈𝗆𝗈𝗍𝖾 𝗆𝖾 𝖺𝗌 𝖺𝗇 𝖺𝖽𝗆𝗂𝗇 𝖿𝗂𝗋𝗌𝗍."
-                    )
-                    return
-            except Exception as e:
-                logger.error(f"Error checking bot admin status: {e}")
+            if not await is_bot_admin(client, chat_id):
                 await message.reply_text(
-                    "𝖴𝗇𝖺𝖻𝗅𝖾 𝗍𝗈 𝗏𝖾𝗋𝗂𝖿𝗒 𝗆𝗒 𝗉𝖾𝗋𝗆𝗂𝗌𝗌𝗂𝗈𝗇𝗌.\n"
-                    "𝖯𝗅𝖾𝖺𝗌𝖾 𝗆𝖺𝗄𝖾 𝗌𝗎𝗋𝖾 𝖨'𝗆 𝖺𝗇 𝖺𝖽𝗆𝗂𝗇."
+                    "𝖨 𝗇𝖾𝖾𝖽 𝖺𝖽𝗆𝗂𝗇 𝗋𝗂𝗀𝗁𝗍𝗌 𝗍𝗈 𝗍𝖺𝗀 𝗆𝖾𝗆𝖻𝖾𝗋𝗌!\n\n"
+                    "𝖯𝗅𝖾𝖺𝗌𝖾 𝗉𝗋𝗈𝗆𝗈𝗍𝖾 𝗆𝖾 𝖺𝗌 𝖺𝗇 𝖺𝖽𝗆𝗂𝗇 𝖿𝗂𝗋𝗌𝗍."
                 )
                 return
             
             try:
-                member = await client.get_chat_member(chat_id, message.from_user.id)
-                if member.status not in [ChatMemberStatus.OWNER, ChatMemberStatus.ADMINISTRATOR]:
+                is_admin = await is_user_admin(client, chat_id, user_id)
+                if not is_admin:
                     await message.reply_text(
                         "𝖮𝗇𝗅𝗒 𝖺𝖽𝗆𝗂𝗇𝗌 𝖼𝖺𝗇 𝗎𝗌𝖾 𝗍𝗁𝗂𝗌 𝖼𝗈𝗆𝗆𝖺𝗇𝖽."
                     )
                     return
-            except Exception as e:
-                logger.error(f"Error checking user admin status: {e}")
-                await message.reply_text("❌ 𝖴𝗇𝖺𝖻𝗅𝖾 𝗍𝗈 𝗏𝖾𝗋𝗂𝖿𝗒 𝗒𝗈𝗎𝗋 𝖺𝖽𝗆𝗂𝗇 𝗌𝗍𝖺𝗍𝗎𝗌.")
+            except ChatAdminRequired:
+                await message.reply_text(
+                    "Looks like you're using anonymous admin mode.\n"
+                    "Switch back to your user account to continue~"
+                )
                 return
             
             if chat_id in active_tagall and active_tagall[chat_id]:
@@ -235,33 +231,27 @@ async def setup_tagall_handlers(client: Client):
     async def emoji_tagall_command(client: Client, message: Message):
         try:
             chat_id = message.chat.id
+            user_id = message.from_user.id if message.from_user else None
             
-            try:
-                bot_member = await client.get_chat_member(chat_id, client.me.id)
-                if bot_member.status not in [ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER]:
-                    await message.reply_text(
-                        "𝖨 𝗇𝖾𝖾𝖽 𝖺𝖽𝗆𝗂𝗇 𝗋𝗂𝗀𝗁𝗍𝗌 𝗍𝗈 𝗍𝖺𝗀 𝗆𝖾𝗆𝖻𝖾𝗋𝗌!\n\n"
-                        "𝖯𝗅𝖾𝖺𝗌𝖾 𝗉𝗋𝗈𝗆𝗈𝗍𝖾 𝗆𝖾 𝖺𝗌 𝖺𝗇 𝖺𝖽𝗆𝗂𝗇 𝖿𝗂𝗋𝗌𝗍."
-                    )
-                    return
-            except Exception as e:
-                logger.error(f"Error checking bot admin status: {e}")
+            if not await is_bot_admin(client, chat_id):
                 await message.reply_text(
-                    "𝖴𝗇𝖺𝖻𝗅𝖾 𝗍𝗈 𝗏𝖾𝗋𝗂𝖿𝗒 𝗆𝗒 𝗉𝖾𝗋𝗆𝗂𝗌𝗌𝗂𝗈𝗇𝗌.\n"
-                    "𝖯𝗅𝖾𝖺𝗌𝖾 𝗆𝖺𝗄𝖾 𝗌𝗎𝗋𝖾 𝖨'𝗆 𝖺𝗇 𝖺𝖽𝗆𝗂𝗇."
+                    "𝖨 𝗇𝖾𝖾𝖽 𝖺𝖽𝗆𝗂𝗇 𝗋𝗂𝗀𝗁𝗍𝗌 𝗍𝗈 𝗍𝖺𝗀 𝗆𝖾𝗆𝖻𝖾𝗋𝗌!\n\n"
+                    "𝖯𝗅𝖾𝖺𝗌𝖾 𝗉𝗋𝗈𝗆𝗈𝗍𝖾 𝗆𝖾 𝖺𝗌 𝖺𝗇 𝖺𝖽𝗆𝗂𝗇 𝖿𝗂𝗋𝗌𝗍."
                 )
                 return
             
             try:
-                member = await client.get_chat_member(chat_id, message.from_user.id)
-                if member.status not in [ChatMemberStatus.OWNER, ChatMemberStatus.ADMINISTRATOR]:
+                is_admin = await is_user_admin(client, chat_id, user_id)
+                if not is_admin:
                     await message.reply_text(
                         "𝖮𝗇𝗅𝗒 𝖺𝖽𝗆𝗂𝗇𝗌 𝖼𝖺𝗇 𝗎𝗌𝖾 𝗍𝗁𝗂𝗌 𝖼𝗈𝗆𝗆𝖺𝗇𝖽."
                     )
                     return
-            except Exception as e:
-                logger.error(f"Error checking user admin status: {e}")
-                await message.reply_text("❌ 𝖴𝗇𝖺𝖻𝗅𝖾 𝗍𝗈 𝗏𝖾𝗋𝗂𝖿𝗒 𝗒𝗈𝗎𝗋 𝖺𝖽𝗆𝗂𝗇 𝗌𝗍𝖺𝗍𝗎𝗌.")
+            except ChatAdminRequired:
+                await message.reply_text(
+                    "Looks like you're using anonymous admin mode.\n"
+                    "Switch back to your user account to continue~"
+                )
                 return
             
             if chat_id in active_tagall and active_tagall[chat_id]:

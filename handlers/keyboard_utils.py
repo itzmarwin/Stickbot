@@ -41,23 +41,23 @@ def get_main_menu_keyboard():
     
     builder = InlineKeyboardBuilder()
     builder.button(
-        text="𝗔𝗱𝗱 𝗠𝗲 𝗜𝗻 𝗬𝗼𝘂𝗿 𝗚𝗿𝗼𝘂𝗽", 
+        text="𝖠𝖽𝖽 𝖬𝖾 𝖨𝗇 𝖸𝗈𝗎𝗋 𝖦𝗋𝗈𝗎𝗉", 
         url=f"https://t.me/{BOT_USERNAME}?startgroup=true"
     )
     builder.button(
-        text="𝗘𝘅𝘁𝗿𝗮 𝗖𝗼𝗺𝗺𝗮𝗻𝗱𝘀", 
+        text="𝖤𝗑𝗍𝗋𝖺 𝖢𝗈𝗆𝗆𝖺𝗇𝖽𝗌", 
         callback_data=SharedCallbacks.EXTRA_COMMANDS
     )
     builder.button(
-        text="𝗠𝗮𝗻𝗮𝗴𝗲 𝗣𝗮𝗰𝗸𝘀", 
+        text="𝖬𝖺𝗇𝖺𝗀𝖾 𝖯𝖺𝖼𝗄𝗌", 
         callback_data=SharedCallbacks.MANAGE_PACKS
     )
     builder.button(
-        text="𝗦𝘂𝗽𝗽𝗼𝗿𝘁", 
+        text="𝖲𝗎𝗉𝗉𝗈𝗋𝗍", 
         url="https://t.me/Samurais_Support"
     )
     builder.button(
-        text="𝗨𝗽𝗱𝗮𝘁𝗲𝘀", 
+        text="𝖴𝗉𝖽𝖺𝗍𝖾𝗌", 
         url="https://t.me/Samurais_network"
     )
     builder.adjust(1, 2, 2)
@@ -75,11 +75,11 @@ def get_group_start_keyboard():
     
     builder = InlineKeyboardBuilder()
     builder.button(
-        text="🚀 𝗦𝘁𝗮𝗿𝘁 𝗠𝗲", 
+        text="𝖲𝗍𝖺𝗋𝗍 𝖬𝖾", 
         url=f"https://t.me/{BOT_USERNAME}?start=group"
     )
     builder.button(
-        text="💬 𝗦𝘂𝗽𝗽𝗼𝗿𝘁", 
+        text="𝖲𝗎𝗉𝗉𝗈𝗋𝗍", 
         url="https://t.me/Samurais_Support"
     )
     builder.adjust(2)
@@ -95,27 +95,27 @@ def get_extra_commands_keyboard():
     """
     builder = InlineKeyboardBuilder()
     builder.button(
-        text="𝗔𝗙𝗞", 
+        text="𝖠𝖿𝗄", 
         callback_data=SharedCallbacks.EXTRA_CMD_AFK
     )
     builder.button(
-        text="𝗤𝘂𝗼𝘁𝗹𝘆", 
+        text="𝖰𝗎𝗈𝗍𝗅𝗒", 
         callback_data=SharedCallbacks.EXTRA_CMD_QUOTLY
     )
     builder.button(
-        text="𝗦𝘁𝗶𝗰𝗸𝗲𝗿𝘀", 
+        text="𝖲𝗍𝗂𝖼𝗄𝖾𝗋𝗌", 
         callback_data=SharedCallbacks.EXTRA_CMD_STICKERS
     )
     builder.button(
-        text="𝗠𝗲𝗺𝗲𝗙𝗶", 
+        text="𝖬𝖾𝗆𝖾𝖿𝗂", 
         callback_data=SharedCallbacks.EXTRA_CMD_MEMEFI
     )
     builder.button(
-        text="𝗪𝗲𝗹𝗰𝗼𝗺𝗲", 
+        text="𝖦𝗋𝖾𝖾𝗍𝗂𝗇𝗀𝗌", 
         callback_data=SharedCallbacks.EXTRA_CMD_WELCOME
     )
     builder.button(
-        text="⬅️ 𝗕𝗮𝗰𝗸", 
+        text="⬅️ 𝖡𝖺𝖼𝗄", 
         callback_data=SharedCallbacks.BACK_TO_MAIN
     )
     builder.adjust(3, 2, 1)
@@ -131,7 +131,7 @@ def get_back_to_extra_keyboard():
     """
     builder = InlineKeyboardBuilder()
     builder.button(
-        text="⬅️ 𝗕𝗮𝗰𝗸", 
+        text="⬅️ 𝖡𝖺𝖼𝗄", 
         callback_data=SharedCallbacks.EXTRA_COMMANDS
     )
     return builder.as_markup()
@@ -146,7 +146,7 @@ def get_back_to_main_keyboard():
     """
     builder = InlineKeyboardBuilder()
     builder.button(
-        text="⬅️ 𝗕𝗮𝗰𝗸", 
+        text="⬅️ 𝖡𝖺𝖼𝗄", 
         callback_data=SharedCallbacks.BACK_TO_MAIN
     )
     return builder.as_markup()

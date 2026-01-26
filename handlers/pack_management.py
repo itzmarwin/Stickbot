@@ -149,9 +149,14 @@ async def get_manage_packs_keyboard(user_id: int, page: int = 0):
 
 
 def get_pack_options_keyboard(short_name: str):
-    """Build keyboard with pack options"""
+    """
+    Build keyboard with pack options
+    
+    ✅ FIXED: Delete pack button removed (only deletes from DB, not Telegram)
+    """
     builder = InlineKeyboardBuilder()
     
+    # Rename Pack
     builder.button(
         text="✏️ 𝗥𝗲𝗻𝗮𝗺𝗲 𝗣𝗮𝗰𝗸", 
         callback_data=create_callback("rename_pack", short_name)
@@ -161,6 +166,7 @@ def get_pack_options_keyboard(short_name: str):
         callback_data=f"{PackManagementCallback.PACK_INFO}rename"
     )
     
+    # Add Sticker
     builder.button(
         text="➕ 𝗔𝗱𝗱 𝗦𝘁𝗶𝗰𝗸𝗲𝗿", 
         callback_data=create_callback("add_sticker", short_name)
@@ -170,15 +176,9 @@ def get_pack_options_keyboard(short_name: str):
         callback_data=f"{PackManagementCallback.PACK_INFO}add"
     )
     
-    builder.button(
-        text="🗑️ 𝗗𝗲𝗹𝗲𝘁𝗲 𝗣𝗮𝗰𝗸", 
-        callback_data=create_callback("delete_pack", short_name)
-    )
-    builder.button(
-        text="ℹ️", 
-        callback_data=f"{PackManagementCallback.PACK_INFO}delete"
-    )
+    # ❌ REMOVED: Delete Pack buttons (misleading - doesn't delete from Telegram)
     
+    # Launch Pack (Publish)
     builder.button(
         text="📤 𝗟𝗮𝘂𝗻𝗰𝗵 𝗣𝗮𝗰𝗸", 
         callback_data=create_callback("publish_pack", short_name)
@@ -188,11 +188,14 @@ def get_pack_options_keyboard(short_name: str):
         callback_data=f"{PackManagementCallback.PACK_INFO}publish"
     )
     
+    # Back button
     builder.button(
         text="⬅️ 𝗕𝗮𝗰𝗸", 
         callback_data=PackManagementCallback.BACK_TO_MANAGE
     )
-    builder.adjust(2, 2, 2, 2, 1)
+    
+    # Layout: 2 buttons per row for options, 1 for back
+    builder.adjust(2, 2, 2, 1)
     return builder.as_markup()
 
 
@@ -312,7 +315,11 @@ async def pack_info_callback(callback: CallbackQuery):
 
 @router.callback_query(F.data.startswith(PackManagementCallback.RENAME_PACK))
 async def rename_pack_callback(callback: CallbackQuery, state: FSMContext):
-    """Start pack rename process"""
+    """
+    Start pack rename process
+    
+    ✅ FIXED: Store bot message info in state for later editing
+    """
     await callback.answer()
     
     try:
@@ -325,15 +332,23 @@ async def rename_pack_callback(callback: CallbackQuery, state: FSMContext):
         pack = await get_pack_by_short_name(short_name)
         
         if pack:
-            await state.set_state(PackManagementStates.waiting_for_rename_pack_name)
-            await state.update_data(short_name=short_name, old_name=pack["pack_name"])
-            
             pack_name = pack["pack_name"].replace(f" ~ @{BOT_USERNAME}", "")
             escaped_pack_name = escape_html(pack_name)
+            
+            # Edit message to show rename prompt
             await safe_edit_message(
                 callback,
                 RENAME_PACK_MESSAGE.format(pack_name=escaped_pack_name),
                 get_back_to_manage_keyboard()
+            )
+            
+            # ✅ Store bot message info and pack data in state
+            await state.set_state(PackManagementStates.waiting_for_rename_pack_name)
+            await state.update_data(
+                short_name=short_name,
+                old_name=pack["pack_name"],
+                bot_message_id=callback.message.message_id,  # ✅ Store message ID
+                chat_id=callback.message.chat.id              # ✅ Store chat ID
             )
     except Exception as e:
         logger.error(f"Error in rename_pack_callback: {e}")
@@ -341,10 +356,16 @@ async def rename_pack_callback(callback: CallbackQuery, state: FSMContext):
 
 @router.message(PackManagementStates.waiting_for_rename_pack_name)
 async def process_rename_pack_name(message: Message, state: FSMContext, bot: Bot):
-    """Process new pack name"""
+    """
+    Process new pack name
+    
+    ✅ FIXED: Delete user message, edit bot message (not reply), show pack options
+    """
     data = await state.get_data()
     short_name = data.get("short_name")
     old_name = data.get("old_name")
+    bot_message_id = data.get("bot_message_id")
+    chat_id = data.get("chat_id")
     
     if not message.text:
         await message.reply("Please send a valid pack name.")
@@ -364,16 +385,50 @@ async def process_rename_pack_name(message: Message, state: FSMContext, bot: Bot
     formatted_name = format_pack_name(new_name)
     
     try:
+        # Update pack name in Telegram
         await bot.set_sticker_set_title(name=short_name, title=formatted_name)
+        
+        # Update pack name in database
         await update_pack_name(short_name, formatted_name)
         
+        # ✅ DELETE user's message
+        try:
+            await message.delete()
+        except Exception as del_error:
+            logger.warning(f"Could not delete user message: {del_error}")
+        
+        # Prepare success message
         escaped_old_name = escape_html(old_name.replace(f" ~ @{BOT_USERNAME}", ""))
         escaped_new_name = escape_html(formatted_name.replace(f" ~ @{BOT_USERNAME}", ""))
         
-        await message.reply(
-            PACK_RENAMED_SUCCESS.format(old_name=escaped_old_name, new_name=escaped_new_name),
-            reply_markup=get_pack_options_keyboard(short_name)
+        success_text = PACK_RENAMED_SUCCESS.format(
+            old_name=escaped_old_name, 
+            new_name=escaped_new_name
         )
+        
+        # ✅ EDIT bot's message (not reply) with pack options keyboard
+        if bot_message_id and chat_id:
+            try:
+                await bot.edit_message_text(
+                    chat_id=chat_id,
+                    message_id=bot_message_id,
+                    text=success_text,
+                    reply_markup=get_pack_options_keyboard(short_name)
+                )
+            except Exception as edit_error:
+                logger.error(f"Could not edit bot message: {edit_error}")
+                # Fallback: send new message
+                await message.answer(
+                    success_text,
+                    reply_markup=get_pack_options_keyboard(short_name)
+                )
+        else:
+            # Fallback if message ID not stored
+            await message.answer(
+                success_text,
+                reply_markup=get_pack_options_keyboard(short_name)
+            )
+            
     except Exception as e:
         logger.error(f"Error renaming pack: {e}")
         await message.reply(ERROR_OCCURRED)
@@ -382,12 +437,12 @@ async def process_rename_pack_name(message: Message, state: FSMContext, bot: Bot
 
 
 # ============================================================================
-# PACK DELETE
+# PACK DELETE (Handlers kept for future use, button removed)
 # ============================================================================
 
 @router.callback_query(F.data.startswith(PackManagementCallback.DELETE_PACK))
 async def delete_pack_callback(callback: CallbackQuery):
-    """Show delete confirmation"""
+    """Show delete confirmation (Handler kept but button removed from UI)"""
     await callback.answer()
     
     try:
@@ -419,7 +474,7 @@ async def delete_pack_callback(callback: CallbackQuery):
 
 @router.callback_query(F.data.startswith(PackManagementCallback.CONFIRM_DELETE))
 async def confirm_delete_callback(callback: CallbackQuery, bot: Bot):
-    """Confirm and execute pack deletion"""
+    """Confirm and execute pack deletion (Handler kept but button removed from UI)"""
     await callback.answer()
     
     try:
@@ -454,7 +509,7 @@ async def confirm_delete_callback(callback: CallbackQuery, bot: Bot):
 
 @router.callback_query(F.data.startswith(PackManagementCallback.CANCEL_DELETE))
 async def cancel_delete_callback(callback: CallbackQuery):
-    """Cancel pack deletion"""
+    """Cancel pack deletion (Handler kept but button removed from UI)"""
     await callback.answer()
     
     try:

@@ -3,52 +3,35 @@ import logging
 from pathlib import Path
 from PIL import Image
 import subprocess
-from typing import Optional
 import io
 
 logger = logging.getLogger(__name__)
 
 def create_transparent_webp() -> bytes:
-    """Create a transparent 512x512 WebP sticker for empty pack creation"""
+    """Create a transparent 512x512 WebP sticker"""
     try:
-        # Create a 512x512 transparent image (NOT 1x1)
         img = Image.new('RGBA', (512, 512), (0, 0, 0, 0))
-        
-        # Save to bytes buffer
         buffer = io.BytesIO()
         img.save(buffer, format='WEBP', quality=1)
-        
         return buffer.getvalue()
     except Exception as e:
         logger.error(f"Error creating transparent WebP: {e}")
-        # Fallback: create a 512x512 white pixel
         img = Image.new('RGB', (512, 512), (255, 255, 255))
         buffer = io.BytesIO()
         img.save(buffer, format='WEBP', quality=1)
         return buffer.getvalue()
 
 async def convert_image_to_webp(input_path: str, output_path: str) -> bool:
-    """
-    Convert image to WebP format for static stickers
-    Target size: 512x512 with transparent background
-    """
+    """Convert image to WebP format (512x512 with transparent background)"""
     try:
         with Image.open(input_path) as img:
-            # Convert to RGBA if needed
             if img.mode != 'RGBA':
                 img = img.convert('RGBA')
             
-            # Resize to 512x512 maintaining aspect ratio
             img.thumbnail((512, 512), Image.Resampling.LANCZOS)
-            
-            # ✅ FIXED: Create transparent background instead of white
             background = Image.new('RGBA', (512, 512), (0, 0, 0, 0))
-            
-            # Calculate position to center the image
             offset = ((512 - img.size[0]) // 2, (512 - img.size[1]) // 2)
             background.paste(img, offset)
-            
-            # Save as WebP
             background.save(output_path, 'WEBP', quality=90)
             
         return True
@@ -57,27 +40,16 @@ async def convert_image_to_webp(input_path: str, output_path: str) -> bool:
         return False
 
 async def convert_video_to_webm(input_path: str, output_path: str) -> bool:
-    """
-    Convert video/GIF to WebM format for video stickers
-    Maintains aspect ratio with transparent background
-    Automatically adjusts duration to fit 256KB limit
-    """
+    """Convert video/GIF to WebM format (max 2.9s, 256KB, 512x512)"""
     try:
-        max_size = 256 * 1024  # 256KB in bytes
-        
-        # Try different durations: 3s, 2s, 1.5s, 1s, 0.5s
-        durations = [3, 2, 1.5, 1, 0.5]
+        max_size = 256 * 1024
+        durations = [2.9, 2, 1.5, 1, 0.5]
         
         for duration in durations:
             temp_output = output_path + f".temp_{duration}.webm"
-            
-            # Calculate appropriate bitrate based on duration
             target_bitrate = int((max_size * 8) / duration / 1024 * 0.8)
             target_bitrate = max(100, min(target_bitrate, 500))
             
-            # ✅ FIXED: Scale with aspect ratio + transparent padding
-            # scale: Resize to fit within 512x512 (maintains aspect ratio)
-            # pad: Add transparent padding to make it exactly 512x512
             cmd = [
                 'ffmpeg',
                 '-i', input_path,
@@ -109,15 +81,12 @@ async def convert_video_to_webm(input_path: str, output_path: str) -> bool:
                         os.remove(temp_output)
                     continue
                 
-                # Check file size
                 file_size = os.path.getsize(temp_output)
                 
                 if file_size <= max_size:
-                    # Success! Move to final output
                     os.rename(temp_output, output_path)
                     return True
                 else:
-                    # Too large, try shorter duration
                     os.remove(temp_output)
                     continue
                     
@@ -126,7 +95,6 @@ async def convert_video_to_webm(input_path: str, output_path: str) -> bool:
                     os.remove(temp_output)
                 continue
         
-        # If all durations failed, try one last aggressive compression
         cmd_final = [
             'ffmpeg',
             '-i', input_path,
@@ -162,7 +130,6 @@ async def convert_video_to_webm(input_path: str, output_path: str) -> bool:
         logger.error(f"Error converting video to WebM: {e}")
         return False
     finally:
-        # Cleanup any remaining temp files
         try:
             for f in os.listdir(os.path.dirname(output_path)):
                 if f.startswith(os.path.basename(output_path)) and '.temp_' in f:

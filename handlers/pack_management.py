@@ -78,7 +78,7 @@ def get_back_to_manage_keyboard():
     """Back to manage packs keyboard"""
     builder = InlineKeyboardBuilder()
     builder.button(
-        text="⬅️ 𝗕𝗮𝗰𝗸", 
+        text="⬅️ 𝖡𝖺𝖼𝗄", 
         callback_data=PackManagementCallback.BACK_TO_MANAGE
     )
     return builder.as_markup()
@@ -88,11 +88,11 @@ def get_no_packs_keyboard():
     """Keyboard for when user has no packs"""
     builder = InlineKeyboardBuilder()
     builder.button(
-        text="🆕 𝗖𝗿𝗲𝗮𝘁𝗲 𝗡𝗲𝘄 𝗣𝗮𝗰𝗸", 
+        text="𝖢𝗋𝖾𝖺𝗍𝖾 𝖭𝖾𝗐 𝖯𝖺𝖼𝗄", 
         callback_data=PackManagementCallback.CREATE_NEW_PACK
     )
     builder.button(
-        text="⬅️ 𝗕𝗮𝗰𝗸", 
+        text="⬅️ 𝖡𝖺𝖼𝗄", 
         callback_data=SharedCallbacks.BACK_TO_MAIN
     )
     builder.adjust(1, 1)
@@ -103,7 +103,7 @@ def get_pack_link_keyboard(pack_link: str):
     """Keyboard with pack link"""
     builder = InlineKeyboardBuilder()
     builder.button(
-        text="🔗 𝗣𝗮𝗰𝗸 𝗟𝗶𝗻𝗸", 
+        text="🔗 𝖯𝖺𝖼𝗄 𝖫𝗂𝗇𝗄", 
         url=pack_link
     )
     builder.adjust(1)
@@ -128,19 +128,19 @@ async def get_manage_packs_keyboard(user_id: int, page: int = 0):
     
     if page > 0:
         callback_data = create_callback("prev_page", str(page-1))
-        action_builder.button(text="⬅️ 𝗣𝗿𝗲𝘃𝗶𝗼𝘂𝘀", callback_data=callback_data)
+        action_builder.button(text="⬅️ 𝖯𝗋𝖾𝗏𝗂𝗈𝗎𝗌", callback_data=callback_data)
     
     action_builder.button(
-        text="🆕 𝗖𝗿𝗲𝗮𝘁𝗲 𝗡𝗲𝘄 𝗣𝗮𝗰𝗸", 
+        text="🆕 𝖢𝗋𝖾𝖺𝗍𝖾 𝖭𝖾𝗐 𝖯𝖺𝖼𝗄", 
         callback_data=PackManagementCallback.CREATE_NEW_PACK
     )
     
     if (page + 1) * 6 < total:
         callback_data = create_callback("next_page", str(page+1))
-        action_builder.button(text="𝗡𝗲𝘅𝘁 ➡️", callback_data=callback_data)
+        action_builder.button(text="𝖭𝖾𝗑𝗍 ➡️", callback_data=callback_data)
     
     action_builder.button(
-        text="⬅️ 𝗕𝗮𝗰𝗸", 
+        text="⬅️ 𝖡𝖺𝖼𝗄", 
         callback_data=SharedCallbacks.BACK_TO_MAIN
     )
     action_builder.adjust(2, 1, 1)
@@ -158,7 +158,7 @@ def get_pack_options_keyboard(short_name: str):
     
     # Rename Pack
     builder.button(
-        text="✏️ 𝗥𝗲𝗻𝗮𝗺𝗲 𝗣𝗮𝗰𝗸", 
+        text="𝖱𝖾𝗇𝖺𝗆𝖾 𝖯𝖺𝖼𝗄", 
         callback_data=create_callback("rename_pack", short_name)
     )
     builder.button(
@@ -168,7 +168,7 @@ def get_pack_options_keyboard(short_name: str):
     
     # Add Sticker
     builder.button(
-        text="➕ 𝗔𝗱𝗱 𝗦𝘁𝗶𝗰𝗸𝗲𝗿", 
+        text="𝖠𝖽𝖽 𝖲𝗍𝗂𝖼𝗄𝖾𝗋", 
         callback_data=create_callback("add_sticker", short_name)
     )
     builder.button(
@@ -180,7 +180,7 @@ def get_pack_options_keyboard(short_name: str):
     
     # Launch Pack (Publish)
     builder.button(
-        text="📤 𝗟𝗮𝘂𝗻𝗰𝗵 𝗣𝗮𝗰𝗸", 
+        text="𝖫𝖺𝗎𝗇𝖼𝗁 𝖯𝖺𝖼𝗄", 
         callback_data=create_callback("publish_pack", short_name)
     )
     builder.button(
@@ -190,7 +190,7 @@ def get_pack_options_keyboard(short_name: str):
     
     # Back button
     builder.button(
-        text="⬅️ 𝗕𝗮𝗰𝗸", 
+        text="⬅️ 𝖡𝖺𝖼𝗄", 
         callback_data=PackManagementCallback.BACK_TO_MANAGE
     )
     
@@ -204,15 +204,15 @@ def get_delete_confirmation_keyboard(short_name: str):
     builder = InlineKeyboardBuilder()
     
     builder.button(
-        text="✅ 𝗖𝗼𝗻𝗳𝗶𝗿𝗺", 
+        text="𝖢𝗈𝗇𝖿𝗂𝗋𝗆", 
         callback_data=create_callback("confirm_delete", short_name)
     )
     builder.button(
-        text="❌ 𝗖𝗮𝗻𝗰𝗲𝗹", 
+        text="𝖢𝖺𝗇𝖼𝖾𝗅", 
         callback_data=create_callback("cancel_delete", short_name)
     )
     builder.button(
-        text="⬅️ 𝗕𝗮𝗰𝗸", 
+        text="⬅️ 𝖡𝖺𝖼𝗄", 
         callback_data=PackManagementCallback.BACK_TO_MANAGE
     )
     builder.adjust(2, 1)

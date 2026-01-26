@@ -248,7 +248,7 @@ class CallbackDataManager:
 
 
 # ✅ Global instance - shared across entire bot
-callback_manager = CallbackDataManager(ttl_seconds=3600)  # 1 hour TTL
+callback_manager = CallbackDataManager(ttl_seconds=2592000)
 
 
 # ✅ Helper functions for easy usage in handlers

@@ -63,10 +63,10 @@ async def setup_pyrogram():
         await setup_memefi_handlers(pyro_client)
         await setup_welcome_handlers(pyro_client)
         await setup_goodbye_handlers(pyro_client)
-        await setup_ban_handlers(pyro_client)
         await setup_afk_handlers(pyro_client)
         await setup_restart_handlers(pyro_client)
         await setup_extra_handlers(pyro_client)
+        await setup_ban_handlers(pyro_client)
 
         return pyro_client
 

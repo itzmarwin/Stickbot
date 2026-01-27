@@ -452,7 +452,8 @@ async def setup_goodbye_handlers(client: Client):
             chat_id = message.chat.id
             left_member = message.left_chat_member
             
-            if left_member.is_bot:
+            # Skip if no left member info or if it's a bot
+            if not left_member or left_member.is_bot:
                 return
             
             goodbye_config = await get_cached_settings(chat_id, 'goodbye')

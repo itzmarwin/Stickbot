@@ -52,7 +52,7 @@ async def setup_welcome_handlers(client: Client):
                     await message.reply_text("Only admins can use this command.", parse_mode=ParseMode.HTML)
                     return
             except ChatAdminRequired:
-                await message.reply_text("Looks like you’re using anonymous admin mode.\nSwitch back to your user account to continue~", parse_mode=ParseMode.HTML)
+                await message.reply_text("Looks like you're using anonymous admin mode.\nSwitch back to your user account to continue~", parse_mode=ParseMode.HTML)
                 return
             
             command_parts = message.text.split(maxsplit=1)
@@ -181,7 +181,7 @@ async def setup_welcome_handlers(client: Client):
                     await message.reply_text("Only admins can use this command!", parse_mode=ParseMode.HTML)
                     return
             except ChatAdminRequired:
-                await message.reply_text("Looks like you’re using anonymous admin mode.\nSwitch back to your user account to continue~", parse_mode=ParseMode.HTML)
+                await message.reply_text("Looks like you're using anonymous admin mode.\nSwitch back to your user account to continue~", parse_mode=ParseMode.HTML)
                 return
             
             if not await is_bot_admin(client, chat_id):
@@ -281,7 +281,7 @@ async def setup_welcome_handlers(client: Client):
         
         except Exception as e:
             log_error("setwelcome_command", e, chat_id=chat_id or 0, user_id=user_id or 0)
-            await message.reply_text("Please try again later. If it still doesn’t work, contact the support group", parse_mode=ParseMode.HTML)
+            await message.reply_text("Please try again later. If it still doesn't work, contact the support group", parse_mode=ParseMode.HTML)
     
     
     @client.on_message(filters.command("delwelcome") & filters.group)
@@ -298,7 +298,7 @@ async def setup_welcome_handlers(client: Client):
                     await message.reply_text("Only admins can use this command!", parse_mode=ParseMode.HTML)
                     return
             except ChatAdminRequired:
-                await message.reply_text("Looks like you’re using anonymous admin mode.\nSwitch back to your user account to continue~", parse_mode=ParseMode.HTML)
+                await message.reply_text("Looks like you're using anonymous admin mode.\nSwitch back to your user account to continue~", parse_mode=ParseMode.HTML)
                 return
             
             settings = await get_welcome_settings(chat_id)
@@ -330,7 +330,7 @@ async def setup_welcome_handlers(client: Client):
         
         except Exception as e:
             log_error("delwelcome_command", e, chat_id=chat_id or 0, user_id=user_id or 0)
-            await message.reply_text("Please try again later. If it still doesn’t work, contact the support group", parse_mode=ParseMode.HTML)
+            await message.reply_text("Please try again later. If it still doesn't work, contact the support group", parse_mode=ParseMode.HTML)
     
     
     @client.on_message(filters.command("cleanwelcome") & filters.group)
@@ -347,7 +347,7 @@ async def setup_welcome_handlers(client: Client):
                     await message.reply_text("Only admins can use this command", parse_mode=ParseMode.HTML)
                     return
             except ChatAdminRequired:
-                await message.reply_text("Looks like you’re using anonymous admin mode.\nSwitch back to your user account to continue~", parse_mode=ParseMode.HTML)
+                await message.reply_text("Looks like you're using anonymous admin mode.\nSwitch back to your user account to continue~", parse_mode=ParseMode.HTML)
                 return
             
             command_parts = message.text.split()
@@ -433,17 +433,39 @@ async def setup_welcome_handlers(client: Client):
         
         except Exception as e:
             log_error("cleanwelcome_command", e, chat_id=chat_id or 0, user_id=user_id or 0)
-            await message.reply_text("Please try again later. If it still doesn’t work, contact the support group", parse_mode=ParseMode.HTML)
+            await message.reply_text("Please try again later. If it still doesn't work, contact the support group", parse_mode=ParseMode.HTML)
     
     
     @client.on_chat_member_updated(filters.group)
     async def welcome_new_member(client: Client, member_update: ChatMemberUpdated):
         try:
-            if (
-                not member_update.new_chat_member
-                or member_update.new_chat_member.status in {"banned", "left", "restricted"}
-                or member_update.old_chat_member
-            ):
+            # CRITICAL: Improved checks to prevent false welcomes on kick/unban
+            
+            # Check 1: Must have new_chat_member
+            if not member_update.new_chat_member:
+                return
+            
+            # Check 2: Old member must not exist (truly new join)
+            # This prevents welcome on unban/kick scenarios
+            if member_update.old_chat_member:
+                # Additional check: if old status was banned/kicked and now member, it's an unban (not a new join)
+                old_status = member_update.old_chat_member.status
+                new_status = member_update.new_chat_member.status
+                
+                # If user was banned/kicked/left and now is member/restricted, it's NOT a new join
+                if old_status in {ChatMemberStatus.BANNED, ChatMemberStatus.LEFT, ChatMemberStatus.RESTRICTED}:
+                    return
+                
+                # If there's an old_chat_member at all, it's not a fresh join
+                return
+            
+            # Check 3: New status must be member (not banned, left, restricted)
+            new_status = member_update.new_chat_member.status
+            if new_status in {ChatMemberStatus.BANNED, ChatMemberStatus.LEFT, ChatMemberStatus.RESTRICTED}:
+                return
+            
+            # Check 4: Must be a regular member status
+            if new_status != ChatMemberStatus.MEMBER:
                 return
             
             user = member_update.new_chat_member.user if member_update.new_chat_member else member_update.from_user

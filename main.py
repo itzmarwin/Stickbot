@@ -16,6 +16,7 @@ from handlers import sticker_id
 from handlers import getsticker, getvidsticker
 from handlers import copypack
 from handlers import pack_management, publish
+from handlers import language
 
 from telethon_quotly import setup_telethon_handlers
 
@@ -128,6 +129,7 @@ async def main():
         )
         dp = Dispatcher()
 
+        dp.include_router(language.router)
         dp.include_router(start.router)
         dp.include_router(kang.router)
         dp.include_router(sticker_id.router)

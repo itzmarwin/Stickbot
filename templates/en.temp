@@ -19,6 +19,8 @@ WELCOME_INFO_MESSAGE=<b>Welcome & Goodbye Messages</b>\n\nCustomize Messages\n�
 
 LANG_SELECT_MESSAGE=<b>Choose Your Language</b>\n\nSelect your preferred language:
 LANG_CHANGED=Language changed to English
+LANG_CHANGED_RUS=Язык изменен на русский
+LANG_CHANGED_BUR=ဘာသာစကားကို မြန်မာသို့ ပြောင်းလဲပြီးပါပြီ
 
 B_ADD_ME_GROUP=𝖠𝖽𝖽 𝖬𝖾 𝖨𝗇 𝖸𝗈𝗎𝗋 𝖦𝗋𝗈𝗎𝗉
 B_EXTRA_COMMANDS=𝖤𝗑𝗍𝗋𝖺 𝖢𝗈𝗆𝗆𝖺𝗇𝖽𝗌

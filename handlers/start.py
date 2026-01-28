@@ -147,28 +147,43 @@ async def cmd_start(message: Message, state: FSMContext):
         # ✅ EXISTING USER FLOW
         logger.info(f"👤 Existing user {user.id} used /start command")
         
-        # Update user activity
-        await update_user_started(user.id)
-        
-        # Get start message in user's saved language
-        start_text = await get_text(
-            user.id, 
-            "START_MESSAGE_WITH_IMAGE",
-            user_id=user.id,
-            first_name=escape_html(user.first_name)
-        )
-        
-        if start_text is None:
-            # Fallback if template key missing
-            start_text = f"Hello {escape_html(user.first_name)}! Welcome back."
-        
-        # Show main menu with buttons in user's language
-        await message.answer(
-            start_text, 
-            reply_markup=await get_main_menu_keyboard(user.id)
-        )
-        
-        logger.info(f"✅ Sent start message to existing user {user.id}")
+        try:
+            # Update user activity
+            await update_user_started(user.id)
+            logger.info(f"🔍 DEBUG: User activity updated")
+            
+            # Get start message in user's saved language
+            logger.info(f"🔍 DEBUG: Getting start text for user {user.id}")
+            start_text = await get_text(
+                user.id, 
+                "START_MESSAGE_WITH_IMAGE",
+                user_id=user.id,
+                first_name=escape_html(user.first_name)
+            )
+            
+            if start_text is None:
+                logger.warning(f"⚠️ DEBUG: start_text is None, using fallback")
+                # Fallback if template key missing
+                start_text = f"Hello {escape_html(user.first_name)}! Welcome back."
+            else:
+                logger.info(f"🔍 DEBUG: Got start text, length: {len(start_text)}")
+            
+            # Show main menu with buttons in user's language
+            logger.info(f"🔍 DEBUG: Getting keyboard for user {user.id}")
+            keyboard = await get_main_menu_keyboard(user.id)
+            logger.info(f"🔍 DEBUG: Keyboard received, sending message...")
+            
+            await message.answer(
+                start_text, 
+                reply_markup=keyboard
+            )
+            
+            logger.info(f"✅ Sent start message to existing user {user.id}")
+            
+        except Exception as e:
+            logger.error(f"❌ ERROR in existing user /start flow: {e}", exc_info=True)
+            logger.error(f"❌ Error type: {type(e).__name__}")
+            logger.error(f"❌ Error details: {str(e)}")
 
 
 # ============================================================================

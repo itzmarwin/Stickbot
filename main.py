@@ -129,8 +129,8 @@ async def main():
         )
         dp = Dispatcher()
 
-        dp.include_router(start.router)
         dp.include_router(language.router)
+        dp.include_router(start.router)
         dp.include_router(kang.router)
         dp.include_router(sticker_id.router)
         dp.include_router(getvidsticker.router)

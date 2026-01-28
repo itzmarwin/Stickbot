@@ -135,26 +135,41 @@ async def set_language_callback(callback: CallbackQuery):
     
     # Send new message with confirmation + start text + buttons
     try:
-        full_message = f"{confirmation_msg}\n\n{start_text}"
+        logger.info(f"🔍 DEBUG: About to send message to chat {chat_id}")
+        logger.info(f"🔍 DEBUG: Confirmation: {confirmation_msg[:50]}...")
+        logger.info(f"🔍 DEBUG: Start text length: {len(start_text)}")
         
-        await callback.bot.send_message(
+        full_message = f"{confirmation_msg}\n\n{start_text}"
+        logger.info(f"🔍 DEBUG: Full message length: {len(full_message)}")
+        
+        logger.info(f"🔍 DEBUG: Getting keyboard...")
+        keyboard = await get_main_menu_keyboard(user_id)
+        logger.info(f"🔍 DEBUG: Keyboard received")
+        
+        logger.info(f"🔍 DEBUG: Sending message via bot.send_message...")
+        sent_msg = await callback.bot.send_message(
             chat_id=chat_id,
             text=full_message,
-            reply_markup=await get_main_menu_keyboard(user_id)
+            reply_markup=keyboard
         )
         
-        logger.info(f"✅ Sent start message to user {user_id} in {language}")
+        logger.info(f"✅ Sent start message to user {user_id} in {language} (msg_id: {sent_msg.message_id})")
         
     except Exception as e:
-        logger.error(f"❌ Error sending start message: {e}")
+        logger.error(f"❌ ERROR sending start message: {e}", exc_info=True)
+        logger.error(f"❌ Error type: {type(e).__name__}")
+        logger.error(f"❌ Error details: {str(e)}")
+        
         # Fallback: try editing instead
+        logger.info(f"🔍 DEBUG: Trying fallback edit method...")
         try:
             await callback.message.edit_text(
                 f"{confirmation_msg}\n\n{start_text}",
                 reply_markup=await get_main_menu_keyboard(user_id)
             )
+            logger.info(f"✅ Fallback edit successful")
         except Exception as fallback_error:
-            logger.error(f"❌ Fallback also failed: {fallback_error}")
+            logger.error(f"❌ Fallback also failed: {fallback_error}", exc_info=True)
 
 
 # ============================================================================

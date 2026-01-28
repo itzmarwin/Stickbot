@@ -1,7 +1,16 @@
+"""
+Language Handler - Multi-language support
+
+Handles:
+- /lang command for changing language
+- Language selection for new users
+- Language preference storage
+"""
+
 import logging
 from aiogram import Router, F
 from aiogram.filters import Command
-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import Message, CallbackQuery
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from database import get_user_language, set_user_language
@@ -12,171 +21,147 @@ router = Router()
 
 
 # ============================================================================
-# LANGUAGE SELECTION KEYBOARDS
+# LANGUAGE SELECTION KEYBOARD
 # ============================================================================
 
-def get_language_selection_keyboard() -> InlineKeyboardMarkup:
-    """
-    Build language selection keyboard with 3 language options
-    
-    Returns:
-        InlineKeyboardMarkup with English, Russian, Burmese buttons
-    """
+def get_language_selection_keyboard():
+    """Build language selection keyboard with 3 languages"""
     builder = InlineKeyboardBuilder()
     
-    # Language buttons with callback data
-    builder.button(
-        text="🇬🇧 English",
-        callback_data="set_lang:en"
-    )
-    builder.button(
-        text="🇷🇺 Русский",
-        callback_data="set_lang:rus"
-    )
-    builder.button(
-        text="🇲🇲 မြန်မာ",
-        callback_data="set_lang:bur"
-    )
+    # English
+    builder.button(text="🇬🇧 English", callback_data="set_lang:en")
     
-    # Arrange buttons in a column (one per row)
-    builder.adjust(1)
+    # Russian
+    builder.button(text="🇷🇺 Русский", callback_data="set_lang:rus")
     
+    # Burmese
+    builder.button(text="🇲🇲 မြန်မာ", callback_data="set_lang:bur")
+    
+    builder.adjust(1)  # 1 button per row
     return builder.as_markup()
 
 
-async def get_language_selection_message(user_id: int) -> str:
-    """
-    Get language selection message in user's current language
-    
-    Args:
-        user_id: User's Telegram ID
-    
-    Returns:
-        Formatted language selection message
-    """
-    message = await get_text(user_id, "LANG_SELECT_MESSAGE")
-    if message is None:
-        # Fallback if key missing
-        return "🌐 <b>Choose Your Language</b>\n\nSelect your preferred language:"
-    return message
-
-
 # ============================================================================
-# /lang COMMAND HANDLER
+# /LANG COMMAND
 # ============================================================================
 
-@router.message(Command("lang"))
+@router.message(Command("lang"), F.chat.type == "private")
 async def cmd_lang(message: Message):
-    """
-    Handle /lang command - show language selection menu
-    Only works in private chat
-    """
-    # Check if command is in private chat
-    if message.chat.type != "private":
-        logger.info(f"User {message.from_user.id} tried /lang in group {message.chat.id}")
-        return  # Silently ignore in groups
+    """Handle /lang command - show language selection"""
+    user_id = message.from_user.id
     
-    try:
-        user_id = message.from_user.id
-        
-        # Get language selection message
-        lang_message = await get_language_selection_message(user_id)
-        
-        # Send language selection keyboard
-        await message.answer(
-            lang_message,
-            reply_markup=get_language_selection_keyboard()
+    # Get current language
+    current_lang = await get_user_language(user_id)
+    
+    # Get message in current language
+    lang_select_msg = await get_text(user_id, "LANG_SELECT_MESSAGE")
+    
+    if lang_select_msg is None:
+        lang_select_msg = (
+            "🌐 <b>Choose Your Language</b>\n\n"
+            "Select your preferred language:"
         )
-        
-        logger.info(f"User {user_id} opened language selection menu")
-        
-    except Exception as e:
-        logger.error(f"Error in /lang command: {e}", exc_info=True)
-        await message.answer("❌ An error occurred. Please try again.")
+    
+    await message.answer(
+        lang_select_msg,
+        reply_markup=get_language_selection_keyboard()
+    )
+    
+    logger.info(f"User {user_id} opened language selection (current: {current_lang})")
 
 
 # ============================================================================
-# LANGUAGE SELECTION CALLBACK HANDLER
+# LANGUAGE SELECTION CALLBACK
 # ============================================================================
 
 @router.callback_query(F.data.startswith("set_lang:"))
-async def callback_set_language(callback: CallbackQuery):
-    """
-    Handle language selection callback
-    Format: set_lang:en | set_lang:rus | set_lang:bur
-    """
+async def set_language_callback(callback: CallbackQuery):
+    """Handle language selection"""
     await callback.answer()
     
-    try:
-        # Parse language code from callback data
-        language = callback.data.split(":")[1]
-        user_id = callback.from_user.id
-        
-        # Validate language
-        if language not in ["en", "rus", "bur"]:
-            logger.warning(f"Invalid language selection: {language}")
-            await callback.message.edit_text("❌ Invalid language selection.")
-            return
-        
-        # Save language preference to database
-        success = await set_user_language(user_id, language)
-        
-        if not success:
-            await callback.message.edit_text("❌ Failed to save language preference. Please try again.")
-            return
-        
-        # Get confirmation message in NEW language
-        confirmation = await get_text(user_id, "LANG_CHANGED")
-        
-        if confirmation is None:
-            # Fallback confirmation messages
-            confirmations = {
-                "en": "✅ Language changed to English",
-                "rus": "✅ Язык изменен на русский",
-                "bur": "✅ ဘာသာစကားကို မြန်မာသို့ပြောင်းလဲပြီးပါပြီ"
-            }
-            confirmation = confirmations.get(language, "✅ Language changed successfully")
-        
-        # Update message with confirmation
-        await callback.message.edit_text(confirmation)
-        
-        logger.info(f"User {user_id} changed language to '{language}'")
-        
-    except Exception as e:
-        logger.error(f"Error in language selection callback: {e}", exc_info=True)
-        await callback.message.edit_text("❌ An error occurred. Please try again.")
+    user_id = callback.from_user.id
+    
+    # Extract language code from callback data
+    language = callback.data.split(":")[1]  # "set_lang:en" -> "en"
+    
+    # Validate language
+    if language not in ["en", "rus", "bur"]:
+        await callback.answer("Invalid language!", show_alert=True)
+        return
+    
+    # Save language preference
+    success = await set_user_language(user_id, language)
+    
+    if not success:
+        await callback.answer("Error saving language!", show_alert=True)
+        return
+    
+    # Get confirmation message in NEW language
+    confirmation_msg = await get_text(user_id, "LANG_CHANGED")
+    
+    if confirmation_msg is None:
+        # Fallback messages
+        fallback_messages = {
+            "en": "✅ Language changed to English",
+            "rus": "✅ Язык изменен на русский",
+            "bur": "✅ ဘာသာစကားကို မြန်မာသို့ ပြောင်းလဲပြီးပါပြီ"
+        }
+        confirmation_msg = fallback_messages.get(language, "✅ Language changed")
+    
+    # Edit message to show confirmation
+    await callback.message.edit_text(confirmation_msg)
+    
+    logger.info(f"User {user_id} changed language to {language}")
+    
+    # After 2 seconds, show main menu
+    import asyncio
+    await asyncio.sleep(2)
+    
+    # Import here to avoid circular import
+    from handlers.keyboard_utils import get_main_menu_keyboard
+    from utils.html_utils import escape_html
+    
+    start_text = await get_text(
+        user_id,
+        "START_MESSAGE_WITH_IMAGE",
+        user_id=user_id,
+        first_name=escape_html(callback.from_user.first_name)
+    )
+    
+    if start_text is None:
+        start_text = f"Hello {escape_html(callback.from_user.first_name)}!"
+    
+    await callback.message.edit_text(
+        start_text,
+        reply_markup=await get_main_menu_keyboard(user_id)
+    )
 
 
 # ============================================================================
 # HELPER FUNCTION FOR NEW USERS
 # ============================================================================
 
-async def show_language_selection_for_new_user(message: Message) -> bool:
+async def show_language_selection_for_new_user(message: Message):
     """
-    Show language selection for new users
+    Show language selection for new users during /start
     Called from start.py for first-time users
-    
-    Args:
-        message: Message object from /start command
-    
-    Returns:
-        True if language selection shown successfully
     """
-    try:
-        user_id = message.from_user.id
-        
-        # Get language selection message (will use default "en" for new users)
-        lang_message = await get_language_selection_message(user_id)
-        
-        # Send language selection keyboard
-        await message.answer(
-            lang_message,
-            reply_markup=get_language_selection_keyboard()
+    user_id = message.from_user.id
+    
+    # Get language selection message
+    lang_select_msg = await get_text(user_id, "LANG_SELECT_MESSAGE")
+    
+    # Fallback if template missing
+    if lang_select_msg is None:
+        lang_select_msg = (
+            "🌐 <b>Choose Your Language</b>\n\n"
+            "Select your preferred language to continue:"
         )
-        
-        logger.info(f"New user {user_id} shown language selection")
-        return True
-        
-    except Exception as e:
-        logger.error(f"Error showing language selection for new user: {e}", exc_info=True)
-        return False
+    
+    # Show language selection keyboard
+    await message.answer(
+        lang_select_msg,
+        reply_markup=get_language_selection_keyboard()
+    )
+    
+    logger.info(f"Showed language selection to new user {user_id}")

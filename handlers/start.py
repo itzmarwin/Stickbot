@@ -20,9 +20,6 @@ from utils.language import get_text
 from utils.html_utils import escape_html
 from config import BOT_USERNAME, LOG_GROUP_ID
 
-# Import language handler
-from handlers.language import show_language_selection_for_new_user
-
 # Import shared utilities
 from handlers.keyboard_utils import (
     SharedCallbacks,
@@ -36,6 +33,29 @@ from handlers.keyboard_utils import (
 
 logger = logging.getLogger(__name__)
 router = Router()
+
+
+# ============================================================================
+# LANGUAGE SELECTION KEYBOARD (for new users)
+# ============================================================================
+
+def get_language_selection_keyboard():
+    """Build language selection keyboard with 3 languages"""
+    from aiogram.utils.keyboard import InlineKeyboardBuilder
+    
+    builder = InlineKeyboardBuilder()
+    
+    # English
+    builder.button(text="🇬🇧 English", callback_data="set_lang:en")
+    
+    # Russian
+    builder.button(text="🇷🇺 Русский", callback_data="set_lang:rus")
+    
+    # Burmese
+    builder.button(text="🇲🇲 မြန်မာ", callback_data="set_lang:bur")
+    
+    builder.adjust(1)  # 1 button per row
+    return builder.as_markup()
 
 
 # ============================================================================
@@ -53,31 +73,40 @@ async def cmd_start(message: Message, state: FSMContext):
     user = message.from_user
     await state.clear()
     
-    # Check if command is in group
+    # =====================================================================
+    # GROUP START
+    # =====================================================================
     if message.chat.type in ["group", "supergroup"]:
         # Group start - show introduction with 2 buttons (ENGLISH ONLY)
         group_start_msg = await get_text(user.id, "GROUP_START_MESSAGE", bot_username=BOT_USERNAME)
+        
         if group_start_msg is None:
-            # Fallback for groups (should not happen)
-            group_start_msg = f"<b>Hello! I'm Sticker Kang Bot</b>\n\nI help you create and manage custom sticker packs!\n\n<b>Start me in PM to use all features!</b>"
+            # Fallback for groups
+            group_start_msg = (
+                f"<b>Hello! I'm Sticker Kang Bot</b>\n\n"
+                f"I help you create and manage custom sticker packs!\n\n"
+                f"<b>Start me in PM to use all features!</b>"
+            )
         
         await message.reply(
             group_start_msg,
             reply_markup=get_group_start_keyboard()
         )
+        logger.info(f"Group start command from {user.id} in chat {message.chat.id}")
         return
     
-    # Private chat - check if new or existing user
+    # =====================================================================
+    # PRIVATE CHAT START
+    # =====================================================================
+    
+    # Check if user exists in database
     user_data = await get_user(user.id)
     
     if not user_data:
-        # NEW USER - Show language selection first
-        logger.info(f"New user {user.id} started bot - showing language selection")
+        # ✅ NEW USER FLOW
+        logger.info(f"🆕 New user {user.id} (@{user.username}) started bot")
         
-        # Show language selection
-        await show_language_selection_for_new_user(message)
-        
-        # Create user in database with default language (will be updated after selection)
+        # Create user in database with default language
         await create_user(
             user_id=user.id,
             username=user.username,
@@ -85,7 +114,7 @@ async def cmd_start(message: Message, state: FSMContext):
             language="en"  # Default, will be updated when user selects
         )
         
-        # Log new user to admin group (ENGLISH ONLY)
+        # Log new user to admin group
         if LOG_GROUP_ID:
             try:
                 log_msg = (
@@ -99,14 +128,29 @@ async def cmd_start(message: Message, state: FSMContext):
             except Exception as e:
                 logger.error(f"Error sending new user log: {e}")
         
-        # Don't show main menu yet - wait for language selection
+        # ✅ Show language selection (callback will handle showing main menu)
+        lang_select_msg = (
+            "🌐 <b>Welcome! Choose Your Language</b>\n\n"
+            "Select your preferred language to continue:"
+        )
+        
+        await message.answer(
+            lang_select_msg,
+            reply_markup=get_language_selection_keyboard()
+        )
+        
+        logger.info(f"✅ Showed language selection to new user {user.id}")
+        # ✅ Note: Main menu will be shown after language selection via callback
         return
     
     else:
-        # EXISTING USER - Show main menu in their language
+        # ✅ EXISTING USER FLOW
+        logger.info(f"👤 Existing user {user.id} used /start command")
+        
+        # Update user activity
         await update_user_started(user.id)
         
-        # Get start message in user's language
+        # Get start message in user's saved language
         start_text = await get_text(
             user.id, 
             "START_MESSAGE_WITH_IMAGE",
@@ -115,11 +159,21 @@ async def cmd_start(message: Message, state: FSMContext):
         )
         
         if start_text is None:
-            # Fallback if key missing
+            # Fallback if template key missing
             start_text = f"Hello {escape_html(user.first_name)}! Welcome back."
         
-        await message.answer(start_text, reply_markup=await get_main_menu_keyboard(user.id))
+        # Show main menu with buttons in user's language
+        await message.answer(
+            start_text, 
+            reply_markup=await get_main_menu_keyboard(user.id)
+        )
+        
+        logger.info(f"✅ Sent start message to existing user {user.id}")
 
+
+# ============================================================================
+# HELP COMMAND
+# ============================================================================
 
 @router.message(Command("help"))
 async def cmd_help(message: Message):
@@ -132,6 +186,7 @@ async def cmd_help(message: Message):
             help_text = "For help, contact @Samurais_Support"
         
         await message.answer(help_text)
+        logger.info(f"Help command from user {user_id}")
     except Exception as e:
         logger.error(f"Error in help command: {e}")
 

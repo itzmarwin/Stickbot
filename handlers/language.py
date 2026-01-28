@@ -1,5 +1,5 @@
 """
-Language Handler - Multi-language support (DEBUG VERSION)
+Language Handler - Multi-language support
 
 Handles:
 - /lang command for changing language
@@ -71,7 +71,7 @@ async def cmd_lang(message: Message):
 
 
 # ============================================================================
-# LANGUAGE SELECTION CALLBACK (DEBUG VERSION)
+# LANGUAGE SELECTION CALLBACK
 # ============================================================================
 
 @router.callback_query(F.data.startswith("set_lang:"))
@@ -82,33 +82,27 @@ async def set_language_callback(callback: CallbackQuery):
     user_id = callback.from_user.id
     chat_id = callback.message.chat.id
     
-    logger.info(f"🔍 DEBUG: Starting language callback for user {user_id}")
-    
     # Extract language code from callback data
-    language = callback.data.split(":")[1]
-    logger.info(f"🔍 DEBUG: Selected language: {language}")
+    language = callback.data.split(":")[1]  # "set_lang:en" -> "en"
     
     # Validate language
     if language not in ["en", "rus", "bur"]:
-        logger.error(f"❌ DEBUG: Invalid language {language}")
         await callback.answer("Invalid language!", show_alert=True)
         return
     
     # Save language preference FIRST
-    logger.info(f"🔍 DEBUG: Saving language {language} for user {user_id}")
     success = await set_user_language(user_id, language)
     
     if not success:
-        logger.error(f"❌ DEBUG: Failed to save language")
         await callback.answer("Error saving language!", show_alert=True)
         return
     
     logger.info(f"✅ User {user_id} changed language to {language}")
     
-    # Get confirmation message
-    logger.info(f"🔍 DEBUG: Getting confirmation message")
+    # Get confirmation message in NEW language
     confirmation_msg = await get_text(user_id, "LANG_CHANGED")
     
+    # Fallback messages for each language
     if confirmation_msg is None:
         fallback_messages = {
             "en": "✅ Language changed to English",
@@ -116,81 +110,51 @@ async def set_language_callback(callback: CallbackQuery):
             "bur": "✅ ဘာသာစကားကို မြန်မာသို့ ပြောင်းလဲပြီးပါပြီ"
         }
         confirmation_msg = fallback_messages.get(language, "✅ Language changed")
-        logger.info(f"🔍 DEBUG: Using fallback confirmation: {confirmation_msg[:30]}...")
     
-    # Import utilities
-    logger.info(f"🔍 DEBUG: Importing utilities")
-    try:
-        from handlers.keyboard_utils import get_main_menu_keyboard
-        from utils.html_utils import escape_html
-        logger.info(f"✅ DEBUG: Imports successful")
-    except Exception as import_error:
-        logger.error(f"❌ DEBUG: Import failed: {import_error}")
-        return
+    # Import here to avoid circular import
+    from handlers.keyboard_utils import get_main_menu_keyboard
+    from utils.html_utils import escape_html
     
-    # Get START message
-    logger.info(f"🔍 DEBUG: Getting start message for user {user_id}")
-    try:
-        start_text = await get_text(
-            user_id,
-            "START_MESSAGE_WITH_IMAGE",
-            user_id=user_id,
-            first_name=escape_html(callback.from_user.first_name)
-        )
-        
-        if start_text is None:
-            start_text = f"Hello {escape_html(callback.from_user.first_name)}!"
-            logger.info(f"🔍 DEBUG: Using fallback start text")
-        else:
-            logger.info(f"✅ DEBUG: Got start text: {start_text[:50]}...")
-            
-    except Exception as text_error:
-        logger.error(f"❌ DEBUG: Error getting start text: {text_error}")
-        start_text = f"Hello {escape_html(callback.from_user.first_name)}!"
+    # ✅ FIX: Get START message with CORRECT parameters
+    # The issue was: user_id was passed twice (once as arg, once in kwargs)
+    start_text = await get_text(
+        user_id,
+        "START_MESSAGE_WITH_IMAGE",
+        first_name=escape_html(callback.from_user.first_name)  # ✅ Removed user_id from kwargs
+    )
+    
+    if start_text is None:
+        # Fallback start message
+        start_text = f"────「  ꜱᴛɪᴄᴋᴇʀ ᴋᴀɴɢ 」────\n✦ ʜᴇʏ {escape_html(callback.from_user.first_name)}...\n╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌\nɪ ᴀᴍ ʏᴏᴜʀ ꜱᴛɪᴄᴋᴇʀ ᴄᴏᴍᴘᴀɴɪᴏɴ 💫\nᴡɪᴛʜ ᴍᴇ ʏᴏᴜ ᴄᴀɴ:\n➤ ᴋᴀɴɢ ꜱᴛɪᴄᴋᴇʀꜱ ɪɴ ᴏɴᴇ ᴛᴀᴘ\n➤ ᴍᴀᴋᴇ ʏᴏᴜʀ ᴏᴡɴ ᴘᴀᴄᴋꜱ\n➤ ᴍᴀɴᴀɢᴇ & ꜱʜᴀʀᴇ ᴇᴀꜱɪʟʏ\n╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌\nᴘʀᴇꜱꜱ ᴛʜᴇ ʙᴜᴛᴛᴏɴꜱ ʙᴇʟᴏᴡ ᴛᴏ ꜱᴛᴀʀᴛ"
     
     # Delete old message
-    logger.info(f"🔍 DEBUG: Attempting to delete old message")
     try:
         await callback.message.delete()
-        logger.info(f"✅ DEBUG: Old message deleted")
-    except Exception as delete_error:
-        logger.warning(f"⚠️ DEBUG: Could not delete message: {delete_error}")
+    except Exception as e:
+        logger.warning(f"Could not delete language selection message: {e}")
     
-    # Send new message with buttons
-    logger.info(f"🔍 DEBUG: Preparing to send new message")
+    # Send new message with confirmation + start text + buttons
     try:
-        # Get keyboard
-        logger.info(f"🔍 DEBUG: Getting main menu keyboard")
-        keyboard = await get_main_menu_keyboard(user_id)
-        logger.info(f"✅ DEBUG: Got keyboard")
-        
-        # Prepare message
         full_message = f"{confirmation_msg}\n\n{start_text}"
-        logger.info(f"🔍 DEBUG: Full message prepared (length: {len(full_message)})")
         
-        # Send message
-        logger.info(f"🔍 DEBUG: Sending message to chat {chat_id}")
-        sent_message = await callback.bot.send_message(
+        await callback.bot.send_message(
             chat_id=chat_id,
             text=full_message,
-            reply_markup=keyboard
+            reply_markup=await get_main_menu_keyboard(user_id)
         )
         
-        logger.info(f"✅ Sent start message to user {user_id} in {language} (msg_id: {sent_message.message_id})")
+        logger.info(f"✅ Sent start message to user {user_id} in {language}")
         
-    except Exception as send_error:
-        logger.error(f"❌ DEBUG: Error sending message: {send_error}", exc_info=True)
-        
+    except Exception as e:
+        logger.error(f"❌ Error sending start message: {e}")
         # Fallback: try editing instead
-        logger.info(f"🔍 DEBUG: Trying fallback edit method")
         try:
             await callback.message.edit_text(
                 f"{confirmation_msg}\n\n{start_text}",
                 reply_markup=await get_main_menu_keyboard(user_id)
             )
-            logger.info(f"✅ DEBUG: Fallback edit successful")
         except Exception as fallback_error:
-            logger.error(f"❌ DEBUG: Fallback also failed: {fallback_error}", exc_info=True)
+            logger.error(f"❌ Fallback also failed: {fallback_error}")
 
 
 # ============================================================================
@@ -204,7 +168,7 @@ async def show_language_selection_for_new_user(message: Message):
     """
     user_id = message.from_user.id
     
-    # Get language selection message
+    # Get language selection message (will use default "en" for new users)
     lang_select_msg = await get_text(user_id, "LANG_SELECT_MESSAGE")
     
     # Fallback if template missing

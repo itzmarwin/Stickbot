@@ -44,14 +44,6 @@ async def cmd_start(message: Message, state: FSMContext):
     
     if message.chat.type in ["group", "supergroup"]:
         group_start_msg = await get_text(user.id, "GROUP_START_MESSAGE", bot_username=BOT_USERNAME)
-        
-        if group_start_msg is None:
-            group_start_msg = (
-                f"<b>Hello! I'm Sticker Kang Bot</b>\n\n"
-                f"I help you create and manage custom sticker packs!\n\n"
-                f"<b>Start me in PM to use all features!</b>"
-            )
-        
         await message.reply(group_start_msg, reply_markup=get_group_start_keyboard())
         logger.info(f"Group start command from {user.id} in chat {message.chat.id}")
         return
@@ -81,11 +73,7 @@ async def cmd_start(message: Message, state: FSMContext):
             except Exception as e:
                 logger.error(f"Error sending new user log: {e}")
         
-        lang_select_msg = (
-            "🌐 <b>Welcome! Choose Your Language</b>\n\n"
-            "Select your preferred language to continue:"
-        )
-        
+        lang_select_msg = await get_text(user.id, "LANG_SELECT_MESSAGE")
         await message.answer(lang_select_msg, reply_markup=get_language_selection_keyboard())
         logger.info(f"Showed language selection to new user {user.id}")
         return
@@ -103,9 +91,6 @@ async def cmd_start(message: Message, state: FSMContext):
                 first_name=escape_html(user.first_name)
             )
             
-            if start_text is None:
-                start_text = f"Hello {escape_html(user.first_name)}! Welcome back."
-            
             keyboard = await get_main_menu_keyboard(user.id)
             await message.answer(start_text, reply_markup=keyboard)
             logger.info(f"Sent start message to existing user {user.id}")
@@ -120,10 +105,6 @@ async def cmd_help(message: Message):
     try:
         user_id = message.from_user.id
         help_text = await get_text(user_id, "HELP_MESSAGE")
-        
-        if help_text is None:
-            help_text = "For help, contact @Samurais_Support"
-        
         await message.answer(help_text)
         logger.info(f"Help command from user {user_id}")
     except Exception as e:
@@ -137,10 +118,6 @@ async def extra_commands_callback(callback: CallbackQuery):
     try:
         user_id = callback.from_user.id
         message_text = await get_text(user_id, "EXTRA_COMMANDS_MESSAGE")
-        
-        if message_text is None:
-            message_text = "<b>Extra Commands</b>"
-        
         await safe_edit_message(callback, message_text, await get_extra_commands_keyboard(user_id))
     except Exception as e:
         logger.error(f"Error in extra_commands_callback: {e}")
@@ -153,10 +130,6 @@ async def extra_afk_callback(callback: CallbackQuery):
     try:
         user_id = callback.from_user.id
         message_text = await get_text(user_id, "AFK_INFO_MESSAGE")
-        
-        if message_text is None:
-            message_text = "<b>AFK Feature</b>\n\nSet yourself as away from keyboard."
-        
         await safe_edit_message(callback, message_text, await get_back_to_extra_keyboard(user_id))
     except Exception as e:
         logger.error(f"Error in extra_afk_callback: {e}")
@@ -169,10 +142,6 @@ async def extra_quotly_callback(callback: CallbackQuery):
     try:
         user_id = callback.from_user.id
         message_text = await get_text(user_id, "QUOTLY_INFO_MESSAGE")
-        
-        if message_text is None:
-            message_text = "<b>Quotly Feature</b>\n\nConvert messages to stickers."
-        
         await safe_edit_message(callback, message_text, await get_back_to_extra_keyboard(user_id))
     except Exception as e:
         logger.error(f"Error in extra_quotly_callback: {e}")
@@ -185,10 +154,6 @@ async def extra_stickers_callback(callback: CallbackQuery):
     try:
         user_id = callback.from_user.id
         message_text = await get_text(user_id, "STICKERS_INFO_MESSAGE")
-        
-        if message_text is None:
-            message_text = "<b>Stickers Feature</b>\n\nManage your sticker packs."
-        
         await safe_edit_message(callback, message_text, await get_back_to_extra_keyboard(user_id))
     except Exception as e:
         logger.error(f"Error in extra_stickers_callback: {e}")
@@ -201,10 +166,6 @@ async def extra_memefi_callback(callback: CallbackQuery):
     try:
         user_id = callback.from_user.id
         message_text = await get_text(user_id, "MEMEFI_INFO_MESSAGE")
-        
-        if message_text is None:
-            message_text = "<b>MemeFi Feature</b>\n\nAdd text to stickers."
-        
         await safe_edit_message(callback, message_text, await get_back_to_extra_keyboard(user_id))
     except Exception as e:
         logger.error(f"Error in extra_memefi_callback: {e}")
@@ -217,10 +178,6 @@ async def extra_welcome_callback(callback: CallbackQuery):
     try:
         user_id = callback.from_user.id
         message_text = await get_text(user_id, "WELCOME_INFO_MESSAGE")
-        
-        if message_text is None:
-            message_text = "<b>Welcome Feature</b>\n\nCustomize welcome messages."
-        
         await safe_edit_message(callback, message_text, await get_back_to_extra_keyboard(user_id))
     except Exception as e:
         logger.error(f"Error in extra_welcome_callback: {e}")
@@ -240,9 +197,6 @@ async def back_to_main_callback(callback: CallbackQuery):
             uid=user.id,
             first_name=escape_html(user.first_name)
         )
-        
-        if start_text is None:
-            start_text = f"Hello {escape_html(user.first_name)}!"
         
         await safe_edit_message(callback, start_text, await get_main_menu_keyboard(user.id))
     except Exception as e:

@@ -159,7 +159,7 @@ async def setup_ban_handlers(client: Client):
             try:
                 is_admin = await is_user_admin(client, chat_id, user_id)
                 if not is_admin:
-                    await message.reply_text("Only admins can use this command!", parse_mode=ParseMode.HTML)
+                    await message.reply_text("Only admins can use this command.", parse_mode=ParseMode.HTML)
                     return
             except ChatAdminRequired:
                 await message.reply_text(

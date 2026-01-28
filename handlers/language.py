@@ -76,7 +76,7 @@ async def cmd_lang(message: Message):
 
 @router.callback_query(F.data.startswith("set_lang:"))
 async def set_language_callback(callback: CallbackQuery):
-    """Handle language selection"""
+    """Handle language selection - shows start message immediately"""
     await callback.answer()
     
     user_id = callback.from_user.id
@@ -89,18 +89,20 @@ async def set_language_callback(callback: CallbackQuery):
         await callback.answer("Invalid language!", show_alert=True)
         return
     
-    # Save language preference
+    # Save language preference FIRST
     success = await set_user_language(user_id, language)
     
     if not success:
         await callback.answer("Error saving language!", show_alert=True)
         return
     
-    # Get confirmation message in NEW language
+    logger.info(f"✅ User {user_id} changed language to {language}")
+    
+    # NOW get text in the NEW language (after saving)
     confirmation_msg = await get_text(user_id, "LANG_CHANGED")
     
+    # Fallback messages for each language
     if confirmation_msg is None:
-        # Fallback messages
         fallback_messages = {
             "en": "✅ Language changed to English",
             "rus": "✅ Язык изменен на русский",
@@ -108,19 +110,11 @@ async def set_language_callback(callback: CallbackQuery):
         }
         confirmation_msg = fallback_messages.get(language, "✅ Language changed")
     
-    # Edit message to show confirmation
-    await callback.message.edit_text(confirmation_msg)
-    
-    logger.info(f"User {user_id} changed language to {language}")
-    
-    # After 2 seconds, show main menu
-    import asyncio
-    await asyncio.sleep(2)
-    
     # Import here to avoid circular import
     from handlers.keyboard_utils import get_main_menu_keyboard
     from utils.html_utils import escape_html
     
+    # Get START message in NEW language
     start_text = await get_text(
         user_id,
         "START_MESSAGE_WITH_IMAGE",
@@ -129,12 +123,25 @@ async def set_language_callback(callback: CallbackQuery):
     )
     
     if start_text is None:
+        # Fallback
         start_text = f"Hello {escape_html(callback.from_user.first_name)}!"
     
-    await callback.message.edit_text(
-        start_text,
+    # ✅ FIX: Delete old message and send NEW message with buttons
+    # This avoids edit conflicts and shows everything fresh
+    try:
+        await callback.message.delete()
+    except Exception as e:
+        logger.warning(f"Could not delete language selection message: {e}")
+    
+    # Send confirmation + start message together
+    full_message = f"{confirmation_msg}\n\n{start_text}"
+    
+    await callback.message.answer(
+        full_message,
         reply_markup=await get_main_menu_keyboard(user_id)
     )
+    
+    logger.info(f"✅ Sent start message to user {user_id} in {language}")
 
 
 # ============================================================================
@@ -148,7 +155,7 @@ async def show_language_selection_for_new_user(message: Message):
     """
     user_id = message.from_user.id
     
-    # Get language selection message
+    # Get language selection message (will use default "en" for new users)
     lang_select_msg = await get_text(user_id, "LANG_SELECT_MESSAGE")
     
     # Fallback if template missing

@@ -119,7 +119,7 @@ async def set_language_callback(callback: CallbackQuery):
     start_text = await get_text(
         user_id,
         "START_MESSAGE_WITH_IMAGE",
-        user_id=user_id,
+        uid=user_id,
         first_name=escape_html(callback.from_user.first_name)
     )
     

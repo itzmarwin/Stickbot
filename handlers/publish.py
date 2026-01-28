@@ -11,7 +11,6 @@ from aiogram.fsm.context import FSMContext
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from datetime import datetime
 
-# ✅ NEW IMPORT: Callback manager for fixing BUTTON_DATA_INVALID
 from callback_manager import create_callback, parse_callback
 
 from database import (
@@ -21,17 +20,10 @@ from database import (
     search_published_packs,
     is_pack_published,
     get_user,
-    get_published_pack_by_short_name
+    get_published_pack_by_short_name,
+    get_user_language
 )
-from templates import (
-    PUBLISH_PACK_INFO, PUBLISH_PACK_ASK_KEYWORD,
-    PUBLISH_KEYWORD_INVALID,
-    PUBLISH_CONFIRM_REQUEST, PUBLISH_REQUEST_SENT,
-    PUBLISH_REQUEST_APPROVED, PUBLISH_REQUEST_REJECTED,
-    PUBLISH_ALREADY_PUBLISHED, PUBLISH_OWNER_NOTIFICATION,
-    PUBLISH_OWNER_APPROVED, PUBLISH_OWNER_REJECTED,
-    PUBLISH_CHANNEL_MESSAGE, ERROR_OCCURRED
-)
+from utils.language import get_text
 from utils.fsm_states import PublishStates
 from utils.html_utils import escape_html
 from config import BOT_USERNAME, PUBLISH_OWNER_ID, PUBLISH_CHANNEL_ID
@@ -39,14 +31,13 @@ from config import BOT_USERNAME, PUBLISH_OWNER_ID, PUBLISH_CHANNEL_ID
 logger = logging.getLogger(__name__)
 router = Router()
 
-# ✅ FIXED: Shortened callback prefixes to prevent BUTTON_DATA_INVALID
 class PublishCallback:
-    PUBLISH_PACK = "pb:"           # ✅ Shortened (will use hash)
+    PUBLISH_PACK = "pb:"
     PUBLISH_INFO = "pi"
-    PUBLISH_CONFIRM_YES = "py:"    # ✅ Shortened (will use hash)
+    PUBLISH_CONFIRM_YES = "py:"
     PUBLISH_CONFIRM_NO = "pcn"
-    OWNER_APPROVE = "oa:"          # ✅ Shortened (will use hash)
-    OWNER_REJECT = "or:"           # ✅ Shortened (will use hash)
+    OWNER_APPROVE = "oa:"
+    OWNER_REJECT = "or:"
 
 
 def validate_keyword(keyword: str) -> bool:
@@ -63,46 +54,59 @@ def validate_keyword(keyword: str) -> bool:
     return True
 
 
-# ✅ Info button callback
 @router.callback_query(F.data == PublishCallback.PUBLISH_INFO)
 async def publish_info_callback(callback: CallbackQuery):
     """Show publish info popup"""
-    await callback.answer(PUBLISH_PACK_INFO, show_alert=True)
+    user_id = callback.from_user.id
+    
+    info_msg = await get_text(user_id, "PUBLISH_PACK_INFO")
+    if info_msg is None:
+        info_msg = "📤 𝖯𝗎𝖻𝗅𝗂𝗌𝗁 𝗒𝗈𝗎𝗋 𝗉𝖺𝖼𝗄 𝗍𝗈 𝗆𝖺𝗄𝖾 𝗂𝗍 𝗌𝖾𝖺𝗋𝖼𝗁𝖺𝖻𝗅𝖾 𝗂𝗇 𝗂𝗇𝗅𝗂𝗇𝖾 𝗆𝗈𝖽𝖾."
+    
+    await callback.answer(info_msg, show_alert=True)
 
 
-# ✅ FIXED: Start publish flow with callback_manager
 @router.callback_query(F.data.startswith(PublishCallback.PUBLISH_PACK))
 async def start_publish_callback(callback: CallbackQuery, state: FSMContext):
     """Start publish pack flow - ask for keyword"""
     await callback.answer()
     
     try:
-        # ✅ PARSE CALLBACK DATA from hash
+        user_id = callback.from_user.id
         short_name = parse_callback(callback.data)
         
         if not short_name:
-            await callback.answer("❌ Session expired. Please try again.", show_alert=True)
+            expired_msg = await get_text(user_id, "SESSION_EXPIRED")
+            if expired_msg is None:
+                expired_msg = "❌ Session expired. Please try again."
+            await callback.answer(expired_msg, show_alert=True)
             return
         
         pack = await get_pack_by_short_name(short_name)
         
         if not pack:
             logger.warning(f"[PUBLISH] Pack not found: {short_name}")
-            await callback.answer("Pack not found!", show_alert=True)
+            not_found_msg = await get_text(user_id, "PACK_NOT_FOUND_MESSAGE")
+            if not_found_msg is None:
+                not_found_msg = "Pack not found!"
+            await callback.answer(not_found_msg, show_alert=True)
             return
         
-        # Check if THIS PACK is already published
         if await is_pack_published(short_name):
             logger.info(f"[PUBLISH] Pack already published: {short_name}")
+            
+            already_published_msg = await get_text(user_id, "PUBLISH_ALREADY_PUBLISHED")
+            if already_published_msg is None:
+                already_published_msg = "⚠️ <b>This pack is already published!</b>\n\nYou cannot publish the same pack twice."
+            
             await callback.message.edit_text(
-                PUBLISH_ALREADY_PUBLISHED,
+                already_published_msg,
                 reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
                     InlineKeyboardButton(text="⬅️ Back", callback_data="back_to_manage")
                 ]])
             )
             return
         
-        # Set state and store pack data
         await state.set_state(PublishStates.waiting_for_keyword)
         await state.update_data(
             pack_short_name=short_name,
@@ -114,12 +118,18 @@ async def start_publish_callback(callback: CallbackQuery, state: FSMContext):
         
         logger.info(f"[PUBLISH] Started publish flow for pack: {short_name}")
         
-        # Ask for keyword
+        ask_keyword_msg = await get_text(
+            user_id,
+            "PUBLISH_PACK_ASK_KEYWORD",
+            pack_name=escaped_pack_name,
+            bot_username=BOT_USERNAME
+        )
+        
+        if ask_keyword_msg is None:
+            ask_keyword_msg = f"📤 <b>Publish Pack</b>\n\n<b>Pack:</b> {escaped_pack_name}\n\nPlease send a keyword (3-20 characters, alphanumeric only) that people will use to find your pack via inline mode.\n\n<b>Example:</b> <code>@{BOT_USERNAME} memes</code>"
+        
         await callback.message.edit_text(
-            PUBLISH_PACK_ASK_KEYWORD.format(
-                pack_name=escaped_pack_name,
-                bot_username=BOT_USERNAME
-            ),
+            ask_keyword_msg,
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
                 InlineKeyboardButton(text="❌ Cancel", callback_data="back_to_manage")
             ]])
@@ -130,41 +140,45 @@ async def start_publish_callback(callback: CallbackQuery, state: FSMContext):
         await callback.answer("Error starting publish flow.", show_alert=True)
 
 
-# ✅ Handle keyword input
 @router.message(PublishStates.waiting_for_keyword)
 async def process_publish_keyword(message: Message, state: FSMContext):
     """Process keyword input for publish"""
+    user_id = message.from_user.id
     
-    # Text validation
     if not message.text:
-        await message.reply("❌ Please send a text keyword.")
+        invalid_msg = await get_text(user_id, "PUBLISH_KEYWORD_SEND_TEXT")
+        if invalid_msg is None:
+            invalid_msg = "❌ Please send a text keyword."
+        await message.reply(invalid_msg)
         return
     
-    # Sanitize keyword input
     keyword = message.text.strip().lower()
-    
-    # Remove any non-alphanumeric characters
     keyword = re.sub(r'[^a-z0-9]', '', keyword)
     
-    logger.info(f"[PUBLISH] User {message.from_user.id} submitted keyword: '{keyword}'")
+    logger.info(f"[PUBLISH] User {user_id} submitted keyword: '{keyword}'")
     
-    # Validate keyword format
     if not validate_keyword(keyword):
         logger.warning(f"[PUBLISH] Invalid keyword format: '{keyword}'")
-        await message.reply(PUBLISH_KEYWORD_INVALID)
+        
+        invalid_keyword_msg = await get_text(user_id, "PUBLISH_KEYWORD_INVALID")
+        if invalid_keyword_msg is None:
+            invalid_keyword_msg = "❌ <b>Invalid keyword!</b>\n\nKeyword must be:\n- 3-20 characters long\n- Alphanumeric only (a-z, 0-9)\n- No spaces or special characters\n\nPlease try again."
+        
+        await message.reply(invalid_keyword_msg)
         return
     
-    # Get stored pack data
     data = await state.get_data()
     pack_data = data.get("pack_data")
     
     if not pack_data:
-        logger.error(f"[PUBLISH] Pack data lost from state for user {message.from_user.id}")
-        await message.reply(ERROR_OCCURRED)
+        logger.error(f"[PUBLISH] Pack data lost from state for user {user_id}")
+        error_msg = await get_text(user_id, "ERROR_OCCURRED")
+        if error_msg is None:
+            error_msg = "⚠️ <b>𝖮𝗈𝗉𝗌 — 𝗌𝗈𝗆𝖾𝗍𝗁𝗂𝗇𝗀 𝗐𝖾𝗇𝗍 𝗐𝗋𝗈𝗇𝗀.</b>"
+        await message.reply(error_msg)
         await state.clear()
         return
     
-    # Update state with keyword
     await state.update_data(keyword=keyword)
     await state.set_state(PublishStates.confirming_publish)
     
@@ -173,7 +187,6 @@ async def process_publish_keyword(message: Message, state: FSMContext):
     
     logger.info(f"[PUBLISH] Keyword validated, showing confirmation for: {pack_data['short_name']}")
     
-    # ✅ USE CALLBACK MANAGER for confirmation button
     builder = InlineKeyboardBuilder()
     builder.button(
         text="✅ Yes, Publish",
@@ -185,30 +198,36 @@ async def process_publish_keyword(message: Message, state: FSMContext):
     )
     builder.adjust(2)
     
+    confirm_msg = await get_text(
+        user_id,
+        "PUBLISH_CONFIRM_REQUEST",
+        pack_name=escaped_pack_name,
+        keyword=keyword,
+        bot_username=BOT_USERNAME
+    )
+    
+    if confirm_msg is None:
+        confirm_msg = f"📤 <b>Confirm Publish</b>\n\n<b>Pack:</b> {escaped_pack_name}\n<b>Keyword:</b> <code>{keyword}</code>\n\n<b>Usage:</b> <code>@{BOT_USERNAME} {keyword}</code>\n\nAre you sure you want to submit this pack for publishing?"
+    
     await message.reply(
-        PUBLISH_CONFIRM_REQUEST.format(
-            pack_name=escaped_pack_name,
-            keyword=keyword,
-            bot_username=BOT_USERNAME
-        ),
+        confirm_msg,
         reply_markup=builder.as_markup()
     )
 
 
-# ✅ FIXED: Handle publish confirmation with callback_manager
 @router.callback_query(F.data.startswith(PublishCallback.PUBLISH_CONFIRM_YES))
 async def confirm_publish_yes(callback: CallbackQuery, state: FSMContext, bot: Bot):
     """User confirmed publish - send to owner"""
     await callback.answer()
     
     try:
-        # Get state data
+        user_id = callback.from_user.id
         data = await state.get_data()
         keyword = data.get("keyword")
         pack_data = data.get("pack_data")
         
         if not keyword or not pack_data:
-            logger.error(f"[PUBLISH] State data lost for user {callback.from_user.id}")
+            logger.error(f"[PUBLISH] State data lost for user {user_id}")
             await callback.answer("Error: Data lost. Please try again.", show_alert=True)
             await state.clear()
             return
@@ -216,53 +235,52 @@ async def confirm_publish_yes(callback: CallbackQuery, state: FSMContext, bot: B
         short_name = pack_data["short_name"]
         pack_name = pack_data["pack_name"]
         pack_link = f"https://t.me/addstickers/{short_name}"
-        user_id = callback.from_user.id
         
         logger.info(f"[PUBLISH] User {user_id} confirmed publish for pack {short_name} with keyword '{keyword}'")
         
-        # Check if publish owner is configured
         if not PUBLISH_OWNER_ID:
             logger.error("[PUBLISH] PUBLISH_OWNER_ID not configured in config!")
-            await callback.message.edit_text(
-                "❌ <b>Publish feature is not configured.</b>\n\n"
-                "Please contact the bot administrator."
-            )
+            
+            not_configured_msg = await get_text(user_id, "PUBLISH_NOT_CONFIGURED")
+            if not_configured_msg is None:
+                not_configured_msg = "❌ <b>Publish feature is not configured.</b>\n\nPlease contact the bot administrator."
+            
+            await callback.message.edit_text(not_configured_msg)
             await state.clear()
             return
         
-        # Get first sticker from pack
         try:
             sticker_set = await bot.get_sticker_set(short_name)
             first_sticker_id = sticker_set.stickers[0].file_id
             logger.info(f"[PUBLISH] Got first sticker from pack: {first_sticker_id[:20]}...")
         except Exception as e:
             logger.error(f"[PUBLISH] Error getting sticker set {short_name}: {e}")
-            await callback.message.edit_text(ERROR_OCCURRED)
+            error_msg = await get_text(user_id, "ERROR_OCCURRED")
+            if error_msg is None:
+                error_msg = "⚠️ <b>𝖮𝗈𝗉𝗌 — 𝗌𝗈𝗆𝖾𝗍𝗁𝗂𝗇𝗀 𝗐𝖾𝗇𝗍 𝗐𝗋𝗈𝗇𝗀.</b>"
+            await callback.message.edit_text(error_msg)
             await state.clear()
             return
         
-        # Get user info
         user = await get_user(user_id)
         user_name = user.get("first_name", "Unknown") if user else "Unknown"
         if user and user.get("username"):
             user_name = f"@{user['username']}"
         
-        # Create owner notification
         escaped_pack_name = escape_html(pack_name.replace(f" ~ @{BOT_USERNAME}", ""))
         created_date = pack_data.get("created_at", datetime.utcnow()).strftime("%Y-%m-%d")
         
-        owner_message = PUBLISH_OWNER_NOTIFICATION.format(
-            user_name=user_name,
-            user_id=user_id,
-            pack_name=escaped_pack_name,
-            keyword=keyword,
-            pack_link=pack_link,
-            sticker_count=pack_data.get("sticker_count", 0),
-            created_date=created_date
+        # Owner notification (English only - not translated)
+        owner_message = (
+            f"📤 <b>New Publish Request</b>\n\n"
+            f"<b>From:</b> {user_name} (<code>{user_id}</code>)\n"
+            f"<b>Pack:</b> {escaped_pack_name}\n"
+            f"<b>Keyword:</b> <code>{keyword}</code>\n"
+            f"<b>Link:</b> {pack_link}\n"
+            f"<b>Stickers:</b> {pack_data.get('sticker_count', 0)}\n"
+            f"<b>Created:</b> {created_date}"
         )
         
-        # ✅ USE CALLBACK MANAGER for owner buttons
-        # Store data as: "user_id:short_name:keyword"
         approve_data = f"{user_id}:{short_name}:{keyword}"
         reject_data = f"{user_id}:{short_name}:{keyword}"
         
@@ -277,13 +295,11 @@ async def confirm_publish_yes(callback: CallbackQuery, state: FSMContext, bot: B
         )
         builder.adjust(2)
         
-        # Send sticker first
         await bot.send_sticker(
             chat_id=PUBLISH_OWNER_ID,
             sticker=first_sticker_id
         )
         
-        # Then send notification
         await bot.send_message(
             chat_id=PUBLISH_OWNER_ID,
             text=owner_message,
@@ -292,36 +308,44 @@ async def confirm_publish_yes(callback: CallbackQuery, state: FSMContext, bot: B
         
         logger.info(f"[PUBLISH] Publish request sent to owner for pack {short_name}")
         
-        # Notify user
-        await callback.message.edit_text(
-            PUBLISH_REQUEST_SENT.format(pack_name=escaped_pack_name)
-        )
+        request_sent_msg = await get_text(user_id, "PUBLISH_REQUEST_SENT", pack_name=escaped_pack_name)
+        if request_sent_msg is None:
+            request_sent_msg = f"✅ <b>Request sent!</b>\n\nYour pack <b>{escaped_pack_name}</b> has been submitted for publishing. You'll be notified when it's reviewed."
+        
+        await callback.message.edit_text(request_sent_msg)
         
         await state.clear()
         
     except Exception as e:
         logger.error(f"[PUBLISH] Error sending publish request: {e}", exc_info=True)
-        await callback.message.edit_text(ERROR_OCCURRED)
+        error_msg = await get_text(user_id, "ERROR_OCCURRED")
+        if error_msg is None:
+            error_msg = "⚠️ <b>𝖮𝗈𝗉𝗌 — 𝗌𝗈𝗆𝖾𝗍𝗁𝗂𝗇𝗀 𝗐𝖾𝗇𝗍 𝗐𝗋𝗈𝗇𝗀.</b>"
+        await callback.message.edit_text(error_msg)
         await state.clear()
 
 
-# ✅ Handle publish confirmation - NO
 @router.callback_query(F.data == PublishCallback.PUBLISH_CONFIRM_NO)
 async def confirm_publish_no(callback: CallbackQuery, state: FSMContext):
     """User cancelled publish"""
-    logger.info(f"[PUBLISH] User {callback.from_user.id} cancelled publish request")
+    user_id = callback.from_user.id
+    logger.info(f"[PUBLISH] User {user_id} cancelled publish request")
+    
     await callback.answer("Publish cancelled.", show_alert=True)
     await state.clear()
     
+    cancelled_msg = await get_text(user_id, "PUBLISH_CANCELLED")
+    if cancelled_msg is None:
+        cancelled_msg = "❌ <b>Publish cancelled.</b>"
+    
     await callback.message.edit_text(
-        "❌ <b>Publish cancelled.</b>",
+        cancelled_msg,
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
             InlineKeyboardButton(text="⬅️ Back", callback_data="back_to_manage")
         ]])
     )
 
 
-# ✅ FIXED: Owner approves publish with callback_manager
 @router.callback_query(F.data.startswith(PublishCallback.OWNER_APPROVE))
 async def owner_approve_publish(callback: CallbackQuery, bot: Bot):
     """Owner approved publish request"""
@@ -329,14 +353,12 @@ async def owner_approve_publish(callback: CallbackQuery, bot: Bot):
     await callback.answer("Processing approval...")
     
     try:
-        # ✅ PARSE CALLBACK DATA from hash
         data_str = parse_callback(callback.data)
         
         if not data_str:
             await callback.answer("❌ Session expired. Please ask user to resubmit.", show_alert=True)
             return
         
-        # Parse: "user_id:short_name:keyword"
         parts = data_str.split(":")
         if len(parts) != 3:
             logger.error(f"[OWNER_APPROVE] Invalid data format: {data_str}")
@@ -349,7 +371,6 @@ async def owner_approve_publish(callback: CallbackQuery, bot: Bot):
         
         logger.info(f"[OWNER_APPROVE] Processing: user={user_id}, pack={short_name}, keyword='{keyword}'")
         
-        # Check if THIS PACK is already published
         existing_published = await get_published_pack_by_short_name(short_name)
         if existing_published:
             logger.warning(f"[OWNER_APPROVE] Pack {short_name} already published")
@@ -360,7 +381,6 @@ async def owner_approve_publish(callback: CallbackQuery, bot: Bot):
             )
             return
         
-        # Get pack info
         pack = await get_pack_by_short_name(short_name)
         if not pack:
             logger.error(f"[OWNER_APPROVE] Pack not found: {short_name}")
@@ -370,7 +390,6 @@ async def owner_approve_publish(callback: CallbackQuery, bot: Bot):
         pack_name = pack["pack_name"]
         pack_link = f"https://t.me/addstickers/{short_name}"
         
-        # Get first sticker
         try:
             sticker_set = await bot.get_sticker_set(short_name)
             if not sticker_set.stickers:
@@ -385,7 +404,6 @@ async def owner_approve_publish(callback: CallbackQuery, bot: Bot):
             await callback.answer("Error getting sticker set!", show_alert=True)
             return
         
-        # Save to database
         success = await create_published_pack(
             user_id=user_id,
             pack_short_name=short_name,
@@ -400,7 +418,6 @@ async def owner_approve_publish(callback: CallbackQuery, bot: Bot):
         
         logger.info(f"[OWNER_APPROVE] ✅ Saved to database successfully")
         
-        # Post to publish channel
         if PUBLISH_CHANNEL_ID:
             try:
                 await bot.send_sticker(
@@ -411,29 +428,36 @@ async def owner_approve_publish(callback: CallbackQuery, bot: Bot):
             except Exception as e:
                 logger.error(f"[OWNER_APPROVE] Error posting to channel: {e}")
         
-        # Notify user
         try:
             escaped_pack_name = escape_html(pack_name.replace(f" ~ @{BOT_USERNAME}", ""))
+            
+            approved_msg = await get_text(
+                user_id,
+                "PUBLISH_REQUEST_APPROVED",
+                pack_name=escaped_pack_name,
+                keyword=keyword,
+                bot_username=BOT_USERNAME,
+                pack_link=pack_link
+            )
+            
+            if approved_msg is None:
+                approved_msg = f"✅ <b>Pack Published!</b>\n\n<b>Pack:</b> {escaped_pack_name}\n<b>Keyword:</b> <code>{keyword}</code>\n\n<b>Usage:</b> <code>@{BOT_USERNAME} {keyword}</code>\n\nYour pack is now live! Anyone can find it by typing the keyword in inline mode.\n\n<a href=\"{pack_link}\">View Pack</a>"
+            
             await bot.send_message(
                 chat_id=user_id,
-                text=PUBLISH_REQUEST_APPROVED.format(
-                    pack_name=escaped_pack_name,
-                    keyword=keyword,
-                    bot_username=BOT_USERNAME,
-                    pack_link=pack_link
-                )
+                text=approved_msg
             )
             logger.info(f"[OWNER_APPROVE] ✅ Notified user {user_id}")
         except Exception as e:
             logger.error(f"[OWNER_APPROVE] Error notifying user: {e}")
         
-        # Update owner message
+        # Owner notification (English only)
         await callback.message.edit_text(
-            PUBLISH_OWNER_APPROVED.format(
-                pack_name=pack_name,
-                user_id=user_id,
-                keyword=keyword
-            )
+            f"✅ <b>Approved!</b>\n\n"
+            f"<b>Pack:</b> {pack_name}\n"
+            f"<b>User:</b> {user_id}\n"
+            f"<b>Keyword:</b> <code>{keyword}</code>\n\n"
+            f"Pack is now published."
         )
         
         logger.info(f"[OWNER_APPROVE] ✅✅✅ Approval completed successfully")
@@ -443,7 +467,6 @@ async def owner_approve_publish(callback: CallbackQuery, bot: Bot):
         await callback.answer("Error approving publish!", show_alert=True)
 
 
-# ✅ FIXED: Owner rejects publish with callback_manager
 @router.callback_query(F.data.startswith(PublishCallback.OWNER_REJECT))
 async def owner_reject_publish(callback: CallbackQuery, bot: Bot):
     """Owner rejected publish request"""
@@ -451,14 +474,12 @@ async def owner_reject_publish(callback: CallbackQuery, bot: Bot):
     await callback.answer()
     
     try:
-        # ✅ PARSE CALLBACK DATA from hash
         data_str = parse_callback(callback.data)
         
         if not data_str:
             await callback.answer("❌ Session expired.", show_alert=True)
             return
         
-        # Parse: "user_id:short_name:keyword"
         parts = data_str.split(":")
         if len(parts) < 2:
             logger.error(f"[OWNER_REJECT] Invalid data format: {data_str}")
@@ -470,27 +491,29 @@ async def owner_reject_publish(callback: CallbackQuery, bot: Bot):
         
         logger.info(f"[OWNER_REJECT] Rejecting pack {short_name} for user {user_id}")
         
-        # Get pack info
         pack = await get_pack_by_short_name(short_name)
         pack_name = pack["pack_name"] if pack else "Unknown Pack"
         
-        # Notify user
         try:
             escaped_pack_name = escape_html(pack_name.replace(f" ~ @{BOT_USERNAME}", ""))
+            
+            rejected_msg = await get_text(user_id, "PUBLISH_REQUEST_REJECTED", pack_name=escaped_pack_name)
+            if rejected_msg is None:
+                rejected_msg = f"❌ <b>Publish Request Rejected</b>\n\nYour pack <b>{escaped_pack_name}</b> was not approved for publishing."
+            
             await bot.send_message(
                 chat_id=user_id,
-                text=PUBLISH_REQUEST_REJECTED.format(pack_name=escaped_pack_name)
+                text=rejected_msg
             )
             logger.info(f"[OWNER_REJECT] ✅ Notified user {user_id}")
         except Exception as e:
             logger.error(f"[OWNER_REJECT] Error notifying user: {e}")
         
-        # Update owner message
+        # Owner notification (English only)
         await callback.message.edit_text(
-            PUBLISH_OWNER_REJECTED.format(
-                pack_name=pack_name,
-                user_id=user_id
-            )
+            f"❌ <b>Rejected</b>\n\n"
+            f"<b>Pack:</b> {pack_name}\n"
+            f"<b>User:</b> {user_id}"
         )
         
         logger.info(f"[OWNER_REJECT] ✅ Rejection completed")
@@ -500,25 +523,19 @@ async def owner_reject_publish(callback: CallbackQuery, bot: Bot):
         await callback.answer("Error rejecting publish!", show_alert=True)
 
 
-# ✅ Inline query handler
 @router.inline_query()
 async def inline_query_handler(inline_query: InlineQuery):
-    """
-    Handle inline queries for published packs
-    Shows all matching packs (multiple users can use same keyword)
-    """
+    """Handle inline queries for published packs"""
     query = inline_query.query.strip().lower()
     
     if not query:
         return
     
     try:
-        # Search for ALL published packs matching the keyword
         published_packs = await search_published_packs(query, limit=50)
         
         logger.info(f"[INLINE_QUERY] Query '{query}' found {len(published_packs)} packs")
         
-        # Create results
         results = []
         for pack in published_packs:
             result = InlineQueryResultCachedSticker(
@@ -527,7 +544,6 @@ async def inline_query_handler(inline_query: InlineQuery):
             )
             results.append(result)
         
-        # Return all results
         await inline_query.answer(
             results=results,
             cache_time=300,

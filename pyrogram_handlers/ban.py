@@ -117,43 +117,31 @@ async def resolve_user_optimized(client: Client, user_identifier) -> tuple:
     
     return None, None, "Invalid user!"
 
-async def ban_with_retry(client: Client, chat_id: int, user_id: int, until_date=None) -> bool:
+async def ban_with_retry(client: Client, chat_id: int, user_id: int, until_date=None):
     try:
         if until_date:
             await client.ban_chat_member(chat_id, user_id, until_date=until_date)
         else:
             await client.ban_chat_member(chat_id, user_id)
-        return True
     except FloodWait as e:
         if e.value <= 10:
             await asyncio.sleep(e.value)
-            try:
-                if until_date:
-                    await client.ban_chat_member(chat_id, user_id, until_date=until_date)
-                else:
-                    await client.ban_chat_member(chat_id, user_id)
-                return True
-            except:
-                return False
-        return False
-    except:
-        return False
+            if until_date:
+                await client.ban_chat_member(chat_id, user_id, until_date=until_date)
+            else:
+                await client.ban_chat_member(chat_id, user_id)
+        else:
+            raise
 
-async def unban_with_retry(client: Client, chat_id: int, user_id: int) -> bool:
+async def unban_with_retry(client: Client, chat_id: int, user_id: int):
     try:
         await client.unban_chat_member(chat_id, user_id)
-        return True
     except FloodWait as e:
         if e.value <= 10:
             await asyncio.sleep(e.value)
-            try:
-                await client.unban_chat_member(chat_id, user_id)
-                return True
-            except:
-                return False
-        return False
-    except:
-        return False
+            await client.unban_chat_member(chat_id, user_id)
+        else:
+            raise
 
 async def setup_ban_handlers(client: Client):
     
@@ -193,13 +181,18 @@ async def setup_ban_handlers(client: Client):
                 )
                 return
             
+            bot = await get_bot_cached(client)
+            
+            if isinstance(target_identifier, int) and target_identifier == bot.id:
+                await message.reply_text("I can't ban myself! 🤔", parse_mode=ParseMode.HTML)
+                return
+            
             target_user_id, target_user, error = await resolve_user_optimized(client, target_identifier)
             
             if error:
                 await message.reply_text(error, parse_mode=ParseMode.HTML)
                 return
             
-            bot = await get_bot_cached(client)
             if target_user_id == bot.id:
                 await message.reply_text("I can't ban myself! 🤔", parse_mode=ParseMode.HTML)
                 return
@@ -207,23 +200,30 @@ async def setup_ban_handlers(client: Client):
             if not reason:
                 reason = "No reason provided"
             
-            success = await ban_with_retry(client, chat_id, target_user_id)
-            
-            if success:
+            try:
+                await ban_with_retry(client, chat_id, target_user_id)
+                
                 if target_user:
                     user_mention = f'<a href="tg://user?id={target_user_id}">{target_user.first_name}</a>'
                 else:
                     user_mention = f'<a href="tg://user?id={target_user_id}">User</a>'
                 
                 ban_msg = (
-                    f"<b>Ban Event</b>\n\n"
+                    f"🚫 <b>Ban Event</b>\n\n"
                     f"<b>User:</b> {user_mention}\n"
                     f"<b>Reason:</b> {reason}"
                 )
                 
                 await message.reply_text(ban_msg, parse_mode=ParseMode.HTML)
-            else:
+            
+            except ChatAdminRequired:
                 await message.reply_text("<b>Please make me admin first!</b>", parse_mode=ParseMode.HTML)
+            except UserAdminInvalid:
+                await message.reply_text("I can't ban admins!", parse_mode=ParseMode.HTML)
+            except FloodWait:
+                pass
+            except Exception as e:
+                log_error("ban_command", e, chat_id=chat_id, user_id=user_id)
         
         except Exception as e:
             log_error("ban_command", e, chat_id=chat_id or 0, user_id=user_id or 0)
@@ -264,6 +264,18 @@ async def setup_ban_handlers(client: Client):
                 )
                 return
             
+            bot = await get_bot_cached(client)
+            
+            if isinstance(target_identifier, int) and target_identifier == bot.id:
+                temp_msg = await message.reply_text("I can't ban myself! 🤔", parse_mode=ParseMode.HTML)
+                await asyncio.sleep(3)
+                try:
+                    await temp_msg.delete()
+                    await message.delete()
+                except:
+                    pass
+                return
+            
             target_user_id, target_user, error = await resolve_user_optimized(client, target_identifier)
             
             if error:
@@ -276,7 +288,6 @@ async def setup_ban_handlers(client: Client):
                     pass
                 return
             
-            bot = await get_bot_cached(client)
             if target_user_id == bot.id:
                 temp_msg = await message.reply_text("I can't ban myself! 🤔", parse_mode=ParseMode.HTML)
                 await asyncio.sleep(3)
@@ -287,9 +298,9 @@ async def setup_ban_handlers(client: Client):
                     pass
                 return
             
-            success = await ban_with_retry(client, chat_id, target_user_id)
-            
-            if success:
+            try:
+                await ban_with_retry(client, chat_id, target_user_id)
+                
                 if message.reply_to_message:
                     try:
                         await message.reply_to_message.delete()
@@ -300,8 +311,21 @@ async def setup_ban_handlers(client: Client):
                     await message.delete()
                 except:
                     pass
-            else:
+            
+            except ChatAdminRequired:
                 await message.reply_text("<b>Please make me admin first!</b>", parse_mode=ParseMode.HTML)
+            except UserAdminInvalid:
+                temp_msg = await message.reply_text("I can't ban admins!", parse_mode=ParseMode.HTML)
+                await asyncio.sleep(3)
+                try:
+                    await temp_msg.delete()
+                    await message.delete()
+                except:
+                    pass
+            except FloodWait:
+                pass
+            except Exception as e:
+                log_error("silent_ban_command", e, chat_id=chat_id, user_id=user_id)
         
         except Exception as e:
             log_error("silent_ban_command", e, chat_id=chat_id or 0, user_id=user_id or 0)
@@ -343,7 +367,7 @@ async def setup_ban_handlers(client: Client):
                 
                 if len(command_parts) < 2:
                     await message.reply_text(
-                        "Please specify ban duration!\n\n"
+                        "❌ Please specify ban duration!\n\n"
                         "<b>Usage:</b> <code>/tban 1h [reason]</code>",
                         parse_mode=ParseMode.HTML
                     )
@@ -385,7 +409,7 @@ async def setup_ban_handlers(client: Client):
             
             if not ban_seconds:
                 await message.reply_text(
-                    "<b>Invalid time format!</b>\n\n"
+                    "❌ <b>Invalid time format!</b>\n\n"
                     "<b>Valid formats:</b>\n"
                     "• <code>1h</code> - 1 hour\n"
                     "• <code>12h</code> - 12 hours\n"
@@ -393,9 +417,15 @@ async def setup_ban_handlers(client: Client):
                     "• <code>1d</code> - 1 day\n"
                     "• <code>7d</code> - 7 days\n"
                     "• <code>30d</code> - 30 days (max)\n\n"
-                    "Only hours (h) and days (d) are supported!",
+                    "⚠️ Only hours (h) and days (d) are supported!",
                     parse_mode=ParseMode.HTML
                 )
+                return
+            
+            bot = await get_bot_cached(client)
+            
+            if isinstance(target_identifier, int) and target_identifier == bot.id:
+                await message.reply_text("I can't ban myself! 🤔", parse_mode=ParseMode.HTML)
                 return
             
             target_user_id, target_user, error = await resolve_user_optimized(client, target_identifier)
@@ -404,7 +434,6 @@ async def setup_ban_handlers(client: Client):
                 await message.reply_text(error, parse_mode=ParseMode.HTML)
                 return
             
-            bot = await get_bot_cached(client)
             if target_user_id == bot.id:
                 await message.reply_text("I can't ban myself! 🤔", parse_mode=ParseMode.HTML)
                 return
@@ -414,24 +443,31 @@ async def setup_ban_handlers(client: Client):
             
             ban_until = datetime.now() + timedelta(seconds=ban_seconds)
             
-            success = await ban_with_retry(client, chat_id, target_user_id, ban_until)
-            
-            if success:
+            try:
+                await ban_with_retry(client, chat_id, target_user_id, ban_until)
+                
                 if target_user:
                     user_mention = f'<a href="tg://user?id={target_user_id}">{target_user.first_name}</a>'
                 else:
                     user_mention = f'<a href="tg://user?id={target_user_id}">User</a>'
                 
                 ban_msg = (
-                    f"<b>Temporary Ban</b>\n\n"
+                    f"⏰ <b>Temporary Ban</b>\n\n"
                     f"<b>User:</b> {user_mention}\n"
                     f"<b>Duration:</b> {time_display}\n"
                     f"<b>Reason:</b> {reason}"
                 )
                 
                 await message.reply_text(ban_msg, parse_mode=ParseMode.HTML)
-            else:
+            
+            except ChatAdminRequired:
                 await message.reply_text("<b>Please make me admin first!</b>", parse_mode=ParseMode.HTML)
+            except UserAdminInvalid:
+                await message.reply_text("I can't ban admins!", parse_mode=ParseMode.HTML)
+            except FloodWait:
+                pass
+            except Exception as e:
+                log_error("temp_ban_command", e, chat_id=chat_id, user_id=user_id)
         
         except Exception as e:
             log_error("temp_ban_command", e, chat_id=chat_id or 0, user_id=user_id or 0)
@@ -473,33 +509,43 @@ async def setup_ban_handlers(client: Client):
                 )
                 return
             
+            bot = await get_bot_cached(client)
+            
+            if isinstance(target_identifier, int) and target_identifier == bot.id:
+                await message.reply_text("I'm not banned! 🤔", parse_mode=ParseMode.HTML)
+                return
+            
             target_user_id, target_user, error = await resolve_user_optimized(client, target_identifier)
             
             if error:
                 await message.reply_text(error, parse_mode=ParseMode.HTML)
                 return
             
-            bot = await get_bot_cached(client)
             if target_user_id == bot.id:
                 await message.reply_text("I'm not banned! 🤔", parse_mode=ParseMode.HTML)
                 return
             
-            success = await unban_with_retry(client, chat_id, target_user_id)
-            
-            if success:
+            try:
+                await unban_with_retry(client, chat_id, target_user_id)
+                
                 if target_user:
                     user_mention = f'<a href="tg://user?id={target_user_id}">{target_user.first_name}</a>'
                 else:
                     user_mention = f'<a href="tg://user?id={target_user_id}">User</a>'
                 
                 unban_msg = (
-                    f"<b>Unban Event</b>\n\n"
+                    f"✅ <b>Unban Event</b>\n\n"
                     f"<b>User:</b> {user_mention}"
                 )
                 
                 await message.reply_text(unban_msg, parse_mode=ParseMode.HTML)
-            else:
+            
+            except ChatAdminRequired:
                 await message.reply_text("<b>Please make me admin first!</b>", parse_mode=ParseMode.HTML)
+            except FloodWait:
+                pass
+            except Exception as e:
+                log_error("unban_command", e, chat_id=chat_id, user_id=user_id)
         
         except Exception as e:
             log_error("unban_command", e, chat_id=chat_id or 0, user_id=user_id or 0)
@@ -541,13 +587,18 @@ async def setup_ban_handlers(client: Client):
                 )
                 return
             
+            bot = await get_bot_cached(client)
+            
+            if isinstance(target_identifier, int) and target_identifier == bot.id:
+                await message.reply_text("I can't kick myself! 🤔", parse_mode=ParseMode.HTML)
+                return
+            
             target_user_id, target_user, error = await resolve_user_optimized(client, target_identifier)
             
             if error:
                 await message.reply_text(error, parse_mode=ParseMode.HTML)
                 return
             
-            bot = await get_bot_cached(client)
             if target_user_id == bot.id:
                 await message.reply_text("I can't kick myself! 🤔", parse_mode=ParseMode.HTML)
                 return
@@ -555,9 +606,8 @@ async def setup_ban_handlers(client: Client):
             if not reason:
                 reason = "No reason provided"
             
-            ban_success = await ban_with_retry(client, chat_id, target_user_id)
-            
-            if ban_success:
+            try:
+                await ban_with_retry(client, chat_id, target_user_id)
                 await unban_with_retry(client, chat_id, target_user_id)
                 
                 if target_user:
@@ -566,14 +616,21 @@ async def setup_ban_handlers(client: Client):
                     user_mention = f'<a href="tg://user?id={target_user_id}">User</a>'
                 
                 kick_msg = (
-                    f"<b>Kick Event</b>\n\n"
+                    f"👢 <b>Kick Event</b>\n\n"
                     f"<b>User:</b> {user_mention}\n"
                     f"<b>Reason:</b> {reason}"
                 )
                 
                 await message.reply_text(kick_msg, parse_mode=ParseMode.HTML)
-            else:
+            
+            except ChatAdminRequired:
                 await message.reply_text("<b>Please make me admin first!</b>", parse_mode=ParseMode.HTML)
+            except UserAdminInvalid:
+                await message.reply_text("I can't kick admins!", parse_mode=ParseMode.HTML)
+            except FloodWait:
+                pass
+            except Exception as e:
+                log_error("kick_command", e, chat_id=chat_id, user_id=user_id)
         
         except Exception as e:
             log_error("kick_command", e, chat_id=chat_id or 0, user_id=user_id or 0)
@@ -597,23 +654,28 @@ async def setup_ban_handlers(client: Client):
                 is_admin = await is_user_admin(client, chat_id, user_id)
                 if is_admin:
                     await message.reply_text(
-                        "I wish I could... but you're an admin!",
+                        "I wish I could... but you're an admin! 😅",
                         parse_mode=ParseMode.HTML
                     )
                     return
             except:
                 pass
             
-            ban_success = await ban_with_retry(client, chat_id, user_id)
-            
-            if ban_success:
+            try:
+                await ban_with_retry(client, chat_id, user_id)
                 await unban_with_retry(client, chat_id, user_id)
+                
                 await message.reply_text(
                     "👋 Goodbye! You have been kicked as requested.",
                     parse_mode=ParseMode.HTML
                 )
-            else:
+            
+            except ChatAdminRequired:
                 await message.reply_text("<b>Please make me admin first!</b>", parse_mode=ParseMode.HTML)
+            except FloodWait:
+                pass
+            except Exception as e:
+                log_error("kickme_command", e, chat_id=chat_id, user_id=user_id)
         
         except Exception as e:
             log_error("kickme_command", e, chat_id=chat_id or 0, user_id=user_id or 0)
@@ -631,7 +693,7 @@ async def setup_ban_handlers(client: Client):
                 member = await client.get_chat_member(chat_id, user_id)
                 if member.status != ChatMemberStatus.OWNER:
                     await message.reply_text(
-                        "<b>Only the group owner can use this command!</b>",
+                        "❌ <b>Only the group owner can use this command!</b>",
                         parse_mode=ParseMode.HTML
                     )
                     return
@@ -662,14 +724,14 @@ async def setup_ban_handlers(client: Client):
                 
                 if not banned_users:
                     await progress_msg.edit_text(
-                        "<b>No banned users found!</b>",
+                        "✅ <b>No banned users found!</b>",
                         parse_mode=ParseMode.HTML
                     )
                     return
                 
                 total = len(banned_users)
                 await progress_msg.edit_text(
-                    f"<b>Found {total} banned user(s).</b>\n\n"
+                    f"🔄 <b>Found {total} banned user(s).</b>\n\n"
                     f"Starting unban process...",
                     parse_mode=ParseMode.HTML
                 )
@@ -684,7 +746,7 @@ async def setup_ban_handlers(client: Client):
                         
                         if unbanned % 10 == 0:
                             await progress_msg.edit_text(
-                                f"<b>Unbanning in progress...</b>\n\n"
+                                f"🔄 <b>Unbanning in progress...</b>\n\n"
                                 f"<b>Progress:</b> {unbanned}/{total}",
                                 parse_mode=ParseMode.HTML
                             )
@@ -704,7 +766,7 @@ async def setup_ban_handlers(client: Client):
                         logger.error(f"Failed to unban {user.id}: {e}")
                 
                 await progress_msg.edit_text(
-                    f"<b>Unban Complete!</b>\n\n"
+                    f"✅ <b>Unban Complete!</b>\n\n"
                     f"<b>Total banned users:</b> {total}\n"
                     f"<b>Successfully unbanned:</b> {unbanned}\n"
                     f"<b>Failed:</b> {failed}",
@@ -719,7 +781,7 @@ async def setup_ban_handlers(client: Client):
                 )
             except Exception as e:
                 await progress_msg.edit_text(
-                    f"<b>Error:</b> {str(e)}",
+                    f"❌ <b>Error:</b> {str(e)}",
                     parse_mode=ParseMode.HTML
                 )
         

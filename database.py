@@ -39,11 +39,12 @@ async def init_db():
         # ✅ Create optimized indexes
         logger.info("Creating database indexes...")
         
-        # User indexes
+        # User indexes (added language index)
         await db.users.create_index("user_id", unique=True)
         await db.users.create_index([("username", 1)])
         await db.users.create_index([("created_at", -1)])
         await db.users.create_index([("has_started", 1)])
+        await db.users.create_index([("language", 1)])  # NEW: Language index
         
         # Sticker pack indexes
         await db.sticker_packs.create_index("user_id")
@@ -113,15 +114,16 @@ async def get_user(user_id: int) -> Optional[Dict[str, Any]]:
 
 
 async def create_user(user_id: int, username: Optional[str] = None, 
-                     first_name: Optional[str] = None) -> bool:
-    """Create new user"""
+                     first_name: Optional[str] = None, language: str = "en") -> bool:
+    """Create new user with language preference"""
     try:
         user_data = {
             "user_id": user_id,
             "username": username,
             "first_name": first_name,
             "created_at": datetime.utcnow(),
-            "has_started": True
+            "has_started": True,
+            "language": language  # NEW: Default language
         }
         await db.users.insert_one(user_data)
         return True
@@ -163,6 +165,58 @@ async def get_total_users_count() -> int:
     except Exception as e:
         logger.error(f"Error getting users count: {e}")
         return 0
+
+
+# ============================================================================
+# LANGUAGE FUNCTIONS (NEW)
+# ============================================================================
+
+async def get_user_language(user_id: int) -> str:
+    """
+    Get user's language preference
+    Returns: "en" | "rus" | "bur"
+    Default: "en"
+    """
+    try:
+        user = await db.users.find_one({"user_id": user_id}, {"language": 1})
+        if user and "language" in user:
+            return user["language"]
+        return "en"  # Default fallback
+    except Exception as e:
+        logger.error(f"Error getting user language {user_id}: {e}")
+        return "en"
+
+
+async def set_user_language(user_id: int, language: str) -> bool:
+    """
+    Set user's language preference
+    Args:
+        user_id: User's Telegram ID
+        language: "en" | "rus" | "bur"
+    """
+    try:
+        # Validate language
+        if language not in ["en", "rus", "bur"]:
+            logger.warning(f"Invalid language {language} for user {user_id}, defaulting to 'en'")
+            language = "en"
+        
+        await db.users.update_one(
+            {"user_id": user_id},
+            {"$set": {"language": language}},
+            upsert=True
+        )
+        return True
+    except Exception as e:
+        logger.error(f"Error setting language for user {user_id}: {e}")
+        return False
+
+
+async def update_user_language(user_id: int, language: str) -> bool:
+    """
+    Update existing user's language
+    Alias for set_user_language
+    """
+    return await set_user_language(user_id, language)
 
 
 # ============================================================================

@@ -1,15 +1,3 @@
-"""
-CopyPack Handler - Copy entire sticker packs
-
-Allows users to duplicate any sticker pack by replying to a sticker
-with /copypack command and providing a new pack name.
-
-Features:
-- File reuse (no re-upload)
-- FloodWait handling
-- Background processing
-- Progress updates
-"""
 import logging
 import asyncio
 from aiogram import Router, Bot, F
@@ -41,18 +29,7 @@ async def copy_pack_background(
     chat_id: int,
     progress_msg_id: int
 ):
-    """
-    Background task to copy sticker pack
     
-    Args:
-        bot: Bot instance
-        user_id: User's Telegram ID
-        source_pack_name: Original pack short name
-        new_pack_name: New pack display name
-        new_short_name: New pack short name
-        chat_id: Chat ID for progress updates
-        progress_msg_id: Message ID to edit for progress
-    """
     try:
         # Get source pack
         source_pack = await bot.get_sticker_set(source_pack_name)

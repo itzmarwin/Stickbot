@@ -157,7 +157,7 @@ async def cmd_start(message: Message, state: FSMContext):
             start_text = await get_text(
                 user.id, 
                 "START_MESSAGE_WITH_IMAGE",
-                user_id=user.id,
+                uid=user.id,
                 first_name=escape_html(user.first_name)
             )
             

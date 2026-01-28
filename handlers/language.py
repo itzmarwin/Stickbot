@@ -116,11 +116,11 @@ async def set_language_callback(callback: CallbackQuery):
     from utils.html_utils import escape_html
     
     # ✅ FIX: Get START message with CORRECT parameters
-    # The issue was: user_id was passed twice (once as arg, once in kwargs)
     start_text = await get_text(
         user_id,
         "START_MESSAGE_WITH_IMAGE",
-        first_name=escape_html(callback.from_user.first_name)  # ✅ Removed user_id from kwargs
+        user_id=user_id,
+        first_name=escape_html(callback.from_user.first_name)
     )
     
     if start_text is None:

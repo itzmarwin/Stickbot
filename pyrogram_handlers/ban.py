@@ -253,7 +253,7 @@ async def setup_ban_handlers(client: Client):
             
             if not target_identifier:
                 await message.reply_text(
-                    "<b>Reply to a user or mention a username to ban.</b>",
+                    "<b>Reply to a user or mention a username to Silent ban.</b>",
                     parse_mode=ParseMode.HTML
                 )
                 return
@@ -374,7 +374,7 @@ async def setup_ban_handlers(client: Client):
                 
                 if len(command_parts) < 3:
                     await message.reply_text(
-                        "<b>Reply to a user or mention a username to ban.</b>",
+                        "<b>Reply to a user or mention a username to Temporary ban.</b>",
                         parse_mode=ParseMode.HTML
                     )
                     return

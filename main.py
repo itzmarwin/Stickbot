@@ -32,7 +32,7 @@ from pyrogram_handlers.extra import setup_extra_handlers
 from pyrogram_handlers.ban import setup_ban_handlers
 
 logging.basicConfig(
-    level=logging.WARNING,
+    level=logging.INFO,  # ← Change WARNING to INFO
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 

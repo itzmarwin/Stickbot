@@ -80,6 +80,7 @@ async def set_language_callback(callback: CallbackQuery):
     await callback.answer()
     
     user_id = callback.from_user.id
+    chat_id = callback.message.chat.id
     
     # Extract language code from callback data
     language = callback.data.split(":")[1]  # "set_lang:en" -> "en"
@@ -126,22 +127,35 @@ async def set_language_callback(callback: CallbackQuery):
         # Fallback
         start_text = f"Hello {escape_html(callback.from_user.first_name)}!"
     
-    # ✅ FIX: Delete old message and send NEW message with buttons
-    # This avoids edit conflicts and shows everything fresh
+    # ✅ FIX: Delete old message first
     try:
         await callback.message.delete()
     except Exception as e:
         logger.warning(f"Could not delete language selection message: {e}")
     
-    # Send confirmation + start message together
-    full_message = f"{confirmation_msg}\n\n{start_text}"
-    
-    await callback.message.answer(
-        full_message,
-        reply_markup=await get_main_menu_keyboard(user_id)
-    )
-    
-    logger.info(f"✅ Sent start message to user {user_id} in {language}")
+    # ✅ FIX: Use bot.send_message instead of callback.message.answer
+    try:
+        # Send confirmation + start message together
+        full_message = f"{confirmation_msg}\n\n{start_text}"
+        
+        await callback.bot.send_message(
+            chat_id=chat_id,
+            text=full_message,
+            reply_markup=await get_main_menu_keyboard(user_id)
+        )
+        
+        logger.info(f"✅ Sent start message to user {user_id} in {language}")
+        
+    except Exception as e:
+        logger.error(f"❌ Error sending start message: {e}")
+        # Fallback: try without deleting previous message
+        try:
+            await callback.message.edit_text(
+                confirmation_msg,
+                reply_markup=await get_main_menu_keyboard(user_id)
+            )
+        except Exception as fallback_error:
+            logger.error(f"❌ Fallback also failed: {fallback_error}")
 
 
 # ============================================================================

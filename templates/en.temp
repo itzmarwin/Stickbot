@@ -72,3 +72,14 @@ CREATING_PACK_WAIT=⌛ <b>Creating your sticker pack...</b>\nPlease wait a momen
 PACK_CREATED_SUCCESS=✅ <b>Your sticker pack has been created successfully!</b>\n\n<a href="{pack_link}">{pack_name}</a>
 PACK_CREATE_FAILED_TEMP=❌ <b>Failed to create pack.</b>\nThis might be a temporary issue. Please try again.
 OPERATION_CANCELLED=Operation cancelled.
+
+PUBLISH_PACK_ASK_KEYWORD=📤 <b>Publish Pack</b>\n\n<b>Pack:</b> {pack_name}\n\nPlease send a keyword (3-20 characters, alphanumeric only) that people will use to find your pack via inline mode.\n\n<b>Example:</b> <code>@{bot_username} memes</code>
+PUBLISH_KEYWORD_SEND_TEXT=❌ Please send a text keyword.
+PUBLISH_KEYWORD_INVALID=❌ <b>Invalid keyword!</b>\n\nKeyword must be:\n- 3-20 characters long\n- Alphanumeric only (a-z, 0-9)\n- No spaces or special characters\n\nPlease try again.
+PUBLISH_CONFIRM_REQUEST=📤 <b>Confirm Publish</b>\n\n<b>Pack:</b> {pack_name}\n<b>Keyword:</b> <code>{keyword}</code>\n\n<b>Usage:</b> <code>@{bot_username} {keyword}</code>\n\nAre you sure you want to submit this pack for publishing?
+PUBLISH_REQUEST_SENT=✅ <b>Request sent!</b>\n\nYour pack <b>{pack_name}</b> has been submitted for publishing. You'll be notified when it's reviewed.
+PUBLISH_REQUEST_APPROVED=✅ <b>Pack Published!</b>\n\n<b>Pack:</b> {pack_name}\n<b>Keyword:</b> <code>{keyword}</code>\n\n<b>Usage:</b> <code>@{bot_username} {keyword}</code>\n\nYour pack is now live! Anyone can find it by typing the keyword in inline mode.\n\n<a href="{pack_link}">View Pack</a>
+PUBLISH_REQUEST_REJECTED=❌ <b>Publish Request Rejected</b>\n\nYour pack <b>{pack_name}</b> was not approved for publishing.
+PUBLISH_ALREADY_PUBLISHED=⚠️ <b>This pack is already published!</b>\n\nYou cannot publish the same pack twice.
+PUBLISH_NOT_CONFIGURED=❌ <b>Publish feature is not configured.</b>\n\nPlease contact the bot administrator.
+PUBLISH_CANCELLED=❌ <b>Publish cancelled.</b>

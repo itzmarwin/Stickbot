@@ -1,4 +1,4 @@
-START_MESSAGE_WITH_IMAGE=────「  ꜱᴛɪᴄᴋᴇʀ ᴋᴀɴɢ 」────\n✦ ʜᴇʏ <a href="tg://user?id={user_id}">{first_name}</a>...\n╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌\nɪ ᴀᴍ ʏᴏᴜʀ ꜱᴛɪᴄᴋᴇʀ ᴄᴏᴍᴘᴀɴɪᴏɴ 💫\nᴡɪᴛʜ ᴍᴇ ʏᴏᴜ ᴄᴀɴ:\n➤ ᴋᴀɴɢ ꜱᴛɪᴄᴋᴇʀꜱ ɪɴ ᴏɴᴇ ᴛᴀᴘ\n➤ ᴍᴀᴋᴇ ʏᴏᴜʀ ᴏᴡɴ ᴘᴀᴄᴋꜱ\n➤ ᴍᴀɴᴀɢᴇ & ꜱʜᴀʀᴇ ᴇᴀꜱɪʟʏ\n╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌\nᴘʀᴇꜱꜱ ᴛʜᴇ ʙᴜᴛᴛᴏɴꜱ ʙᴇʟᴏᴡ ᴛᴏ ꜱᴛᴀʀᴛ
+START_MESSAGE_WITH_IMAGE=────「  ꜱᴛɪᴄᴋᴇʀ ᴋᴀɴɢ 」────\n✦ ʜᴇʏ <a href="tg://user?id={uid}">{first_name}</a>...\n╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌\nɪ ᴀᴍ ʏᴏᴜʀ ꜱᴛɪᴄᴋᴇʀ ᴄᴏᴍᴘᴀɴɪᴏɴ 💫\nᴡɪᴛʜ ᴍᴇ ʏᴏᴜ ᴄᴀɴ:\n➤ ᴋᴀɴɢ ꜱᴛɪᴄᴋᴇʀꜱ ɪɴ ᴏɴᴇ ᴛᴀᴘ\n➤ ᴍᴀᴋᴇ ʏᴏᴜʀ ᴏᴡɴ ᴘᴀᴄᴋꜱ\n➤ ᴍᴀɴᴀɢᴇ & ꜱʜᴀʀᴇ ᴇᴀꜱɪʟʏ\n╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌\nᴘʀᴇꜱꜱ ᴛʜᴇ ʙᴜᴛᴛᴏɴꜱ ʙᴇʟᴏᴡ ᴛᴏ ꜱᴛᴀʀᴛ
 
 GROUP_START_MESSAGE=<b>Hello! I'm Sticker Kang Bot</b>\n\nI help you create and manage custom sticker packs!\n\n<b>Features:</b>\n✦ Create unlimited sticker packs\n✦ Add images, videos, GIFs as stickers\n✦ Manage and organize your packs\n✦ Share packs with others\n\n<b>Start me in PM to use all features!</b>
 

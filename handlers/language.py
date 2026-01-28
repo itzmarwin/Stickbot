@@ -180,12 +180,3 @@ async def show_language_selection_for_new_user(message: Message) -> bool:
     except Exception as e:
         logger.error(f"Error showing language selection for new user: {e}", exc_info=True)
         return False
-```
-
----
-
-## ✅ MESSAGES TO EXTRACT FOR en.temp:
-```
-# ===== LANGUAGE SELECTION (handlers/language.py) =====
-LANG_SELECT_MESSAGE=🌐 <b>Choose Your Language</b>\n\nSelect your preferred language:
-LANG_CHANGED=✅ Language changed to English

@@ -23,8 +23,8 @@ LANG_CHANGED_RUS=Язык изменён на русский
 LANG_CHANGED_BUR=ဘာသာစကားကို မြန်မာသို့ ပြောင်းလဲပြီးပါပြီ
 
 B_ADD_ME_GROUP=Добавить меня в группу
-B_EXTRA_COMMANDS=Дополнительные команды
-B_MANAGE_PACKS=Управление паками
+B_EXTRA_COMMANDS=Менеджер группы
+B_MANAGE_PACKS=Мои стикерпаки
 B_SUPPORT=Поддержка
 B_UPDATES=Обновления
 B_AFK=Отсутствие

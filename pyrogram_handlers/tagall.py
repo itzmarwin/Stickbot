@@ -4,7 +4,7 @@ import random
 from pyrogram import Client, filters
 from pyrogram.types import Message
 from pyrogram.enums import ChatMemberStatus
-from pyrogram.errors import FloodWait, ChatAdminRequired
+from pyrogram.errors import FloodWait, ChatAdminRequired, ChatWriteForbidden
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,7 @@ async def send_mention_batch(message_target, mentions: str, retry_count: int = 0
             return False
         await asyncio.sleep(e.value + 1)
         return await send_mention_batch(message_target, mentions, retry_count + 1)
-    except ChatAdminRequired:
+    except ChatWriteForbidden:
         raise
     except Exception:
         return False
@@ -110,11 +110,11 @@ async def setup_tagall_handlers(client: Client):
                     )
                     return
             
-            progress_msg = await message.reply_text("𝖥𝖾𝗍𝖼𝗁𝗂𝗇𝗀 𝗆𝖾𝗆𝖻𝖾𝗋𝗌...")
+            progress_msg = await message.reply_text("🔄 𝖥𝖾𝗍𝖼𝗁𝗂𝗇𝗀 𝗆𝖾𝗆𝖻𝖾𝗋𝗌...")
             members = await get_all_members(client, chat_id)
             
             if not members:
-                await progress_msg.edit_text("𝖭𝗈 𝗆𝖾𝗆𝖻𝖾𝗋𝗌 𝖿𝗈𝗎𝗇𝖽.")
+                await progress_msg.edit_text("❌ 𝖭𝗈 𝗆𝖾𝗆𝖻𝖾𝗋𝗌 𝖿𝗈𝗎𝗇𝖽!")
                 return
             
             active_tagall[chat_id] = True
@@ -159,7 +159,7 @@ async def setup_tagall_handlers(client: Client):
                         if i + BATCH_SIZE < len(members):
                             await asyncio.sleep(DELAY_BETWEEN_BATCHES)
             
-            except ChatAdminRequired:
+            except ChatWriteForbidden:
                 await message.reply_text(
                     "𝖨 𝗇𝖾𝖾𝖽 𝖺𝖽𝗆𝗂𝗇 𝗋𝗂𝗀𝗁𝗍𝗌 𝗍𝗈 𝗍𝖺𝗀 𝗆𝖾𝗆𝖻𝖾𝗋𝗌!\n\n"
                     "𝖯𝗅𝖾𝖺𝗌𝖾 𝗉𝗋𝗈𝗆𝗈𝗍𝖾 𝗆𝖾 𝖺𝗌 𝖺𝗇 𝖺𝖽𝗆𝗂𝗇 𝖿𝗂𝗋𝗌𝗍."
@@ -278,7 +278,7 @@ async def setup_tagall_handlers(client: Client):
                         if i + BATCH_SIZE < len(members):
                             await asyncio.sleep(DELAY_BETWEEN_BATCHES)
             
-            except ChatAdminRequired:
+            except ChatWriteForbidden:
                 await message.reply_text(
                     "𝖨 𝗇𝖾𝖾𝖽 𝖺𝖽𝗆𝗂𝗇 𝗋𝗂𝗀𝗁𝗍𝗌 𝗍𝗈 𝗍𝖺𝗀 𝗆𝖾𝗆𝖻𝖾𝗋𝗌!\n\n"
                     "𝖯𝗅𝖾𝖺𝗌𝖾 𝗉𝗋𝗈𝗆𝗈𝗍𝖾 𝗆𝖾 𝖺𝗌 𝖺𝗇 𝖺𝖽𝗆𝗂𝗇 𝖿𝗂𝗋𝗌𝗍."

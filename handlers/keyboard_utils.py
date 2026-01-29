@@ -9,19 +9,11 @@ from utils.language import get_text_sync
 logger = logging.getLogger(__name__)
 
 
-# ============================================================================
-# CALLBACK DATA CONSTANTS
-# ============================================================================
-
 class SharedCallbacks:
-    """Shared callback data constants used across handlers"""
-    
-    # Main menu callbacks
     MANAGE_PACKS = "manage_packs"
     EXTRA_COMMANDS = "extra_commands"
     BACK_TO_MAIN = "back_to_main"
     
-    # Extra commands callbacks
     EXTRA_CMD_AFK = "extra_afk"
     EXTRA_CMD_QUOTLY = "extra_quotly"
     EXTRA_CMD_STICKERS = "extra_stickers"
@@ -29,28 +21,13 @@ class SharedCallbacks:
     EXTRA_CMD_WELCOME = "extra_welcome"
 
 
-# ============================================================================
-# KEYBOARD BUILDERS
-# ============================================================================
-
 async def get_main_menu_keyboard(user_id: int):
-    """
-    Main menu keyboard shown on /start command
-    
-    Args:
-        user_id: User's Telegram ID for language detection
-    
-    Returns:
-        InlineKeyboardMarkup with main menu buttons in user's language
-    """
     from config import BOT_USERNAME
     
-    # Get user's language
     language = await get_user_language(user_id)
     
     builder = InlineKeyboardBuilder()
     
-    # Add Me In Your Group button (translated)
     add_group_text = get_text_sync(language, "B_ADD_ME_GROUP")
     if add_group_text is None:
         add_group_text = "𝖠𝖽𝖽 𝖬𝖾 𝖨𝗇 𝖸𝗈𝗎𝗋 𝖦𝗋𝗈𝗎𝗉"
@@ -60,7 +37,6 @@ async def get_main_menu_keyboard(user_id: int):
         url=f"https://t.me/{BOT_USERNAME}?startgroup=true"
     )
     
-    # Extra Commands button (translated)
     extra_cmd_text = get_text_sync(language, "B_EXTRA_COMMANDS")
     if extra_cmd_text is None:
         extra_cmd_text = "𝖤𝗑𝗍𝗋𝖺 𝖢𝗈𝗆𝗆𝖺𝗇𝖽𝗌"
@@ -70,7 +46,6 @@ async def get_main_menu_keyboard(user_id: int):
         callback_data=SharedCallbacks.EXTRA_COMMANDS
     )
     
-    # Manage Packs button (translated)
     manage_packs_text = get_text_sync(language, "B_MANAGE_PACKS")
     if manage_packs_text is None:
         manage_packs_text = "𝖬𝖺𝗇𝖺𝗀𝖾 𝖯𝖺𝖼𝗄𝗌"
@@ -80,7 +55,6 @@ async def get_main_menu_keyboard(user_id: int):
         callback_data=SharedCallbacks.MANAGE_PACKS
     )
     
-    # Support button (translated)
     support_text = get_text_sync(language, "B_SUPPORT")
     if support_text is None:
         support_text = "𝖲𝗎𝗉𝗉𝗈𝗋𝗍"
@@ -90,7 +64,6 @@ async def get_main_menu_keyboard(user_id: int):
         url="https://t.me/Samurais_Support"
     )
     
-    # Updates button (translated)
     updates_text = get_text_sync(language, "B_UPDATES")
     if updates_text is None:
         updates_text = "𝖴𝗉𝖽𝖺𝗍𝖾𝗌"
@@ -100,18 +73,11 @@ async def get_main_menu_keyboard(user_id: int):
         url="https://t.me/Samurais_network"
     )
     
-    builder.adjust(1, 2, 2)
+    builder.adjust(1, 1, 1, 2)
     return builder.as_markup()
 
 
 def get_group_start_keyboard():
-    """
-    Keyboard for group /start command
-    ENGLISH ONLY (not translated for groups)
-    
-    Returns:
-        InlineKeyboardMarkup with start and support buttons
-    """
     from config import BOT_USERNAME
     
     builder = InlineKeyboardBuilder()
@@ -128,51 +94,35 @@ def get_group_start_keyboard():
 
 
 async def get_extra_commands_keyboard(user_id: int):
-    """
-    Extra commands menu keyboard
-    
-    Args:
-        user_id: User's Telegram ID for language detection
-    
-    Returns:
-        InlineKeyboardMarkup with extra command buttons in user's language
-    """
-    # Get user's language
     language = await get_user_language(user_id)
     
     builder = InlineKeyboardBuilder()
     
-    # AFK button
     afk_text = get_text_sync(language, "B_AFK")
     if afk_text is None:
         afk_text = "𝖠𝖿𝗄"
     builder.button(text=afk_text, callback_data=SharedCallbacks.EXTRA_CMD_AFK)
     
-    # Quotly button
     quotly_text = get_text_sync(language, "B_QUOTLY")
     if quotly_text is None:
         quotly_text = "𝖰𝗎𝗈𝗍𝗅𝗒"
     builder.button(text=quotly_text, callback_data=SharedCallbacks.EXTRA_CMD_QUOTLY)
     
-    # Stickers button
     stickers_text = get_text_sync(language, "B_STICKERS")
     if stickers_text is None:
         stickers_text = "𝖲𝗍𝗂𝖼𝗄𝖾𝗋𝗌"
     builder.button(text=stickers_text, callback_data=SharedCallbacks.EXTRA_CMD_STICKERS)
     
-    # Memefi button
     memefi_text = get_text_sync(language, "B_MEMEFI")
     if memefi_text is None:
         memefi_text = "𝖬𝖾𝗆𝖾𝖿𝗂"
     builder.button(text=memefi_text, callback_data=SharedCallbacks.EXTRA_CMD_MEMEFI)
     
-    # Greetings button
     greetings_text = get_text_sync(language, "B_GREETINGS")
     if greetings_text is None:
         greetings_text = "𝖦𝗋𝖾𝖾𝗍𝗂𝗇𝗀𝗌"
     builder.button(text=greetings_text, callback_data=SharedCallbacks.EXTRA_CMD_WELCOME)
     
-    # Back button
     back_text = get_text_sync(language, "B_BACK")
     if back_text is None:
         back_text = "⬅️ 𝖡𝖺𝖼𝗄"
@@ -183,21 +133,10 @@ async def get_extra_commands_keyboard(user_id: int):
 
 
 async def get_back_to_extra_keyboard(user_id: int):
-    """
-    Back to extra commands keyboard
-    
-    Args:
-        user_id: User's Telegram ID for language detection
-    
-    Returns:
-        InlineKeyboardMarkup with back button in user's language
-    """
-    # Get user's language
     language = await get_user_language(user_id)
     
     builder = InlineKeyboardBuilder()
     
-    # Back button
     back_text = get_text_sync(language, "B_BACK")
     if back_text is None:
         back_text = "⬅️ 𝖡𝖺𝖼𝗄"
@@ -210,21 +149,10 @@ async def get_back_to_extra_keyboard(user_id: int):
 
 
 async def get_back_to_main_keyboard(user_id: int):
-    """
-    Back to main menu keyboard
-    
-    Args:
-        user_id: User's Telegram ID for language detection
-    
-    Returns:
-        InlineKeyboardMarkup with back button in user's language
-    """
-    # Get user's language
     language = await get_user_language(user_id)
     
     builder = InlineKeyboardBuilder()
     
-    # Back button
     back_text = get_text_sync(language, "B_BACK")
     if back_text is None:
         back_text = "⬅️ 𝖡𝖺𝖼𝗄"
@@ -236,22 +164,7 @@ async def get_back_to_main_keyboard(user_id: int):
     return builder.as_markup()
 
 
-# ============================================================================
-# UTILITY FUNCTIONS
-# ============================================================================
-
 async def safe_edit_message(callback: CallbackQuery, text: str, reply_markup=None):
-    """
-    Safely edit a message with error handling
-    
-    Handles common edit errors like "message is not modified" 
-    and "no text in the message"
-    
-    Args:
-        callback: CallbackQuery object
-        text: New message text
-        reply_markup: Optional inline keyboard markup
-    """
     try:
         if callback.message.text:
             await callback.message.edit_text(text, reply_markup=reply_markup)
@@ -261,7 +174,6 @@ async def safe_edit_message(callback: CallbackQuery, text: str, reply_markup=Non
     except TelegramBadRequest as e:
         error_msg = str(e).lower()
         if "message is not modified" in error_msg:
-            # Message content is same, ignore
             pass
         elif "no text in the message" in error_msg:
             try:

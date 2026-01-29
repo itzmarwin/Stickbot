@@ -10,7 +10,7 @@ from pyrogram_handlers.utils import is_user_admin, is_bot_admin
 
 logger = logging.getLogger(__name__)
 
-BATCH_SIZE = 10
+BATCH_SIZE = 5
 DELAY_BETWEEN_BATCHES = 3
 MAX_RETRIES = 3
 MAX_MESSAGE_LENGTH = 3900

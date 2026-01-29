@@ -12,7 +12,6 @@ router = Router()
 
 
 def get_language_selection_keyboard():
-    """Build language selection keyboard with 3 languages"""
     builder = InlineKeyboardBuilder()
     
     builder.button(text="🇬🇧 English", callback_data="set_lang:en")
@@ -25,7 +24,6 @@ def get_language_selection_keyboard():
 
 @router.message(Command("lang"), F.chat.type == "private")
 async def cmd_lang(message: Message):
-    """Handle /lang command - show language selection"""
     user_id = message.from_user.id
     current_lang = await get_user_language(user_id)
     lang_select_msg = await get_text(user_id, "LANG_SELECT_MESSAGE")
@@ -36,11 +34,7 @@ async def cmd_lang(message: Message):
 
 @router.callback_query(F.data.startswith("set_lang:"))
 async def set_language_callback(callback: CallbackQuery):
-    """Handle language selection"""
-    await callback.answer()
-    
     user_id = callback.from_user.id
-    chat_id = callback.message.chat.id
     language = callback.data.split(":")[1]
     
     if language not in ["en", "rus", "bur"]:
@@ -55,8 +49,6 @@ async def set_language_callback(callback: CallbackQuery):
     
     logger.info(f"User {user_id} changed language to {language}")
     
-    confirmation_msg = await get_text(user_id, "LANG_CHANGED")
-    
     from handlers.keyboard_utils import get_main_menu_keyboard
     from utils.html_utils import escape_html
     
@@ -67,37 +59,19 @@ async def set_language_callback(callback: CallbackQuery):
         first_name=escape_html(callback.from_user.first_name)
     )
     
-    try:
-        await callback.message.delete()
-    except Exception as e:
-        logger.warning(f"Could not delete language selection message: {e}")
+    keyboard = await get_main_menu_keyboard(user_id)
     
-    try:
-        full_message = f"{confirmation_msg}\n\n{start_text}"
-        keyboard = await get_main_menu_keyboard(user_id)
-        
-        await callback.bot.send_message(
-            chat_id=chat_id,
-            text=full_message,
-            reply_markup=keyboard
-        )
-        
-        logger.info(f"Sent start message to user {user_id} in {language}")
-        
-    except Exception as e:
-        logger.error(f"Error sending start message: {e}", exc_info=True)
-        
-        try:
-            await callback.message.edit_text(
-                f"{confirmation_msg}\n\n{start_text}",
-                reply_markup=await get_main_menu_keyboard(user_id)
-            )
-        except Exception as fallback_error:
-            logger.error(f"Fallback also failed: {fallback_error}", exc_info=True)
+    await callback.message.edit_text(
+        start_text,
+        reply_markup=keyboard
+    )
+    
+    await callback.answer()
+    
+    logger.info(f"Language changed to {language} for user {user_id}")
 
 
 async def show_language_selection_for_new_user(message: Message):
-    """Show language selection for new users during /start"""
     user_id = message.from_user.id
     lang_select_msg = await get_text(user_id, "LANG_SELECT_MESSAGE")
     

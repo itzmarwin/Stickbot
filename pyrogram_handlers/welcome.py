@@ -46,13 +46,26 @@ async def setup_welcome_handlers(client: Client):
             chat_id = message.chat.id
             user_id = message.from_user.id if message.from_user else None
             
+            # 🔍 DEBUG LOGGING
+            logger.warning(f"🔍 DEBUG /welcome - chat_id: {chat_id}, user_id: {user_id}, from_user exists: {message.from_user is not None}")
+            if message.from_user:
+                logger.warning(f"🔍 DEBUG - User details: ID={message.from_user.id}, Name={message.from_user.first_name}, Is_Bot={message.from_user.is_bot}")
+            
             try:
+                logger.warning(f"🔍 DEBUG - Calling is_user_admin with chat_id={chat_id}, user_id={user_id}")
                 is_admin = await is_user_admin(client, chat_id, user_id)
+                logger.warning(f"🔍 DEBUG - is_user_admin returned: {is_admin}")
+                
                 if not is_admin:
                     await message.reply_text("Only admins can use this command.", parse_mode=ParseMode.HTML)
                     return
-            except ChatAdminRequired:
+            except ChatAdminRequired as e:
+                logger.warning(f"🔍 DEBUG - ChatAdminRequired exception caught: {e}")
                 await message.reply_text("Looks like you're using anonymous admin mode.\nSwitch back to your user account to continue~", parse_mode=ParseMode.HTML)
+                return
+            except Exception as e:
+                logger.error(f"🔍 DEBUG - Unexpected exception in is_user_admin: {type(e).__name__} - {e}")
+                await message.reply_text(f"Error checking admin status: {type(e).__name__}", parse_mode=ParseMode.HTML)
                 return
             
             command_parts = message.text.split(maxsplit=1)

@@ -45,16 +45,22 @@ async def setup_goodbye_handlers(client: Client):
             chat_id = message.chat.id
             user_id = message.from_user.id if message.from_user else None
             
+            # Simple admin check - no anonymous detection
             try:
                 is_admin = await is_user_admin(client, chat_id, user_id)
                 if not is_admin:
-                    await message.reply_text("Only admins can use this command")
+                    await message.reply_text("Only admins can use this command.", parse_mode=ParseMode.HTML)
                     return
             except ChatAdminRequired:
                 await message.reply_text(
-                    "Looks like you're using anonymous admin mode.\n"
-                    "Switch back to your user account to continue~"
+                    "<b>I need admin privileges to verify permissions.</b>\n\n"
+                    "Please promote me to admin first.",
+                    parse_mode=ParseMode.HTML
                 )
+                return
+            except Exception as e:
+                logger.error(f"Admin check failed: {type(e).__name__} - {e}")
+                await message.reply_text("Only admins can use this command.", parse_mode=ParseMode.HTML)
                 return
             
             command_parts = message.text.split(maxsplit=1)
@@ -105,9 +111,14 @@ async def setup_goodbye_handlers(client: Client):
             
             action = command_parts[1].lower()
             
-            if not await is_bot_admin(client, chat_id):
-                await message.reply_text("<b>Please promote the bot to admin to enable goodbye messages.</b>", parse_mode=ParseMode.HTML)
-                return
+            # Check if action requires bot admin privileges
+            if action in ["on", "off"]:
+                if not await is_bot_admin(client, chat_id):
+                    await message.reply_text(
+                        "<b>Please promote me to admin to enable goodbye messages.</b>",
+                        parse_mode=ParseMode.HTML
+                    )
+                    return
             
             settings = await get_welcome_settings(chat_id)
             
@@ -130,12 +141,15 @@ async def setup_goodbye_handlers(client: Client):
                     
                     if goodbye_config.get('custom_set'):
                         await message.reply_text(
-                            "<b>Goodbye enabled.</b>",
+                            "<b>Goodbye enabled!</b>\n\n"
+                            "Custom goodbye message will be sent when members leave.",
                             parse_mode=ParseMode.HTML
                         )
                     else:
                         await message.reply_text(
-                            "<b>Goodbye enabled.</b>",
+                            "<b>Goodbye enabled.</b>\n\n"
+                            "Default goodbye message will be sent when members leave.\n"
+                            "Use <code>/setgoodbye</code> to set a custom message.",
                             parse_mode=ParseMode.HTML
                         )
             
@@ -149,8 +163,7 @@ async def setup_goodbye_handlers(client: Client):
                 if success:
                     await clear_cached_settings(chat_id, 'goodbye')
                     await message.reply_text(
-                        "<b>Goodbye disabled</b>\n\n"
-                        "Members leaving will not receive goodbye messages.",
+                        "<b>Goodbye disabled.</b>",
                         parse_mode=ParseMode.HTML
                     )
             
@@ -182,10 +195,13 @@ async def setup_goodbye_handlers(client: Client):
                     return
             except ChatAdminRequired:
                 await message.reply_text(
-                    "Looks like you're using anonymous admin mode.\n"
-                    "Switch back to your user account to continue~",
+                    "<b>I need admin privileges to verify permissions.</b>\n\n"
+                    "Please promote me to admin first.",
                     parse_mode=ParseMode.HTML
                 )
+                return
+            except Exception:
+                await message.reply_text("Only admins can use this command!", parse_mode=ParseMode.HTML)
                 return
             
             if not await is_bot_admin(client, chat_id):
@@ -235,7 +251,8 @@ async def setup_goodbye_handlers(client: Client):
                 text = replied_msg.text
             else:
                 await message.reply_text(
-                    "<b>Unsupported message type.</b>",
+                    "<b>Unsupported message type.</b>\n\n"
+                    "Supported: Photo, Video, GIF",
                     parse_mode=ParseMode.HTML
                 )
                 return
@@ -298,14 +315,17 @@ async def setup_goodbye_handlers(client: Client):
             try:
                 is_admin = await is_user_admin(client, chat_id, user_id)
                 if not is_admin:
-                    await message.reply_text("Only admins can use this command.", parse_mode=ParseMode.HTML)
+                    await message.reply_text("Only admins can use this command!", parse_mode=ParseMode.HTML)
                     return
             except ChatAdminRequired:
                 await message.reply_text(
-                    "Looks like you're using anonymous admin mode.\n"
-                    "Switch back to your user account to continue~",
+                    "<b>I need admin privileges to verify permissions.</b>\n\n"
+                    "Please promote me to admin first.",
                     parse_mode=ParseMode.HTML
                 )
+                return
+            except Exception:
+                await message.reply_text("Only admins can use this command!", parse_mode=ParseMode.HTML)
                 return
             
             settings = await get_welcome_settings(chat_id)
@@ -327,8 +347,9 @@ async def setup_goodbye_handlers(client: Client):
             if success:
                 await clear_cached_settings(chat_id, 'goodbye')
                 await message.reply_text(
-                    "<b>Goodbye message deleted successfully!</b>\n"
-                    "Use <code>/goodbye on</code> to enable.",
+                    "<b>Goodbye message deleted successfully!</b>\n\n"
+                    "Goodbye is now <b>disabled</b>.\n"
+                    "Use <code>/goodbye on</code> to enable default message.",
                     parse_mode=ParseMode.HTML
                 )
             else:
@@ -350,14 +371,17 @@ async def setup_goodbye_handlers(client: Client):
             try:
                 is_admin = await is_user_admin(client, chat_id, user_id)
                 if not is_admin:
-                    await message.reply_text("Only admins can use this command.", parse_mode=ParseMode.HTML)
+                    await message.reply_text("Only admins can use this command", parse_mode=ParseMode.HTML)
                     return
             except ChatAdminRequired:
                 await message.reply_text(
-                    "Looks like you're using anonymous admin mode.\n"
-                    "Switch back to your user account to continue~",
+                    "<b>I need admin privileges to verify permissions.</b>\n\n"
+                    "Please promote me to admin first.",
                     parse_mode=ParseMode.HTML
                 )
+                return
+            except Exception:
+                await message.reply_text("Only admins can use this command", parse_mode=ParseMode.HTML)
                 return
             
             command_parts = message.text.split()

@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 from pyrogram import Client
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
-from pyrogram.enums import ChatMemberStatus
+from pyrogram.enums import ChatMemberStatus, ChatMembersFilter
 from pyrogram.errors import ChatAdminRequired, UserNotParticipant
 from cachetools import TTLCache
 
@@ -198,21 +198,59 @@ def format_time(seconds: int) -> str:
 
 
 async def is_user_admin(client: Client, chat_id: int, user_id: int) -> bool:
+    """
+    Check if user is admin in the chat.
+    
+    Returns:
+        bool: True if user is admin, False otherwise
+        
+    Raises:
+        ChatAdminRequired: When bot lacks privileges to check OR user is anonymous admin
+    """
     if user_id is None:
-        raise ChatAdminRequired
+        logger.warning(f"user_id is None for chat {chat_id}")
+        return False
     
     try:
         member = await client.get_chat_member(chat_id, user_id)
         return member.status in [ChatMemberStatus.OWNER, ChatMemberStatus.ADMINISTRATOR]
     
-    except ChatAdminRequired:
-        raise
+    except ChatAdminRequired as e:
+        # This exception means TWO things:
+        # 1. User is anonymous admin (legitimate Telegram feature)
+        # 2. Bot doesn't have admin privileges (bot limitation in private groups)
+        
+        error_msg = str(e).lower()
+        
+        # Check if it's a bot privilege issue
+        if "chat_admin_required" in error_msg or "channels.getparticipant" in error_msg:
+            logger.warning(f"Bot lacks admin privileges in chat {chat_id}, trying fallback method")
+            
+            # Fallback: Try to get administrators list
+            try:
+                async for admin in client.get_chat_members(chat_id, filter=ChatMembersFilter.ADMINISTRATORS):
+                    if admin.user.id == user_id:
+                        logger.info(f"Fallback: User {user_id} is admin in chat {chat_id}")
+                        return True
+                
+                logger.info(f"Fallback: User {user_id} is NOT admin in chat {chat_id}")
+                return False
+                
+            except Exception as fallback_error:
+                logger.error(f"Fallback method also failed for chat {chat_id}: {fallback_error}")
+                # Re-raise as ChatAdminRequired with clear message
+                raise ChatAdminRequired("Bot needs admin privileges to verify user status")
+        else:
+            # It's truly anonymous admin - re-raise
+            logger.info(f"User {user_id} appears to be anonymous admin in chat {chat_id}")
+            raise
     
     except UserNotParticipant:
+        logger.info(f"User {user_id} is not a participant in chat {chat_id}")
         return False
     
     except Exception as e:
-        logger.error(f"Error checking admin status for user {user_id} in chat {chat_id}: {e}")
+        logger.error(f"Unexpected error checking admin status for user {user_id} in chat {chat_id}: {e}")
         return False
 
 

@@ -46,36 +46,23 @@ async def setup_welcome_handlers(client: Client):
             chat_id = message.chat.id
             user_id = message.from_user.id if message.from_user else None
             
-            # Check user admin status
+            # Simple admin check - no anonymous detection
             try:
                 is_admin = await is_user_admin(client, chat_id, user_id)
                 if not is_admin:
                     await message.reply_text("Only admins can use this command.", parse_mode=ParseMode.HTML)
                     return
-            except ChatAdminRequired as e:
-                error_msg = str(e).lower()
-                
-                # Check if it's bot privilege issue or truly anonymous admin
-                if "bot needs admin privileges" in error_msg:
-                    await message.reply_text(
-                        "<b>I need admin privileges to verify your permissions.</b>\n\n"
-                        "Please promote me to admin first, then try again.",
-                        parse_mode=ParseMode.HTML
-                    )
-                else:
-                    # Truly anonymous admin
-                    await message.reply_text(
-                        "Looks like you're using anonymous admin mode.\n"
-                        "Switch back to your user account to continue~",
-                        parse_mode=ParseMode.HTML
-                    )
+            except ChatAdminRequired:
+                # Bot needs admin privileges to check
+                await message.reply_text(
+                    "<b>I need admin privileges to verify permissions.</b>\n\n"
+                    "Please promote me to admin first.",
+                    parse_mode=ParseMode.HTML
+                )
                 return
             except Exception as e:
                 logger.error(f"Admin check failed: {type(e).__name__} - {e}")
-                await message.reply_text(
-                    "Error checking permissions. Please try again.",
-                    parse_mode=ParseMode.HTML
-                )
+                await message.reply_text("Only admins can use this command.", parse_mode=ParseMode.HTML)
                 return
             
             command_parts = message.text.split(maxsplit=1)
@@ -208,21 +195,15 @@ async def setup_welcome_handlers(client: Client):
                 if not is_admin:
                     await message.reply_text("Only admins can use this command!", parse_mode=ParseMode.HTML)
                     return
-            except ChatAdminRequired as e:
-                error_msg = str(e).lower()
-                
-                if "bot needs admin privileges" in error_msg:
-                    await message.reply_text(
-                        "<b>I need admin privileges to verify your permissions.</b>\n\n"
-                        "Please promote me to admin first, then try again.",
-                        parse_mode=ParseMode.HTML
-                    )
-                else:
-                    await message.reply_text(
-                        "Looks like you're using anonymous admin mode.\n"
-                        "Switch back to your user account to continue~",
-                        parse_mode=ParseMode.HTML
-                    )
+            except ChatAdminRequired:
+                await message.reply_text(
+                    "<b>I need admin privileges to verify permissions.</b>\n\n"
+                    "Please promote me to admin first.",
+                    parse_mode=ParseMode.HTML
+                )
+                return
+            except Exception:
+                await message.reply_text("Only admins can use this command!", parse_mode=ParseMode.HTML)
                 return
             
             if not await is_bot_admin(client, chat_id):
@@ -338,21 +319,15 @@ async def setup_welcome_handlers(client: Client):
                 if not is_admin:
                     await message.reply_text("Only admins can use this command!", parse_mode=ParseMode.HTML)
                     return
-            except ChatAdminRequired as e:
-                error_msg = str(e).lower()
-                
-                if "bot needs admin privileges" in error_msg:
-                    await message.reply_text(
-                        "<b>I need admin privileges to verify your permissions.</b>\n\n"
-                        "Please promote me to admin first, then try again.",
-                        parse_mode=ParseMode.HTML
-                    )
-                else:
-                    await message.reply_text(
-                        "Looks like you're using anonymous admin mode.\n"
-                        "Switch back to your user account to continue~",
-                        parse_mode=ParseMode.HTML
-                    )
+            except ChatAdminRequired:
+                await message.reply_text(
+                    "<b>I need admin privileges to verify permissions.</b>\n\n"
+                    "Please promote me to admin first.",
+                    parse_mode=ParseMode.HTML
+                )
+                return
+            except Exception:
+                await message.reply_text("Only admins can use this command!", parse_mode=ParseMode.HTML)
                 return
             
             settings = await get_welcome_settings(chat_id)
@@ -400,21 +375,15 @@ async def setup_welcome_handlers(client: Client):
                 if not is_admin:
                     await message.reply_text("Only admins can use this command", parse_mode=ParseMode.HTML)
                     return
-            except ChatAdminRequired as e:
-                error_msg = str(e).lower()
-                
-                if "bot needs admin privileges" in error_msg:
-                    await message.reply_text(
-                        "<b>I need admin privileges to verify your permissions.</b>\n\n"
-                        "Please promote me to admin first, then try again.",
-                        parse_mode=ParseMode.HTML
-                    )
-                else:
-                    await message.reply_text(
-                        "Looks like you're using anonymous admin mode.\n"
-                        "Switch back to your user account to continue~",
-                        parse_mode=ParseMode.HTML
-                    )
+            except ChatAdminRequired:
+                await message.reply_text(
+                    "<b>I need admin privileges to verify permissions.</b>\n\n"
+                    "Please promote me to admin first.",
+                    parse_mode=ParseMode.HTML
+                )
+                return
+            except Exception:
+                await message.reply_text("Only admins can use this command", parse_mode=ParseMode.HTML)
                 return
             
             command_parts = message.text.split()

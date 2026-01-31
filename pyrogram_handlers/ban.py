@@ -163,10 +163,13 @@ async def setup_ban_handlers(client: Client):
                     return
             except ChatAdminRequired:
                 await message.reply_text(
-                    "Looks like you're using anonymous admin mode.\n"
-                    "Switch back to your user account to continue~",
+                    "<b>I need admin privileges to verify permissions.</b>\n\n"
+                    "Please promote me to admin first.",
                     parse_mode=ParseMode.HTML
                 )
+                return
+            except Exception:
+                await message.reply_text("Only admins can use this command.", parse_mode=ParseMode.HTML)
                 return
             
             target_identifier, reason = extract_user_and_reason(message)
@@ -243,10 +246,12 @@ async def setup_ban_handlers(client: Client):
                     return
             except ChatAdminRequired:
                 await message.reply_text(
-                    "Looks like you're using anonymous admin mode.\n"
-                    "Switch back to your user account to continue~",
+                    "<b>I need admin privileges to verify permissions.</b>\n\n"
+                    "Please promote me to admin first.",
                     parse_mode=ParseMode.HTML
                 )
+                return
+            except Exception:
                 return
             
             target_identifier, reason = extract_user_and_reason(message)
@@ -343,10 +348,13 @@ async def setup_ban_handlers(client: Client):
                     return
             except ChatAdminRequired:
                 await message.reply_text(
-                    "Looks like you're using anonymous admin mode.\n"
-                    "Switch back to your user account to continue~",
+                    "<b>I need admin privileges to verify permissions.</b>\n\n"
+                    "Please promote me to admin first.",
                     parse_mode=ParseMode.HTML
                 )
+                return
+            except Exception:
+                await message.reply_text("Only admins can use this command.", parse_mode=ParseMode.HTML)
                 return
             
             target_identifier = None
@@ -471,10 +479,13 @@ async def setup_ban_handlers(client: Client):
                     return
             except ChatAdminRequired:
                 await message.reply_text(
-                    "Looks like you're using anonymous admin mode.\n"
-                    "Switch back to your user account to continue~",
+                    "<b>I need admin privileges to verify permissions.</b>\n\n"
+                    "Please promote me to admin first.",
                     parse_mode=ParseMode.HTML
                 )
+                return
+            except Exception:
+                await message.reply_text("Only admins can use this command.", parse_mode=ParseMode.HTML)
                 return
             
             target_identifier, reason = extract_user_and_reason(message)
@@ -546,10 +557,13 @@ async def setup_ban_handlers(client: Client):
                     return
             except ChatAdminRequired:
                 await message.reply_text(
-                    "Looks like you're using anonymous admin mode.\n"
-                    "Switch back to your user account to continue~",
+                    "<b>I need admin privileges to verify permissions.</b>\n\n"
+                    "Please promote me to admin first.",
                     parse_mode=ParseMode.HTML
                 )
+                return
+            except Exception:
+                await message.reply_text("Only admins can use this command.", parse_mode=ParseMode.HTML)
                 return
             
             target_identifier, reason = extract_user_and_reason(message)
@@ -673,8 +687,8 @@ async def setup_ban_handlers(client: Client):
                     return
             except ChatAdminRequired:
                 await message.reply_text(
-                    "Looks like you're using anonymous admin mode.\n"
-                    "Switch back to your user account to continue~",
+                    "<b>I need admin privileges to verify permissions.</b>\n\n"
+                    "Please promote me to admin first.",
                     parse_mode=ParseMode.HTML
                 )
                 return
@@ -740,10 +754,7 @@ async def setup_ban_handlers(client: Client):
                         logger.error(f"Failed to unban {user.id}: {e}")
                 
                 await progress_msg.edit_text(
-                    f"<b>Unban Complete!</b>\n\n"
-                    f"<b>Total banned users:</b> {total}\n"
-                    f"<b>Successfully unbanned:</b> {unbanned}\n"
-                    f"<b>Failed:</b> {failed}",
+                    f"<b>Unban Complete.</b>",
                     parse_mode=ParseMode.HTML
                 )
             

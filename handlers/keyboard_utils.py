@@ -19,6 +19,7 @@ class SharedCallbacks:
     EXTRA_CMD_STICKERS = "extra_stickers"
     EXTRA_CMD_MEMEFI = "extra_memefi"
     EXTRA_CMD_WELCOME = "extra_welcome"
+    EXTRA_CMD_TAGALL = "extra_tagall"
 
 
 async def get_main_menu_keyboard(user_id: int):

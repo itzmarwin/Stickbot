@@ -182,6 +182,17 @@ async def extra_welcome_callback(callback: CallbackQuery):
     except Exception as e:
         logger.error(f"Error in extra_welcome_callback: {e}")
 
+@router.callback_query(F.data == SharedCallbacks.EXTRA_CMD_TAGALL)
+async def extra_tagall_callback(callback: CallbackQuery):
+    """Show TagAll feature information"""
+    await callback.answer()
+    try:
+        user_id = callback.from_user.id
+        message_text = await get_text(user_id, "TAGALL_INFO_MESSAGE")
+        await safe_edit_message(callback, message_text, await get_back_to_extra_keyboard(user_id))
+    except Exception as e:
+        logger.error(f"Error in extra_tagall_callback: {e}")
+
 
 @router.callback_query(F.data == SharedCallbacks.BACK_TO_MAIN)
 async def back_to_main_callback(callback: CallbackQuery):

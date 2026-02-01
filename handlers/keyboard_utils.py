@@ -123,13 +123,18 @@ async def get_extra_commands_keyboard(user_id: int):
     if greetings_text is None:
         greetings_text = "𝖦𝗋𝖾𝖾𝗍𝗂𝗇𝗀𝗌"
     builder.button(text=greetings_text, callback_data=SharedCallbacks.EXTRA_CMD_WELCOME)
+
+    tagall_text = get_text_sync(language, "B_TAGALL")
+    if tagall_text is None:
+        tagall_text = "𝖳𝖺𝗀𝖠𝗅𝗅"
+    builder.button(text=tagall_text, callback_data=SharedCallbacks.EXTRA_CMD_TAGALL)
     
     back_text = get_text_sync(language, "B_BACK")
     if back_text is None:
         back_text = "⬅️ 𝖡𝖺𝖼𝗄"
     builder.button(text=back_text, callback_data=SharedCallbacks.BACK_TO_MAIN)
     
-    builder.adjust(3, 2, 1)
+    builder.adjust(3, 3, 1)
     return builder.as_markup()
 
 

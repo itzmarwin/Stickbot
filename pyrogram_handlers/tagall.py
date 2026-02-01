@@ -62,119 +62,8 @@ async def send_mention_batch(message_target, mentions: str, retry_count: int = 0
 
 async def setup_tagall_handlers(client: Client):
     
+    # EMOJI TAGALL - NOW WITH /tagall and /all commands
     @client.on_message(filters.command(["tagall", "all"]) & filters.group)
-    async def tagall_command(client: Client, message: Message):
-        chat_id = None
-        user_id = None
-        try:
-            chat_id = message.chat.id
-            user_id = message.from_user.id if message.from_user else None
-            
-            try:
-                is_admin = await is_user_admin(client, chat_id, user_id)
-                if not is_admin:
-                    await message.reply_text("𝖮𝗇𝗅𝗒 𝖺𝖽𝗆𝗂𝗇𝗌 𝖼𝖺𝗇 𝗎𝗌𝖾 𝗍𝗁𝗂𝗌 𝖼𝗈𝗆𝗆𝖺𝗇𝖽.")
-                    return
-            except ChatAdminRequired:
-                await message.reply_text(
-                    "<b>I need admin privileges to verify permissions.</b>\n\n"
-                    "Please promote me to admin first."
-                )
-                return
-            except Exception:
-                await message.reply_text("𝖮𝗇𝗅𝗒 𝖺𝖽𝗆𝗂𝗇𝗌 𝖼𝖺𝗇 𝗎𝗌𝖾 𝗍𝗁𝗂𝗌 𝖼𝗈𝗆𝗆𝖺𝗇𝖽.")
-                return
-            
-            if chat_id in active_tagall and active_tagall[chat_id]:
-                await message.reply_text(
-                    "𝖳𝖺𝗀𝖺𝗅𝗅 𝖺𝗅𝗋𝖾𝖺𝖽𝗒 𝗋𝗎𝗇𝗇𝗂𝗇𝗀!\n\n"
-                    "𝖴𝗌𝖾 /stop 𝗈𝗋 /cancel 𝗍𝗈 𝗌𝗍𝗈𝗉 𝗂𝗍."
-                )
-                return
-            
-            is_reply = message.reply_to_message is not None
-            has_text = len(message.text.split(maxsplit=1)) > 1
-            
-            if not is_reply and not has_text:
-                await message.reply_text(
-                    "𝖯𝗅𝖾𝖺𝗌𝖾 𝗎𝗌𝖾 𝗍𝖺𝗀𝖺𝗅𝗅 𝗉𝗋𝗈𝗉𝖾𝗋𝗅𝗒!\n\n"
-                    "𝖮𝗉𝗍𝗂𝗈𝗇 1: 𝖱𝖾𝗉𝗅𝗒 𝗍𝗈 𝖺 𝗆𝖾𝗌𝗌𝖺𝗀𝖾 𝗐𝗂𝗍𝗁 /tagall\n"
-                    "𝖮𝗉𝗍𝗂𝗈𝗇 2: 𝖴𝗌𝖾 /tagall <𝗒𝗈𝗎𝗋 𝗆𝖾𝗌𝗌𝖺𝗀𝖾>\n\n"
-                    "𝖤𝗑𝖺𝗆𝗉𝗅𝖾: /tagall 𝖧𝖾𝗅𝗅𝗈 𝖾𝗏𝖾𝗋𝗒𝗈𝗇𝖾!"
-                )
-                return
-            
-            if not is_reply:
-                command_parts = message.text.split(maxsplit=1)
-                user_message = command_parts[1]
-                estimated_mentions = BATCH_SIZE * 50
-                total_length = len(user_message) + estimated_mentions
-                
-                if total_length > 4000:
-                    await message.reply_text(
-                        f"𝖬𝖾𝗌𝗌𝖺𝗀𝖾 𝗍𝗈𝗈 𝗅𝗈𝗇𝗀!\n\n"
-                        f"𝖸𝗈𝗎𝗋 𝗆𝖾𝗌𝗌𝖺𝗀𝖾: {len(user_message)} 𝖼𝗁𝖺𝗋𝖺𝖼𝗍𝖾𝗋𝗌\n"
-                        f"𝖬𝖺𝗑𝗂𝗆𝗎𝗆 𝖺𝗅𝗅𝗈𝗐𝖾𝖽: {MAX_MESSAGE_LENGTH} 𝖼𝗁𝖺𝗋𝖺𝖼𝗍𝖾𝗋𝗌\n\n"
-                        f"𝖯𝗅𝖾𝖺𝗌𝖾 𝗌𝗁𝗈𝗋𝗍𝖾𝗇 𝗒𝗈𝗎𝗋 𝗆𝖾𝗌𝗌𝖺𝗀𝖾."
-                    )
-                    return
-            
-            progress_msg = await message.reply_text("🔄 𝖥𝖾𝗍𝖼𝗁𝗂𝗇𝗀 𝗆𝖾𝗆𝖻𝖾𝗋𝗌...")
-            members = await get_all_members(client, chat_id)
-            
-            if not members:
-                await progress_msg.edit_text("❌ 𝖭𝗈 𝗆𝖾𝗆𝖻𝖾𝗋𝗌 𝖿𝗈𝗎𝗇𝖽!")
-                return
-            
-            active_tagall[chat_id] = True
-            
-            if is_reply:
-                original_message = message.reply_to_message
-                await progress_msg.delete()
-                
-                for i in range(0, len(members), BATCH_SIZE):
-                    if chat_id not in active_tagall or not active_tagall[chat_id]:
-                        return
-                    
-                    batch = members[i:i + BATCH_SIZE]
-                    mentions = ", ".join([
-                        f"[{user.first_name}](tg://user?id={user.id})"
-                        for user in batch
-                    ])
-                    
-                    await send_mention_batch(original_message, mentions)
-                    
-                    if i + BATCH_SIZE < len(members):
-                        await asyncio.sleep(DELAY_BETWEEN_BATCHES)
-            else:
-                command_text = message.text.split(maxsplit=1)
-                header = command_text[1]
-                await progress_msg.delete()
-                
-                for i in range(0, len(members), BATCH_SIZE):
-                    if chat_id not in active_tagall or not active_tagall[chat_id]:
-                        return
-                    
-                    batch = members[i:i + BATCH_SIZE]
-                    mentions = ", ".join([
-                        f"[{user.first_name}](tg://user?id={user.id})"
-                        for user in batch
-                    ])
-                    text = f"{header}\n\n{mentions}"
-                    
-                    await send_mention_batch(message, text)
-                    
-                    if i + BATCH_SIZE < len(members):
-                        await asyncio.sleep(DELAY_BETWEEN_BATCHES)
-            
-            active_tagall[chat_id] = False
-            
-        except Exception as e:
-            log_error("tagall_command", e, chat_id=chat_id or 0, user_id=user_id or 0)
-            active_tagall[chat_id] = False
-    
-
-    @client.on_message(filters.command(["etagall", "eall"]) & filters.group)
     async def emoji_tagall_command(client: Client, message: Message):
         chat_id = None
         user_id = None
@@ -210,9 +99,9 @@ async def setup_tagall_handlers(client: Client):
             if not is_reply and not has_text:
                 await message.reply_text(
                     "𝖯𝗅𝖾𝖺𝗌𝖾 𝗎𝗌𝖾 𝖾𝗆𝗈𝗃𝗂 𝗍𝖺𝗀𝖺𝗅𝗅 𝗉𝗋𝗈𝗉𝖾𝗋𝗅𝗒!\n\n"
-                    "𝖮𝗉𝗍𝗂𝗈𝗇 1: 𝖱𝖾𝗉𝗅𝗒 𝗍𝗈 𝖺 𝗆𝖾𝗌𝗌𝖺𝗀𝖾 𝗐𝗂𝗍𝗁 /etagall\n"
-                    "𝖮𝗉𝗍𝗂𝗈𝗇 2: 𝖴𝗌𝖾 /etagall <𝗒𝗈𝗎𝗋 𝗆𝖾𝗌𝗌𝖺𝗀𝖾>\n\n"
-                    "𝖤𝗑𝖺𝗆𝗉𝗅𝖾: /etagall 𝖧𝖾𝗅𝗅𝗈 𝖾𝗏𝖾𝗋𝗒𝗈𝗇𝖾!"
+                    "𝖮𝗉𝗍𝗂𝗈𝗇 1: 𝖱𝖾𝗉𝗅𝗒 𝗍𝗈 𝖺 𝗆𝖾𝗌𝗌𝖺𝗀𝖾 𝗐𝗂𝗍𝗁 /tagall\n"
+                    "𝖮𝗉𝗍𝗂𝗈𝗇 2: 𝖴𝗌𝖾 /tagall <𝗒𝗈𝗎𝗋 𝗆𝖾𝗌𝗌𝖺𝗀𝖾>\n\n"
+                    "𝖤𝗑𝖺𝗆𝗉𝗅𝖾: /tagall 𝖧𝖾𝗅𝗅𝗈 𝖾𝗏𝖾𝗋𝗒𝗈𝗇𝖾!"
                 )
                 return
             
@@ -285,6 +174,119 @@ async def setup_tagall_handlers(client: Client):
             
         except Exception as e:
             log_error("emoji_tagall_command", e, chat_id=chat_id or 0, user_id=user_id or 0)
+            active_tagall[chat_id] = False
+    
+
+    # USERNAME TAGALL - NOW WITH /uall, /utagall, /utag commands
+    @client.on_message(filters.command(["uall", "utagall", "utag"]) & filters.group)
+    async def username_tagall_command(client: Client, message: Message):
+        chat_id = None
+        user_id = None
+        try:
+            chat_id = message.chat.id
+            user_id = message.from_user.id if message.from_user else None
+            
+            try:
+                is_admin = await is_user_admin(client, chat_id, user_id)
+                if not is_admin:
+                    await message.reply_text("𝖮𝗇𝗅𝗒 𝖺𝖽𝗆𝗂𝗇𝗌 𝖼𝖺𝗇 𝗎𝗌𝖾 𝗍𝗁𝗂𝗌 𝖼𝗈𝗆𝗆𝖺𝗇𝖽.")
+                    return
+            except ChatAdminRequired:
+                await message.reply_text(
+                    "<b>I need admin privileges to verify permissions.</b>\n\n"
+                    "Please promote me to admin first."
+                )
+                return
+            except Exception:
+                await message.reply_text("𝖮𝗇𝗅𝗒 𝖺𝖽𝗆𝗂𝗇𝗌 𝖼𝖺𝗇 𝗎𝗌𝖾 𝗍𝗁𝗂𝗌 𝖼𝗈𝗆𝗆𝖺𝗇𝖽.")
+                return
+            
+            if chat_id in active_tagall and active_tagall[chat_id]:
+                await message.reply_text(
+                    "𝖳𝖺𝗀𝖺𝗅𝗅 𝖺𝗅𝗋𝖾𝖺𝖽𝗒 𝗋𝗎𝗇𝗇𝗂𝗇𝗀!\n\n"
+                    "𝖴𝗌𝖾 /stop 𝗈𝗋 /cancel 𝗍𝗈 𝗌𝗍𝗈𝗉 𝗂𝗍."
+                )
+                return
+            
+            is_reply = message.reply_to_message is not None
+            has_text = len(message.text.split(maxsplit=1)) > 1
+            
+            if not is_reply and not has_text:
+                await message.reply_text(
+                    "𝖯𝗅𝖾𝖺𝗌𝖾 𝗎𝗌𝖾 𝗎𝗌𝖾𝗋𝗇𝖺𝗆𝖾 𝗍𝖺𝗀𝖺𝗅𝗅 𝗉𝗋𝗈𝗉𝖾𝗋𝗅𝗒!\n\n"
+                    "𝖮𝗉𝗍𝗂𝗈𝗇 1: 𝖱𝖾𝗉𝗅𝗒 𝗍𝗈 𝖺 𝗆𝖾𝗌𝗌𝖺𝗀𝖾 𝗐𝗂𝗍𝗁 /utagall\n"
+                    "𝖮𝗉𝗍𝗂𝗈𝗇 2: 𝖴𝗌𝖾 /utagall <𝗒𝗈𝗎𝗋 𝗆𝖾𝗌𝗌𝖺𝗀𝖾>\n\n"
+                    "𝖤𝗑𝖺𝗆𝗉𝗅𝖾: /utagall 𝖧𝖾𝗅𝗅𝗈 𝖾𝗏𝖾𝗋𝗒𝗈𝗇𝖾!"
+                )
+                return
+            
+            if not is_reply:
+                command_parts = message.text.split(maxsplit=1)
+                user_message = command_parts[1]
+                estimated_mentions = BATCH_SIZE * 50
+                total_length = len(user_message) + estimated_mentions
+                
+                if total_length > 4000:
+                    await message.reply_text(
+                        f"𝖬𝖾𝗌𝗌𝖺𝗀𝖾 𝗍𝗈𝗈 𝗅𝗈𝗇𝗀!\n\n"
+                        f"𝖸𝗈𝗎𝗋 𝗆𝖾𝗌𝗌𝖺𝗀𝖾: {len(user_message)} 𝖼𝗁𝖺𝗋𝖺𝖼𝗍𝖾𝗋𝗌\n"
+                        f"𝖬𝖺𝗑𝗂𝗆𝗎𝗆 𝖺𝗅𝗅𝗈𝗐𝖾𝖽: {MAX_MESSAGE_LENGTH} 𝖼𝗁𝖺𝗋𝖺𝖼𝗍𝖾𝗋𝗌\n\n"
+                        f"𝖯𝗅𝖾𝖺𝗌𝖾 𝗌𝗁𝗈𝗋𝗍𝖾𝗇 𝗒𝗈𝗎𝗋 𝗆𝖾𝗌𝗌𝖺𝗀𝖾."
+                    )
+                    return
+            
+            progress_msg = await message.reply_text("🔄 𝖥𝖾𝗍𝖼𝗁𝗂𝗇𝗀 𝗆𝖾𝗆𝖻𝖾𝗋𝗌...")
+            members = await get_all_members(client, chat_id)
+            
+            if not members:
+                await progress_msg.edit_text("❌ 𝖭𝗈 𝗆𝖾𝗆𝖻𝖾𝗋𝗌 𝖿𝗈𝗎𝗇𝖽!")
+                return
+            
+            active_tagall[chat_id] = True
+            
+            if is_reply:
+                original_message = message.reply_to_message
+                await progress_msg.delete()
+                
+                for i in range(0, len(members), BATCH_SIZE):
+                    if chat_id not in active_tagall or not active_tagall[chat_id]:
+                        return
+                    
+                    batch = members[i:i + BATCH_SIZE]
+                    mentions = ", ".join([
+                        f"[{user.first_name}](tg://user?id={user.id})"
+                        for user in batch
+                    ])
+                    
+                    await send_mention_batch(original_message, mentions)
+                    
+                    if i + BATCH_SIZE < len(members):
+                        await asyncio.sleep(DELAY_BETWEEN_BATCHES)
+            else:
+                command_text = message.text.split(maxsplit=1)
+                header = command_text[1]
+                await progress_msg.delete()
+                
+                for i in range(0, len(members), BATCH_SIZE):
+                    if chat_id not in active_tagall or not active_tagall[chat_id]:
+                        return
+                    
+                    batch = members[i:i + BATCH_SIZE]
+                    mentions = ", ".join([
+                        f"[{user.first_name}](tg://user?id={user.id})"
+                        for user in batch
+                    ])
+                    text = f"{header}\n\n{mentions}"
+                    
+                    await send_mention_batch(message, text)
+                    
+                    if i + BATCH_SIZE < len(members):
+                        await asyncio.sleep(DELAY_BETWEEN_BATCHES)
+            
+            active_tagall[chat_id] = False
+            
+        except Exception as e:
+            log_error("username_tagall_command", e, chat_id=chat_id or 0, user_id=user_id or 0)
             active_tagall[chat_id] = False
     
 

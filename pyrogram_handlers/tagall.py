@@ -32,10 +32,12 @@ EMOJI_POOL = [
     "🐂", "🐄", "🐎", "🐖", "🐏", "🐑", "🦙", "🐐", "🦌", "🐕",
 ]
 
+# ✅ KEPT: Active tagall for spam prevention and stop functionality
 active_tagall = {}
 
 
 async def get_all_members(client: Client, chat_id: int) -> list:
+    """Get all non-bot members from the chat"""
     members = []
     try:
         async for member in client.get_chat_members(chat_id):
@@ -47,6 +49,7 @@ async def get_all_members(client: Client, chat_id: int) -> list:
 
 
 async def send_mention_batch(message_target, mentions: str, retry_count: int = 0):
+    """Send mention batch with retry logic for FloodWait"""
     try:
         await message_target.reply_text(mentions, disable_web_page_preview=True)
         return True
@@ -62,7 +65,9 @@ async def send_mention_batch(message_target, mentions: str, retry_count: int = 0
 
 async def setup_tagall_handlers(client: Client):
     
-    # EMOJI TAGALL - NOW WITH /tagall and /all commands
+    # ========================================================================
+    # EMOJI TAGALL - /tagall and /all commands
+    # ========================================================================
     @client.on_message(filters.command(["tagall", "all"]) & filters.group)
     async def emoji_tagall_command(client: Client, message: Message):
         chat_id = None
@@ -71,6 +76,7 @@ async def setup_tagall_handlers(client: Client):
             chat_id = message.chat.id
             user_id = message.from_user.id if message.from_user else None
             
+            # Admin check
             try:
                 is_admin = await is_user_admin(client, chat_id, user_id)
                 if not is_admin:
@@ -86,6 +92,7 @@ async def setup_tagall_handlers(client: Client):
                 await message.reply_text("𝖮𝗇𝗅𝗒 𝖺𝖽𝗆𝗂𝗇𝗌 𝖼𝖺𝗇 𝗎𝗌𝖾 𝗍𝗁𝗂𝗌 𝖼𝗈𝗆𝗆𝖺𝗇𝖽.")
                 return
             
+            # Check if tagall already running
             if chat_id in active_tagall and active_tagall[chat_id]:
                 await message.reply_text(
                     "𝖳𝖺𝗀𝖺𝗅𝗅 𝖺𝗅𝗋𝖾𝖺𝖽𝗒 𝗋𝗎𝗇𝗇𝗂𝗇𝗀!\n\n"
@@ -120,11 +127,11 @@ async def setup_tagall_handlers(client: Client):
                     )
                     return
             
-            progress_msg = await message.reply_text("🔄 𝖥𝖾𝗍𝖼𝗁𝗂𝗇𝗀 𝗆𝖾𝗆𝖻𝖾𝗋𝗌...")
+            progress_msg = await message.reply_text("𝖥𝖾𝗍𝖼𝗁𝗂𝗇𝗀 𝗆𝖾𝗆𝖻𝖾𝗋𝗌...")
             members = await get_all_members(client, chat_id)
             
             if not members:
-                await progress_msg.edit_text("❌ 𝖭𝗈 𝗆𝖾𝗆𝖻𝖾𝗋𝗌 𝖿𝗈𝗎𝗇𝖽!")
+                await progress_msg.edit_text("𝖭𝗈 𝗆𝖾𝗆𝖻𝖾𝗋𝗌 𝖿𝗈𝗎𝗇𝖽!")
                 return
             
             active_tagall[chat_id] = True
@@ -170,14 +177,20 @@ async def setup_tagall_handlers(client: Client):
                     if i + BATCH_SIZE < len(members):
                         await asyncio.sleep(DELAY_BETWEEN_BATCHES)
             
+            # ✅ NEW: Send "Tagall Ended" message
+            await message.reply_text("𝖳𝖺𝗀𝖺𝗅𝗅 𝖤𝗇𝖽𝖾𝖽")
+            
             active_tagall[chat_id] = False
             
         except Exception as e:
             log_error("emoji_tagall_command", e, chat_id=chat_id or 0, user_id=user_id or 0)
-            active_tagall[chat_id] = False
+            if chat_id:
+                active_tagall[chat_id] = False
     
 
-    # USERNAME TAGALL - NOW WITH /uall, /utagall, /utag commands
+    # ========================================================================
+    # USERNAME TAGALL - /uall, /utagall, /utag commands
+    # ========================================================================
     @client.on_message(filters.command(["uall", "utagall", "utag"]) & filters.group)
     async def username_tagall_command(client: Client, message: Message):
         chat_id = None
@@ -186,6 +199,7 @@ async def setup_tagall_handlers(client: Client):
             chat_id = message.chat.id
             user_id = message.from_user.id if message.from_user else None
             
+            # Admin check
             try:
                 is_admin = await is_user_admin(client, chat_id, user_id)
                 if not is_admin:
@@ -201,6 +215,7 @@ async def setup_tagall_handlers(client: Client):
                 await message.reply_text("𝖮𝗇𝗅𝗒 𝖺𝖽𝗆𝗂𝗇𝗌 𝖼𝖺𝗇 𝗎𝗌𝖾 𝗍𝗁𝗂𝗌 𝖼𝗈𝗆𝗆𝖺𝗇𝖽.")
                 return
             
+            # Check if tagall already running
             if chat_id in active_tagall and active_tagall[chat_id]:
                 await message.reply_text(
                     "𝖳𝖺𝗀𝖺𝗅𝗅 𝖺𝗅𝗋𝖾𝖺𝖽𝗒 𝗋𝗎𝗇𝗇𝗂𝗇𝗀!\n\n"
@@ -235,11 +250,11 @@ async def setup_tagall_handlers(client: Client):
                     )
                     return
             
-            progress_msg = await message.reply_text("🔄 𝖥𝖾𝗍𝖼𝗁𝗂𝗇𝗀 𝗆𝖾𝗆𝖻𝖾𝗋𝗌...")
+            progress_msg = await message.reply_text("𝖥𝖾𝗍𝖼𝗁𝗂𝗇𝗀 𝗆𝖾𝗆𝖻𝖾𝗋𝗌...")
             members = await get_all_members(client, chat_id)
             
             if not members:
-                await progress_msg.edit_text("❌ 𝖭𝗈 𝗆𝖾𝗆𝖻𝖾𝗋𝗌 𝖿𝗈𝗎𝗇𝖽!")
+                await progress_msg.edit_text("𝖭𝗈 𝗆𝖾𝗆𝖻𝖾𝗋𝗌 𝖿𝗈𝗎𝗇𝖽!")
                 return
             
             active_tagall[chat_id] = True
@@ -283,13 +298,99 @@ async def setup_tagall_handlers(client: Client):
                     if i + BATCH_SIZE < len(members):
                         await asyncio.sleep(DELAY_BETWEEN_BATCHES)
             
+            # ✅ NEW: Send "Tagall Ended" message
+            await message.reply_text("𝖳𝖺𝗀𝖺𝗅𝗅 𝖤𝗇𝖽𝖾𝖽")
+            
             active_tagall[chat_id] = False
             
         except Exception as e:
             log_error("username_tagall_command", e, chat_id=chat_id or 0, user_id=user_id or 0)
-            active_tagall[chat_id] = False
+            if chat_id:
+                active_tagall[chat_id] = False
     
 
+    # ========================================================================
+    # NEW: /call COMMAND - Simple emoji mention for all users
+    # ========================================================================
+    @client.on_message(filters.command("call") & filters.group)
+    async def call_command(client: Client, message: Message):
+        """
+        Simple /call command:
+        - Mentions ALL group members using emoji
+        - NO message/reply support - just /call
+        - Sends "Tagall Ended" at the end
+        """
+        chat_id = None
+        user_id = None
+        try:
+            chat_id = message.chat.id
+            user_id = message.from_user.id if message.from_user else None
+            
+            # Admin check
+            try:
+                is_admin = await is_user_admin(client, chat_id, user_id)
+                if not is_admin:
+                    await message.reply_text("𝖮𝗇𝗅𝗒 𝖺𝖽𝗆𝗂𝗇𝗌 𝖼𝖺𝗇 𝗎𝗌𝖾 𝗍𝗁𝗂𝗌 𝖼𝗈𝗆𝗆𝖺𝗇𝖽.")
+                    return
+            except ChatAdminRequired:
+                await message.reply_text(
+                    "<b>I need admin privileges to verify permissions.</b>\n\n"
+                    "Please promote me to admin first."
+                )
+                return
+            except Exception:
+                await message.reply_text("𝖮𝗇𝗅𝗒 𝖺𝖽𝗆𝗂𝗇𝗌 𝖼𝖺𝗇 𝗎𝗌𝖾 𝗍𝗁𝗂𝗌 𝖼𝗈𝗆𝗆𝖺𝗇𝖽.")
+                return
+            
+            # Check if tagall already running
+            if chat_id in active_tagall and active_tagall[chat_id]:
+                await message.reply_text(
+                    "𝖳𝖺𝗀𝖺𝗅𝗅 𝖺𝗅𝗋𝖾𝖺𝖽𝗒 𝗋𝗎𝗇𝗇𝗂𝗇𝗀!\n\n"
+                    "𝖴𝗌𝖾 /stop 𝗈𝗋 /cancel 𝗍𝗈 𝗌𝗍𝗈𝗉 𝗂𝗍."
+                )
+                return
+            
+            progress_msg = await message.reply_text("𝖥𝖾𝗍𝖼𝗁𝗂𝗇𝗀 𝗆𝖾𝗆𝖻𝖾𝗋𝗌...")
+            members = await get_all_members(client, chat_id)
+            
+            if not members:
+                await progress_msg.edit_text("𝖭𝗈 𝗆𝖾𝗆𝖻𝖾𝗋𝗌 𝖿𝗈𝗎𝗇𝖽!")
+                return
+            
+            await progress_msg.delete()
+            active_tagall[chat_id] = True
+            
+            # Send emoji mentions in batches
+            for i in range(0, len(members), BATCH_SIZE):
+                if chat_id not in active_tagall or not active_tagall[chat_id]:
+                    return
+                
+                batch = members[i:i + BATCH_SIZE]
+                random_emojis = random.sample(EMOJI_POOL, min(len(batch), len(EMOJI_POOL)))
+                mentions = " ".join([
+                    f"[{random_emojis[idx]}](tg://user?id={user.id})"
+                    for idx, user in enumerate(batch)
+                ])
+                
+                await send_mention_batch(message, mentions)
+                
+                if i + BATCH_SIZE < len(members):
+                    await asyncio.sleep(DELAY_BETWEEN_BATCHES)
+            
+            # ✅ Send "Tagall Ended" message
+            await message.reply_text("𝖳𝖺𝗀𝖺𝗅𝗅 𝖤𝗇𝖽𝖾𝖽")
+            
+            active_tagall[chat_id] = False
+            
+        except Exception as e:
+            log_error("call_command", e, chat_id=chat_id or 0, user_id=user_id or 0)
+            if chat_id:
+                active_tagall[chat_id] = False
+    
+
+    # ========================================================================
+    # STOP/CANCEL COMMAND
+    # ========================================================================
     @client.on_message(filters.command(["stop", "cancel"]) & filters.group)
     async def stop_tagall_command(client: Client, message: Message):
         chat_id = None
@@ -298,6 +399,7 @@ async def setup_tagall_handlers(client: Client):
             chat_id = message.chat.id
             user_id = message.from_user.id if message.from_user else None
             
+            # Admin check
             try:
                 is_admin = await is_user_admin(client, chat_id, user_id)
                 if not is_admin:

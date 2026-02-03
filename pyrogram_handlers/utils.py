@@ -143,8 +143,8 @@ def format_message_text(text: str, user, chat) -> str:
     first_name = user.first_name or "User"
     last_name = user.last_name or ""
     full_name = f"{first_name} {last_name}".strip()
-    username = f"@{user.username}" if user.username else user_mention
     user_mention = f'<a href="tg://user?id={user.id}">{first_name}</a>'
+    username = f"@{user.username}" if user.username else user_mention
     group_name = chat.title or "Group"
     
     now = datetime.now()

@@ -63,6 +63,21 @@ async def send_mention_batch(message_target, mentions: str, retry_count: int = 0
         return False
 
 
+async def send_fresh_message(client: Client, chat_id: int, text: str, retry_count: int = 0):
+    """Send fresh message (not a reply) with retry logic for FloodWait"""
+    try:
+        await client.send_message(chat_id, text, disable_web_page_preview=True)
+        return True
+    except FloodWait as e:
+        if retry_count >= MAX_RETRIES:
+            return False
+        await asyncio.sleep(e.value + 1)
+        return await send_fresh_message(client, chat_id, text, retry_count + 1)
+    except Exception as e:
+        logger.error(f"Failed to send fresh message: {e}")
+        return False
+
+
 async def setup_tagall_handlers(client: Client):
     
     # ========================================================================
@@ -136,6 +151,7 @@ async def setup_tagall_handlers(client: Client):
             
             active_tagall[chat_id] = True
             
+            # ✅ FIX: User ne kisi message ko reply kiya hai
             if is_reply:
                 original_message = message.reply_to_message
                 await progress_msg.delete()
@@ -151,10 +167,13 @@ async def setup_tagall_handlers(client: Client):
                         for idx, user in enumerate(batch)
                     ])
                     
+                    # ✅ Original message ke reply mein tag karo
                     await send_mention_batch(original_message, mentions)
                     
                     if i + BATCH_SIZE < len(members):
                         await asyncio.sleep(DELAY_BETWEEN_BATCHES)
+            
+            # ✅ FIX: User ne sirf /all msg likha (NO REPLY)
             else:
                 command_text = message.text.split(maxsplit=1)
                 header = command_text[1]
@@ -172,13 +191,14 @@ async def setup_tagall_handlers(client: Client):
                     ])
                     text = f"{header}\n\n{mentions}"
                     
-                    await send_mention_batch(message, text)
+                    # ✅ FIXED: Fresh message send karo (NO REPLY to user's command)
+                    await send_fresh_message(client, chat_id, text)
                     
                     if i + BATCH_SIZE < len(members):
                         await asyncio.sleep(DELAY_BETWEEN_BATCHES)
             
-            # ✅ NEW: Send "Tagall Ended" message
-            await message.reply_text("𝖳𝖺𝗀𝖺𝗅𝗅 𝖤𝗇𝖽𝖾𝖽")
+            # ✅ Send "Tagall Ended" as fresh message
+            await client.send_message(chat_id, "𝖳𝖺𝗀𝖺𝗅𝗅 𝖤𝗇𝖽𝖾𝖽")
             
             active_tagall[chat_id] = False
             
@@ -259,6 +279,7 @@ async def setup_tagall_handlers(client: Client):
             
             active_tagall[chat_id] = True
             
+            # ✅ FIX: User ne kisi message ko reply kiya hai
             if is_reply:
                 original_message = message.reply_to_message
                 await progress_msg.delete()
@@ -273,10 +294,13 @@ async def setup_tagall_handlers(client: Client):
                         for user in batch
                     ])
                     
+                    # ✅ Original message ke reply mein tag karo
                     await send_mention_batch(original_message, mentions)
                     
                     if i + BATCH_SIZE < len(members):
                         await asyncio.sleep(DELAY_BETWEEN_BATCHES)
+            
+            # ✅ FIX: User ne sirf /uall msg likha (NO REPLY)
             else:
                 command_text = message.text.split(maxsplit=1)
                 header = command_text[1]
@@ -293,13 +317,14 @@ async def setup_tagall_handlers(client: Client):
                     ])
                     text = f"{header}\n\n{mentions}"
                     
-                    await send_mention_batch(message, text)
+                    # ✅ FIXED: Fresh message send karo (NO REPLY to user's command)
+                    await send_fresh_message(client, chat_id, text)
                     
                     if i + BATCH_SIZE < len(members):
                         await asyncio.sleep(DELAY_BETWEEN_BATCHES)
             
-            # ✅ NEW: Send "Tagall Ended" message
-            await message.reply_text("𝖳𝖺𝗀𝖺𝗅𝗅 𝖤𝗇𝖽𝖾𝖽")
+            # ✅ Send "Tagall Ended" as fresh message
+            await client.send_message(chat_id, "𝖳𝖺𝗀𝖺𝗅𝗅 𝖤𝗇𝖽𝖾𝖽")
             
             active_tagall[chat_id] = False
             
@@ -310,7 +335,7 @@ async def setup_tagall_handlers(client: Client):
     
 
     # ========================================================================
-    # NEW: /call COMMAND - Simple emoji mention for all users
+    # /call COMMAND - Simple emoji mention for all users
     # ========================================================================
     @client.on_message(filters.command("call") & filters.group)
     async def call_command(client: Client, message: Message):
@@ -319,6 +344,7 @@ async def setup_tagall_handlers(client: Client):
         - Mentions ALL group members using emoji
         - NO message/reply support - just /call
         - Sends "Tagall Ended" at the end
+        - ✅ FIXED: Sends FRESH messages (NO REPLY chain)
         """
         chat_id = None
         user_id = None
@@ -360,7 +386,7 @@ async def setup_tagall_handlers(client: Client):
             await progress_msg.delete()
             active_tagall[chat_id] = True
             
-            # Send emoji mentions in batches
+            # ✅ FIXED: Send emoji mentions as FRESH messages (NO REPLY)
             for i in range(0, len(members), BATCH_SIZE):
                 if chat_id not in active_tagall or not active_tagall[chat_id]:
                     return
@@ -372,13 +398,14 @@ async def setup_tagall_handlers(client: Client):
                     for idx, user in enumerate(batch)
                 ])
                 
-                await send_mention_batch(message, mentions)
+                # ✅ FIXED: Fresh message bhejo (NO REPLY)
+                await send_fresh_message(client, chat_id, mentions)
                 
                 if i + BATCH_SIZE < len(members):
                     await asyncio.sleep(DELAY_BETWEEN_BATCHES)
             
-            # ✅ Send "Tagall Ended" message
-            await message.reply_text("𝖳𝖺𝗀𝖺𝗅𝗅 𝖤𝗇𝖽𝖾𝖽")
+            # ✅ Send "Tagall Ended" as fresh message
+            await client.send_message(chat_id, "𝖳𝖺𝗀𝖺𝗅𝗅 𝖤𝗇𝖽𝖾𝖽")
             
             active_tagall[chat_id] = False
             

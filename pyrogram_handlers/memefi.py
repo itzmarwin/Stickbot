@@ -20,29 +20,99 @@ BOTTOM_POSITION = 0.95
 
 SUPPORT_GROUP = "https://t.me/Samurais_Support"
 
+# ✅ FONT PATHS
+PRIMARY_FONT = "assets/default.ttf"  # English font (don't touch)
+FALLBACK_FONT = "assets/noto-sans.ttf"  # Unicode font (Burmese, Chinese, Russian, Hindi)
 
-def get_font(size: int):
-    font_path = "assets/default.ttf"
+
+def detect_unicode_script(text: str) -> bool:
+    """
+    Detect if text contains non-ASCII characters (Burmese, Chinese, Russian, Hindi, etc.)
+    Returns True if Unicode characters found, False if only ASCII/English
+    """
+    try:
+        text.encode('ascii')
+        return False  # Pure English text
+    except UnicodeEncodeError:
+        return True  # Contains Unicode characters
+
+
+def get_font(size: int, text: str = ""):
+    """
+    Smart font selection:
+    - English text → default.ttf (primary font)
+    - Unicode text (Burmese, Chinese, Russian, Hindi) → noto-sans.ttf (fallback)
+    """
     
-    if os.path.exists(font_path):
+    # ✅ Check if text needs Unicode support
+    needs_unicode = detect_unicode_script(text) if text else False
+    
+    if needs_unicode:
+        # Try Unicode fallback font first
+        if os.path.exists(FALLBACK_FONT):
+            try:
+                logger.info(f"Using Unicode font for: {text[:20]}...")
+                return ImageFont.truetype(FALLBACK_FONT, size)
+            except Exception as e:
+                logger.warning(f"Unicode font failed, trying primary font: {e}")
+        else:
+            logger.warning(f"Unicode font not found at {FALLBACK_FONT}, using primary font")
+    
+    # ✅ Use primary English font (default behavior)
+    if os.path.exists(PRIMARY_FONT):
         try:
-            return ImageFont.truetype(font_path, size)
+            logger.info(f"Using primary font for: {text[:20] if text else 'default'}...")
+            return ImageFont.truetype(PRIMARY_FONT, size)
         except Exception as e:
-            logger.error(f"Error loading font {font_path}: {e}")
-            raise FileNotFoundError(f"Font file exists but failed to load: {font_path}")
+            logger.error(f"Error loading primary font {PRIMARY_FONT}: {e}")
+            raise FileNotFoundError(f"Font file exists but failed to load: {PRIMARY_FONT}")
     else:
-        raise FileNotFoundError("Font not found! Make sure assets/default.ttf exists in your repo.")
+        raise FileNotFoundError(f"Primary font not found! Make sure {PRIMARY_FONT} exists in your repo.")
+
+
+def get_hybrid_font(text: str, size: int):
+    """
+    Advanced: Returns best font for mixed-language text
+    Tries Unicode font first if any Unicode chars detected
+    """
+    has_unicode = detect_unicode_script(text)
+    
+    # If has Unicode, try fallback font first
+    if has_unicode and os.path.exists(FALLBACK_FONT):
+        try:
+            return ImageFont.truetype(FALLBACK_FONT, size)
+        except Exception:
+            pass
+    
+    # Default to primary font
+    if os.path.exists(PRIMARY_FONT):
+        try:
+            return ImageFont.truetype(PRIMARY_FONT, size)
+        except Exception as e:
+            logger.error(f"Error loading font: {e}")
+            raise FileNotFoundError(f"Font loading failed: {PRIMARY_FONT}")
+    else:
+        raise FileNotFoundError(f"Font not found: {PRIMARY_FONT}")
 
 
 def wrap_text(text: str, font, max_width: int):
+    """
+    Text wrapping with Unicode support
+    Handles Burmese, Chinese, Russian, Hindi properly
+    """
     words = text.split()
     lines = []
     current_line = []
     
     for word in words:
         test_line = ' '.join(current_line + [word])
-        bbox = font.getbbox(test_line)
-        width = bbox[2] - bbox[0]
+        try:
+            bbox = font.getbbox(test_line)
+            width = bbox[2] - bbox[0]
+        except Exception as e:
+            logger.warning(f"getbbox failed for '{test_line}': {e}")
+            # Fallback: assume average width
+            width = len(test_line) * (max_width // 20)
         
         if width <= max_width:
             current_line.append(word)
@@ -58,17 +128,31 @@ def wrap_text(text: str, font, max_width: int):
 
 
 def draw_text_with_outline(draw, position, text, font, text_color, outline_color, outline_width):
+    """
+    Draw text with outline - works with all Unicode scripts
+    """
     x, y = position
     
+    # Draw outline
     for adj_x in range(-outline_width, outline_width + 1):
         for adj_y in range(-outline_width, outline_width + 1):
             if adj_x != 0 or adj_y != 0:
-                draw.text((x + adj_x, y + adj_y), text, font=font, fill=outline_color)
+                try:
+                    draw.text((x + adj_x, y + adj_y), text, font=font, fill=outline_color)
+                except Exception as e:
+                    logger.warning(f"Outline drawing failed: {e}")
     
-    draw.text(position, text, font=font, fill=text_color)
+    # Draw main text
+    try:
+        draw.text(position, text, font=font, fill=text_color)
+    except Exception as e:
+        logger.error(f"Text drawing failed for '{text}': {e}")
 
 
 def parse_mmf_command(text: str):
+    """
+    Parse /mmf command - supports all languages
+    """
     text = text.replace("/mmf", "").replace("/memefi", "").strip()
     
     if not text:
@@ -109,6 +193,10 @@ def parse_mmf_command(text: str):
 
 async def add_text_to_static_sticker(sticker_path: str, top_text: str = None, 
                                      center_text: str = None, bottom_text: str = None):
+    """
+    Add text to sticker with multi-language support
+    Supports: English, Burmese (Myanmar), Chinese, Russian, Hindi, and more
+    """
     try:
         img = Image.open(sticker_path).convert("RGBA")
         width, height = img.size
@@ -118,16 +206,21 @@ async def add_text_to_static_sticker(sticker_path: str, top_text: str = None,
         
         max_text_width = int(width * 0.85)
         
+        # ✅ TOP TEXT - Smart font selection
         if top_text:
-            font = get_font(FONT_SIZE_TOP)
+            font = get_hybrid_font(top_text, FONT_SIZE_TOP)
             lines = wrap_text(top_text, font, max_text_width)
             
             line_height = FONT_SIZE_TOP + 15
             y = int(height * TOP_POSITION)
             
             for line in lines:
-                bbox = font.getbbox(line)
-                text_width = bbox[2] - bbox[0]
+                try:
+                    bbox = font.getbbox(line)
+                    text_width = bbox[2] - bbox[0]
+                except Exception:
+                    text_width = len(line) * (FONT_SIZE_TOP // 2)
+                
                 x = (width - text_width) // 2
                 
                 draw_text_with_outline(
@@ -136,8 +229,9 @@ async def add_text_to_static_sticker(sticker_path: str, top_text: str = None,
                 )
                 y += line_height
         
+        # ✅ CENTER TEXT - Smart font selection
         if center_text:
-            font = get_font(FONT_SIZE_CENTER)
+            font = get_hybrid_font(center_text, FONT_SIZE_CENTER)
             lines = wrap_text(center_text, font, max_text_width)
             
             line_height = FONT_SIZE_CENTER + 15
@@ -145,8 +239,12 @@ async def add_text_to_static_sticker(sticker_path: str, top_text: str = None,
             y = int(height * CENTER_POSITION) - (total_height // 2)
             
             for line in lines:
-                bbox = font.getbbox(line)
-                text_width = bbox[2] - bbox[0]
+                try:
+                    bbox = font.getbbox(line)
+                    text_width = bbox[2] - bbox[0]
+                except Exception:
+                    text_width = len(line) * (FONT_SIZE_CENTER // 2)
+                
                 x = (width - text_width) // 2
                 
                 draw_text_with_outline(
@@ -155,8 +253,9 @@ async def add_text_to_static_sticker(sticker_path: str, top_text: str = None,
                 )
                 y += line_height
         
+        # ✅ BOTTOM TEXT - Smart font selection
         if bottom_text:
-            font = get_font(FONT_SIZE_BOTTOM)
+            font = get_hybrid_font(bottom_text, FONT_SIZE_BOTTOM)
             lines = wrap_text(bottom_text, font, max_text_width)
             
             line_height = FONT_SIZE_BOTTOM + 15
@@ -164,8 +263,12 @@ async def add_text_to_static_sticker(sticker_path: str, top_text: str = None,
             y = int(height * BOTTOM_POSITION) - total_height
             
             for line in lines:
-                bbox = font.getbbox(line)
-                text_width = bbox[2] - bbox[0]
+                try:
+                    bbox = font.getbbox(line)
+                    text_width = bbox[2] - bbox[0]
+                except Exception:
+                    text_width = len(line) * (FONT_SIZE_BOTTOM // 2)
+                
                 x = (width - text_width) // 2
                 
                 draw_text_with_outline(
@@ -210,6 +313,7 @@ async def setup_memefi_handlers(client: Client):
                     "• /mmf -c Text (center only)\n"
                     "• /mmf Text ; -c Center (top and center)\n"
                     "• /mmf -c Center ; Bottom (center and bottom)\n\n"
+                    "✅ Supports: English, Burmese, Chinese, Russian, Hindi, and more!"
                 )
                 return
             
@@ -228,7 +332,8 @@ async def setup_memefi_handlers(client: Client):
                 await message.reply_text(
                     "Please provide some text.\n\n"
                     "Usage: /mmf Your Text Here\n"
-                    "Or: /mmf Top ; Bottom"
+                    "Or: /mmf Top ; Bottom\n\n"
+                    "✅ Works with Burmese, Chinese, Russian, Hindi!"
                 )
                 return
             
@@ -271,6 +376,9 @@ async def setup_memefi_handlers(client: Client):
             try:
                 await message.reply_text(
                     f"Font file not found. Please contact the bot owner.\n\n"
+                    f"Make sure both fonts exist:\n"
+                    f"• assets/default.ttf (English)\n"
+                    f"• assets/noto-sans.ttf (Unicode)\n\n"
                     f"Support: {SUPPORT_GROUP}"
                 )
             except:
@@ -286,4 +394,4 @@ async def setup_memefi_handlers(client: Client):
             except:
                 pass
     
-    logger.info("MemeFi handlers setup complete")
+    logger.info("MemeFi handlers setup complete - Multi-language support enabled!")

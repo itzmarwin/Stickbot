@@ -312,8 +312,7 @@ async def setup_memefi_handlers(client: Client):
                     "• /mmf Text1 ; Text2 (top and bottom)\n"
                     "• /mmf -c Text (center only)\n"
                     "• /mmf Text ; -c Center (top and center)\n"
-                    "• /mmf -c Center ; Bottom (center and bottom)\n\n"
-                    "✅ Supports: English, Burmese, Chinese, Russian, Hindi, and more!"
+                    "• /mmf -c Center ; Bottom (center and bottom)"
                 )
                 return
             

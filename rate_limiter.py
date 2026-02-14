@@ -4,12 +4,12 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class RateLimiter:
     def __init__(self):
         self.user_requests: Dict[int, float] = {}
 
     def is_limited(self, user_id: int, limit_seconds: int = 3) -> bool:
-        """Check if user is rate limited"""
         current_time = time.time()
         last_request = self.user_requests.get(user_id, 0)
 
@@ -19,8 +19,46 @@ class RateLimiter:
         self.user_requests[user_id] = current_time
         return False
 
-# Global instance
+
+class StickerQueue:
+    def __init__(self):
+        self.processing: Dict[int, float] = {}
+        self.timeout = 30
+
+    def is_processing(self, user_id: int) -> bool:
+        if user_id not in self.processing:
+            return False
+        
+        elapsed = time.time() - self.processing[user_id]
+        if elapsed > self.timeout:
+            del self.processing[user_id]
+            return False
+        
+        return True
+
+    def start_processing(self, user_id: int):
+        self.processing[user_id] = time.time()
+
+    def stop_processing(self, user_id: int):
+        if user_id in self.processing:
+            del self.processing[user_id]
+
+
 rate_limiter = RateLimiter()
+sticker_queue = StickerQueue()
+
 
 async def is_rate_limited(user_id: int) -> bool:
     return rate_limiter.is_limited(user_id)
+
+
+async def is_sticker_processing(user_id: int) -> bool:
+    return sticker_queue.is_processing(user_id)
+
+
+def start_sticker_processing(user_id: int):
+    sticker_queue.start_processing(user_id)
+
+
+def stop_sticker_processing(user_id: int):
+    sticker_queue.stop_processing(user_id)

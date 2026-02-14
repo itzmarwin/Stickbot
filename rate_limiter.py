@@ -44,8 +44,47 @@ class StickerQueue:
             del self.processing[user_id]
 
 
+class CopyPackQueue:
+    def __init__(self):
+        self.processing: Dict[int, float] = {}
+        self.timeout = 300
+        self.last_copy: Dict[int, float] = {}
+        self.cooldown = 30
+
+    def is_processing(self, user_id: int) -> bool:
+        if user_id not in self.processing:
+            return False
+        
+        elapsed = time.time() - self.processing[user_id]
+        if elapsed > self.timeout:
+            del self.processing[user_id]
+            return False
+        
+        return True
+
+    def can_copy(self, user_id: int) -> tuple[bool, int]:
+        if user_id not in self.last_copy:
+            return True, 0
+        
+        elapsed = time.time() - self.last_copy[user_id]
+        if elapsed < self.cooldown:
+            remaining = int(self.cooldown - elapsed)
+            return False, remaining
+        
+        return True, 0
+
+    def start_processing(self, user_id: int):
+        self.processing[user_id] = time.time()
+        self.last_copy[user_id] = time.time()
+
+    def stop_processing(self, user_id: int):
+        if user_id in self.processing:
+            del self.processing[user_id]
+
+
 rate_limiter = RateLimiter()
 sticker_queue = StickerQueue()
+copypack_queue = CopyPackQueue()
 
 
 async def is_rate_limited(user_id: int) -> bool:
@@ -62,3 +101,19 @@ def start_sticker_processing(user_id: int):
 
 def stop_sticker_processing(user_id: int):
     sticker_queue.stop_processing(user_id)
+
+
+async def is_copypack_processing(user_id: int) -> bool:
+    return copypack_queue.is_processing(user_id)
+
+
+async def can_copy_pack(user_id: int) -> tuple[bool, int]:
+    return copypack_queue.can_copy(user_id)
+
+
+def start_copypack_processing(user_id: int):
+    copypack_queue.start_processing(user_id)
+
+
+def stop_copypack_processing(user_id: int):
+    copypack_queue.stop_processing(user_id)

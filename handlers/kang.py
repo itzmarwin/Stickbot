@@ -6,7 +6,7 @@ from aiogram import Router, F, Bot
 from aiogram.filters import Command
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, InputSticker, BufferedInputFile
 from aiogram.fsm.context import FSMContext
-from datetime import datetime
+from aiogram.exceptions import TelegramBadRequest
 
 from database import (
     get_user, get_user_active_pack, create_sticker_pack, 
@@ -37,22 +37,14 @@ from rate_limiter import is_rate_limited
 logger = logging.getLogger(__name__)
 router = Router()
 
-# Predefined list of emojis for random selection
 EMOJI_LIST = ["😀", "😂", "🥰", "😎", "🤯", "😱", "😜", "🤖", "🐱", "🌸", "🍕", "🎉", "❤️", "✨", "⭐"]
 
 def get_random_emoji():
-    """Get random emoji from predefined list"""
     return random.choice(EMOJI_LIST)
 
 
 @router.message(Command("kang"))
 async def cmd_kang(message: Message, state: FSMContext, bot: Bot):
-    """
-    ✅ Handle /kang command with multiple packs support
-    
-    Race condition prevention with guaranteed cleanup
-    """
-    # Rate limiting check
     if await is_rate_limited(message.from_user.id):
         await message.reply("⏳ Please wait a few seconds before making another request.")
         return
@@ -61,7 +53,6 @@ async def cmd_kang(message: Message, state: FSMContext, bot: Bot):
     processing_msg = None
     
     try:
-        # Check if user has started the bot
         user = await get_user(user_id)
         if not user or not user.get("has_started", False):
             keyboard = InlineKeyboardMarkup(inline_keyboard=[[
@@ -73,14 +64,12 @@ async def cmd_kang(message: Message, state: FSMContext, bot: Bot):
             await message.reply(NEED_TO_START, reply_markup=keyboard)
             return
         
-        # Check if replying to a message with media
         if not message.reply_to_message:
             await message.reply(NO_MEDIA_REPLY)
             return
         
         replied_msg = message.reply_to_message
         
-        # Get media from replied message
         media = None
         media_type = None
         
@@ -101,27 +90,22 @@ async def cmd_kang(message: Message, state: FSMContext, bot: Bot):
             await message.reply(NO_MEDIA_REPLY)
             return
         
-        # Check video size
         if media_type == "video":
             file_size_mb = get_file_size_mb(media.file_size)
             if file_size_mb > MAX_VIDEO_SIZE_MB:
                 await message.reply(VIDEO_TOO_LARGE)
                 return
         
-        # ✅ FIX 1: Get fresh pack data to prevent race condition
         active_pack = await get_user_active_pack(user_id)
         
         if not active_pack:
-            # Ask for first pack name
             await state.set_state(KangStates.waiting_for_pack_name)
             await state.update_data(media=media.file_id, media_type=media_type)
             await message.reply(ASK_PACK_NAME)
             return
         
-        # Add sticker to existing pack
         processing_msg = await message.reply(PROCESSING_MEDIA)
         
-        # ✅ FIX 2: Pass processing_msg to add_sticker_to_pack for cleanup
         success, pack_full = await add_sticker_to_pack(
             bot=bot,
             user_id=user_id,
@@ -134,13 +118,15 @@ async def cmd_kang(message: Message, state: FSMContext, bot: Bot):
         )
         
         if success:
-            await increment_sticker_count(user_id)
+            try:
+                telegram_pack = await bot.get_sticker_set(active_pack["short_name"])
+                real_count = len(telegram_pack.stickers)
+                await update_pack_sticker_count(active_pack["short_name"], real_count)
+            except:
+                await increment_sticker_count(user_id)
+                updated_pack = await get_user_active_pack(user_id)
+                real_count = updated_pack.get("sticker_count", 0) if updated_pack else 0
             
-            # ✅ FIXED: Get updated pack data to show current count
-            updated_pack = await get_user_active_pack(user_id)
-            current_count = updated_pack.get("sticker_count", 0) if updated_pack else 0
-            
-            # Create button for pack link
             keyboard = InlineKeyboardMarkup(inline_keyboard=[[
                 InlineKeyboardButton(
                     text="View Pack",
@@ -148,19 +134,16 @@ async def cmd_kang(message: Message, state: FSMContext, bot: Bot):
                 )
             ]])
             
-            # ✅ FIXED: Show sticker count in message
             await processing_msg.edit_text(
-                STICKER_ADDED_SIMPLE.format(sticker_count=current_count), 
+                STICKER_ADDED_SIMPLE.format(sticker_count=real_count), 
                 reply_markup=keyboard
             )
             
         elif pack_full:
-            # Pack is full, ask for new pack name
             await processing_msg.delete()
             await state.set_state(KangStates.waiting_for_pack_name)
             await state.update_data(media=media.file_id, media_type=media_type)
             
-            # Get all user packs to show count
             all_packs = await get_user_all_packs(user_id)
             pack_count = len(all_packs)
             
@@ -170,49 +153,39 @@ async def cmd_kang(message: Message, state: FSMContext, bot: Bot):
             await processing_msg.edit_text(ERROR_OCCURRED)
             
     except Exception as e:
-        logger.error(f"Error in kang command: {e}", exc_info=True)
+        logger.error(f"Error in kang command: {e}")
         await state.clear()
         
         if processing_msg:
             try:
                 await processing_msg.edit_text(ERROR_OCCURRED)
-            except Exception:
+            except:
                 await message.reply(ERROR_OCCURRED)
         else:
             await message.reply(ERROR_OCCURRED)
 
 
-# ✅ FIX: Auto-clear state on text message + show warning ONCE
 @router.message(KangStates.waiting_for_pack_name)
 async def process_pack_name(message: Message, state: FSMContext, bot: Bot):
-    """
-    ✅ Process pack name input with guaranteed cleanup
-    """
-    # ✅ FIX: If user sends non-text message, show warning ONCE and clear state
     if not message.text:
         await message.reply(STATE_CANCELLED_MESSAGE)
-        await state.clear()  # ✅ Clear state immediately
+        await state.clear()
         return
     
     pack_name = message.text.strip()
     processing_msg = None
     temp_files = []
     
-    # ✅ FIX 3: Use try-finally for guaranteed cleanup
     try:
-        # Validate pack name
         is_valid, error = validate_pack_name(pack_name)
         
         if not is_valid:
             if error == "pack_name_too_long":
-                await message.reply(
-                    PACK_NAME_INVALID.format(length=len(pack_name))
-                )
+                await message.reply(PACK_NAME_INVALID.format(length=len(pack_name)))
             else:
                 await message.reply(ERROR_OCCURRED)
             return
         
-        # Get stored media info
         data = await state.get_data()
         media_file_id = data.get("media")
         media_type = data.get("media_type")
@@ -223,24 +196,15 @@ async def process_pack_name(message: Message, state: FSMContext, bot: Bot):
             return
         
         user_id = message.from_user.id
-        
-        # Format pack name
         formatted_pack_name = format_pack_name(pack_name)
-        
-        # ✅ FIX 4: Generate short name with guaranteed uniqueness (from helpers.py fix)
         short_name = generate_short_name(pack_name, user_id)
         
-        # Create pack
         processing_msg = await message.reply(PROCESSING_MEDIA)
         
-        # Get file
         file = await bot.get_file(media_file_id)
-        
-        # ✅ FIX 5: Add timestamp to temp files
         timestamp = int(time.time() * 1000)
         temp_dir = create_temp_dir()
         
-        # Prepare sticker based on media type
         sticker_file = None
         
         if media_type == "sticker":
@@ -286,17 +250,14 @@ async def process_pack_name(message: Message, state: FSMContext, bot: Bot):
             await state.clear()
             return
         
-        # Get random emoji
         random_emoji = get_random_emoji()
         
-        # Create sticker pack
         sticker = InputSticker(
             sticker=sticker_file,
             emoji_list=[random_emoji],
             format=sticker_format
         )
         
-        # ✅ FIX 6: Retry logic for Telegram API race conditions
         max_retries = 3
         for attempt in range(max_retries):
             try:
@@ -306,25 +267,21 @@ async def process_pack_name(message: Message, state: FSMContext, bot: Bot):
                     title=formatted_pack_name,
                     stickers=[sticker]
                 )
-                break  # Success
+                break
                 
             except Exception as e:
                 error_msg = str(e)
                 
                 if "STICKERSET_INVALID" in error_msg and attempt < max_retries - 1:
-                    # Pack name collision, regenerate
-                    logger.warning(f"Pack name collision, regenerating (attempt {attempt + 1})")
                     short_name = generate_short_name(pack_name, user_id)
                     continue
                     
                 elif attempt == max_retries - 1:
-                    # Final attempt failed
                     raise
                     
                 else:
                     raise
         
-        # Save to database
         pack_link = f"https://t.me/addstickers/{short_name}"
         await create_sticker_pack(
             user_id=user_id,
@@ -332,11 +289,9 @@ async def process_pack_name(message: Message, state: FSMContext, bot: Bot):
             short_name=short_name
         )
         
-        # Get all user packs count
         all_packs = await get_user_all_packs(user_id)
         pack_count = len(all_packs)
         
-        # Create button for pack link
         keyboard = InlineKeyboardMarkup(inline_keyboard=[[
             InlineKeyboardButton(
                 text="View Pack",
@@ -353,37 +308,28 @@ async def process_pack_name(message: Message, state: FSMContext, bot: Bot):
         )
         await state.clear()
         
-        logger.info(f"Successfully created pack {short_name} for user {user_id}")
-        
     except Exception as e:
-        logger.error(f"Error processing pack name: {e}", exc_info=True)
+        logger.error(f"Error processing pack name: {e}")
         await state.clear()
         
         if processing_msg:
             try:
                 await processing_msg.edit_text(ERROR_OCCURRED)
-            except Exception:
+            except:
                 await message.reply(ERROR_OCCURRED)
         else:
             await message.reply(ERROR_OCCURRED)
     
-    # ✅ FIX 7: GUARANTEED cleanup in finally block
     finally:
         cleanup_temp_files(*temp_files)
-        logger.debug(f"Cleanup completed for user {user_id if 'user_id' in locals() else 'unknown'}")
 
 
 async def add_sticker_to_pack(bot: Bot, user_id: int, pack_short_name: str, 
                               pack_data: dict, media, media_type: str, 
                               message: Message, state: FSMContext):
-    """
-    ✅ Add sticker to existing pack with automatic recovery and guaranteed cleanup
-    """
     temp_files = []
     
-    # ✅ FIX 8: Use try-finally for guaranteed cleanup
     try:
-        # ✅ FIX 9: Add timestamp to temp files
         timestamp = int(time.time() * 1000)
         temp_dir = create_temp_dir()
         sticker_file = None
@@ -405,7 +351,6 @@ async def add_sticker_to_pack(bot: Bot, user_id: int, pack_short_name: str,
                     sticker_file = BufferedInputFile(f.read(), filename="sticker.webp")
                 sticker_format = "static"
             else:
-                logger.error(f"Failed to convert image for user {user_id}")
                 return False, False
         
         elif media_type in ["animation", "video"]:
@@ -423,17 +368,13 @@ async def add_sticker_to_pack(bot: Bot, user_id: int, pack_short_name: str,
                     sticker_file = BufferedInputFile(f.read(), filename="sticker.webm")
                 sticker_format = "video"
             else:
-                logger.error(f"Failed to convert video for user {user_id}")
                 return False, False
         
         if not sticker_file:
-            logger.error(f"No sticker file prepared for user {user_id}")
             return False, False
         
-        # Get random emoji
         random_emoji = get_random_emoji()
         
-        # Add to pack
         sticker = InputSticker(
             sticker=sticker_file,
             emoji_list=[random_emoji],
@@ -441,21 +382,34 @@ async def add_sticker_to_pack(bot: Bot, user_id: int, pack_short_name: str,
         )
         
         try:
+            count_before = 0
+            try:
+                pack_before = await bot.get_sticker_set(pack_short_name)
+                count_before = len(pack_before.stickers)
+            except:
+                pass
+            
             await bot.add_sticker_to_set(
                 user_id=user_id,
                 name=pack_short_name,
                 sticker=sticker
             )
             
-            logger.info(f"Successfully added sticker to pack {pack_short_name} for user {user_id}")
-            return True, False
+            try:
+                pack_after = await bot.get_sticker_set(pack_short_name)
+                count_after = len(pack_after.stickers)
+                
+                if count_after == count_before + 1:
+                    return True, False
+                else:
+                    return False, False
+            except:
+                return True, False
             
         except Exception as e:
             error_msg = str(e)
             
-            # Handle STICKERSET_INVALID (pack deleted or not found)
             if "STICKERSET_INVALID" in error_msg:
-                logger.warning(f"Pack {pack_short_name} not found, deleting from database")
                 await delete_user_pack(user_id)
                 
                 await state.update_data(
@@ -468,22 +422,16 @@ async def add_sticker_to_pack(bot: Bot, user_id: int, pack_short_name: str,
                 
                 return False, False
             
-            # Handle STICKERS_TOO_MUCH (pack is full - 120 stickers limit)
             elif "STICKERS_TOO_MUCH" in error_msg:
-                logger.info(f"Pack {pack_short_name} is full (120 stickers)")
-                # Mark pack as full in database
                 await update_pack_sticker_count(pack_short_name, 120)
                 return False, True
             
             else:
-                logger.error(f"Error adding sticker to pack {pack_short_name}: {e}", exc_info=True)
                 return False, False
         
     except Exception as e:
-        logger.error(f"Unexpected error in add_sticker_to_pack: {e}", exc_info=True)
+        logger.error(f"Unexpected error in add_sticker_to_pack: {e}")
         return False, False
         
-    # ✅ FIX 10: GUARANTEED cleanup in finally block
     finally:
         cleanup_temp_files(*temp_files)
-        logger.debug(f"add_sticker_to_pack cleanup completed for user {user_id}")

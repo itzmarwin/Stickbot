@@ -87,3 +87,6 @@ PUBLISH_REQUEST_REJECTED=❌ <b>Publish Request Rejected</b>\n\nYour pack <b>{pa
 PUBLISH_ALREADY_PUBLISHED=⚠️ <b>This pack is already published!</b>\n\nYou cannot publish the same pack twice.
 PUBLISH_NOT_CONFIGURED=❌ <b>Publish feature is not configured.</b>\n\nPlease contact the bot administrator.
 PUBLISH_CANCELLED=❌ <b>Publish cancelled.</b>
+STICKER_PROCESSING_WAIT=⏳ <b>Please wait!</b>\n\nYour previous sticker is still being added. Try again in a moment.
+
+PACK_DELETED_FROM_TELEGRAM=❌ <b>Pack Not Found</b>\n\nThis pack was deleted from Telegram and has been removed from your list.

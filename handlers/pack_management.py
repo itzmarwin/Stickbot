@@ -1,13 +1,3 @@
-"""
-Pack Management Handler - Sticker pack operations
-
-Handles:
-- Pack listing and pagination
-- Pack creation, renaming, deletion
-- Adding stickers to packs
-- Pack options and navigation
-"""
-
 import logging
 import os
 from aiogram import Router, F, Bot
@@ -15,6 +5,7 @@ from aiogram.types import Message, CallbackQuery, BufferedInputFile, InputSticke
 from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.exceptions import TelegramBadRequest
 
 from callback_manager import create_callback, parse_callback
 from database import (
@@ -29,8 +20,8 @@ from utils.converters import convert_image_to_webp, convert_video_to_webm, clean
 from utils.html_utils import escape_html
 from handlers.kang import add_sticker_to_pack, get_random_emoji
 from config import BOT_USERNAME, MAX_VIDEO_SIZE_MB
+from rate_limiter import is_sticker_processing, start_sticker_processing, stop_sticker_processing
 
-# Import shared utilities
 from handlers.keyboard_utils import (
     SharedCallbacks,
     get_back_to_main_keyboard,
@@ -41,14 +32,7 @@ logger = logging.getLogger(__name__)
 router = Router()
 
 
-# ============================================================================
-# CALLBACK DATA CONSTANTS
-# ============================================================================
-
 class PackManagementCallback:
-    """Pack management callback data constants"""
-    
-    # Pack operations
     CREATE_NEW_PACK = "create_new_pack"
     PACK_SELECTED = "ps:"
     PACK_OPTIONS = "po:"
@@ -63,12 +47,7 @@ class PackManagementCallback:
     BACK_TO_MANAGE = "back_to_manage"
 
 
-# ============================================================================
-# KEYBOARD BUILDERS
-# ============================================================================
-
 async def get_back_to_manage_keyboard(user_id: int):
-    """Back to manage packs keyboard"""
     language = await get_user_language(user_id)
     
     back_text = get_text_sync(language, "B_BACK")
@@ -84,7 +63,6 @@ async def get_back_to_manage_keyboard(user_id: int):
 
 
 async def get_no_packs_keyboard(user_id: int):
-    """Keyboard for when user has no packs"""
     language = await get_user_language(user_id)
     
     create_pack_text = get_text_sync(language, "B_CREATE_NEW_PACK")
@@ -109,7 +87,6 @@ async def get_no_packs_keyboard(user_id: int):
 
 
 async def get_pack_link_keyboard(user_id: int, pack_link: str):
-    """Keyboard with pack link"""
     language = await get_user_language(user_id)
     
     pack_link_text = get_text_sync(language, "B_PACK_LINK")
@@ -126,7 +103,6 @@ async def get_pack_link_keyboard(user_id: int, pack_link: str):
 
 
 async def get_manage_packs_keyboard(user_id: int, page: int = 0):
-    """Build keyboard with user's packs (paginated)"""
     language = await get_user_language(user_id)
     
     builder = InlineKeyboardBuilder()
@@ -178,12 +154,10 @@ async def get_manage_packs_keyboard(user_id: int, page: int = 0):
 
 
 async def get_pack_options_keyboard(user_id: int, short_name: str):
-    """Build keyboard with pack options"""
     language = await get_user_language(user_id)
     
     builder = InlineKeyboardBuilder()
     
-    # Rename Pack
     rename_text = get_text_sync(language, "B_RENAME_PACK")
     if rename_text is None:
         rename_text = "𝖱𝖾𝗇𝖺𝗆𝖾 𝖯𝖺𝖼𝗄"
@@ -196,7 +170,6 @@ async def get_pack_options_keyboard(user_id: int, short_name: str):
         callback_data=f"{PackManagementCallback.PACK_INFO}rename"
     )
     
-    # Add Sticker
     add_sticker_text = get_text_sync(language, "B_ADD_STICKER")
     if add_sticker_text is None:
         add_sticker_text = "𝖠𝖽𝖽 𝖲𝗍𝗂𝖼𝗄𝖾𝗋"
@@ -209,7 +182,6 @@ async def get_pack_options_keyboard(user_id: int, short_name: str):
         callback_data=f"{PackManagementCallback.PACK_INFO}add"
     )
     
-    # Launch Pack (Publish)
     launch_text = get_text_sync(language, "B_LAUNCH_PACK")
     if launch_text is None:
         launch_text = "𝖫𝖺𝗎𝗇𝖼𝗁 𝖯𝖺𝖼𝗄"
@@ -222,7 +194,6 @@ async def get_pack_options_keyboard(user_id: int, short_name: str):
         callback_data=f"{PackManagementCallback.PACK_INFO}publish"
     )
     
-    # Back button
     back_text = get_text_sync(language, "B_BACK")
     if back_text is None:
         back_text = "⬅️ 𝖡𝖺𝖼𝗄"
@@ -236,7 +207,6 @@ async def get_pack_options_keyboard(user_id: int, short_name: str):
 
 
 async def get_delete_confirmation_keyboard(user_id: int, short_name: str):
-    """Build keyboard for delete confirmation"""
     language = await get_user_language(user_id)
     
     confirm_text = get_text_sync(language, "B_CONFIRM")
@@ -269,13 +239,8 @@ async def get_delete_confirmation_keyboard(user_id: int, short_name: str):
     return builder.as_markup()
 
 
-# ============================================================================
-# MANAGE PACKS - MAIN HANDLER
-# ============================================================================
-
 @router.callback_query(F.data == SharedCallbacks.MANAGE_PACKS)
 async def manage_packs_callback(callback: CallbackQuery):
-    """Show user's sticker packs"""
     await callback.answer()
     
     try:
@@ -306,13 +271,8 @@ async def manage_packs_callback(callback: CallbackQuery):
         logger.error(f"Error in manage_packs_callback: {e}")
 
 
-# ============================================================================
-# PACK SELECTION AND OPTIONS
-# ============================================================================
-
 @router.callback_query(F.data.startswith(PackManagementCallback.PACK_SELECTED))
-async def pack_selected_callback(callback: CallbackQuery):
-    """Handle pack selection - show pack options"""
+async def pack_selected_callback(callback: CallbackQuery, bot: Bot):
     await callback.answer()
     
     try:
@@ -327,35 +287,55 @@ async def pack_selected_callback(callback: CallbackQuery):
             return
         
         pack = await get_pack_by_short_name(short_name)
+        if not pack:
+            await manage_packs_callback(callback)
+            return
         
-        if pack:
-            full_pack_name = pack["pack_name"]
-            pack_link = f"https://t.me/addstickers/{short_name}"
-            sticker_count = pack.get("sticker_count", 0)
+        try:
+            telegram_pack = await bot.get_sticker_set(short_name)
+            real_count = len(telegram_pack.stickers)
             
-            pack_options_msg = await get_text(
-                user_id, 
-                "PACK_OPTIONS_MESSAGE",
-                pack_link=pack_link,
-                pack_name=escape_html(full_pack_name),
-                sticker_count=sticker_count
-            )
+            if pack.get("sticker_count", 0) != real_count:
+                await update_pack_sticker_count(short_name, real_count)
+                pack = await get_pack_by_short_name(short_name)
             
-            if pack_options_msg is None:
-                pack_options_msg = f"🛠️ <b>𝖯𝖺𝖼𝗄 𝖮𝗉𝗍𝗂𝗈𝗇𝗌</b>\n\n<a href=\"{pack_link}\">{escape_html(full_pack_name)}</a>\n<b>𝖲𝗍𝗂𝖼𝗄𝖾𝗋𝗌:</b> {sticker_count}/120"
+        except TelegramBadRequest:
+            await delete_pack_by_short_name(short_name)
             
-            await safe_edit_message(
-                callback,
-                pack_options_msg,
-                await get_pack_options_keyboard(user_id, short_name)
-            )
+            ghost_msg = await get_text(user_id, "PACK_DELETED_FROM_TELEGRAM")
+            if ghost_msg is None:
+                ghost_msg = "❌ <b>Pack Not Found</b>\n\nThis pack was deleted from Telegram and has been removed from your list."
+            
+            await callback.answer(ghost_msg, show_alert=True)
+            await manage_packs_callback(callback)
+            return
+        
+        full_pack_name = pack["pack_name"]
+        pack_link = f"https://t.me/addstickers/{short_name}"
+        sticker_count = pack.get("sticker_count", 0)
+        
+        pack_options_msg = await get_text(
+            user_id, 
+            "PACK_OPTIONS_MESSAGE",
+            pack_link=pack_link,
+            pack_name=escape_html(full_pack_name),
+            sticker_count=sticker_count
+        )
+        
+        if pack_options_msg is None:
+            pack_options_msg = f"🛠️ <b>𝖯𝖺𝖼𝗄 𝖮𝗉𝗍𝗂𝗈𝗇𝗌</b>\n\n<a href=\"{pack_link}\">{escape_html(full_pack_name)}</a>\n<b>𝖲𝗍𝗂𝖼𝗄𝖾𝗋𝗌:</b> {sticker_count}/120"
+        
+        await safe_edit_message(
+            callback,
+            pack_options_msg,
+            await get_pack_options_keyboard(user_id, short_name)
+        )
     except Exception as e:
         logger.error(f"Error in pack_selected_callback: {e}")
 
 
 @router.callback_query(F.data.startswith(PackManagementCallback.PACK_INFO))
 async def pack_info_callback(callback: CallbackQuery):
-    """Show info popup for pack actions"""
     try:
         user_id = callback.from_user.id
         info_type = callback.data.split(":")[1]
@@ -385,13 +365,8 @@ async def pack_info_callback(callback: CallbackQuery):
         await callback.answer("Error showing info.", show_alert=True)
 
 
-# ============================================================================
-# PACK RENAME
-# ============================================================================
-
 @router.callback_query(F.data.startswith(PackManagementCallback.RENAME_PACK))
 async def rename_pack_callback(callback: CallbackQuery, state: FSMContext):
-    """Start pack rename process"""
     await callback.answer()
     
     try:
@@ -434,7 +409,6 @@ async def rename_pack_callback(callback: CallbackQuery, state: FSMContext):
 
 @router.message(PackManagementStates.waiting_for_rename_pack_name)
 async def process_rename_pack_name(message: Message, state: FSMContext, bot: Bot):
-    """Process new pack name"""
     data = await state.get_data()
     short_name = data.get("short_name")
     old_name = data.get("old_name")
@@ -474,8 +448,8 @@ async def process_rename_pack_name(message: Message, state: FSMContext, bot: Bot
         
         try:
             await message.delete()
-        except Exception as del_error:
-            logger.warning(f"Could not delete user message: {del_error}")
+        except:
+            pass
         
         escaped_old_name = escape_html(old_name.replace(f" ~ @{BOT_USERNAME}", ""))
         escaped_new_name = escape_html(formatted_name.replace(f" ~ @{BOT_USERNAME}", ""))
@@ -498,8 +472,7 @@ async def process_rename_pack_name(message: Message, state: FSMContext, bot: Bot
                     text=success_text,
                     reply_markup=await get_pack_options_keyboard(user_id, short_name)
                 )
-            except Exception as edit_error:
-                logger.error(f"Could not edit bot message: {edit_error}")
+            except:
                 await message.answer(
                     success_text,
                     reply_markup=await get_pack_options_keyboard(user_id, short_name)
@@ -520,13 +493,8 @@ async def process_rename_pack_name(message: Message, state: FSMContext, bot: Bot
     await state.clear()
 
 
-# ============================================================================
-# PACK DELETE (Handlers kept for future use, button removed)
-# ============================================================================
-
 @router.callback_query(F.data.startswith(PackManagementCallback.DELETE_PACK))
 async def delete_pack_callback(callback: CallbackQuery):
-    """Show delete confirmation (Handler kept but button removed from UI)"""
     await callback.answer()
     
     try:
@@ -569,7 +537,6 @@ async def delete_pack_callback(callback: CallbackQuery):
 
 @router.callback_query(F.data.startswith(PackManagementCallback.CONFIRM_DELETE))
 async def confirm_delete_callback(callback: CallbackQuery, bot: Bot):
-    """Confirm and execute pack deletion (Handler kept but button removed from UI)"""
     await callback.answer()
     
     try:
@@ -615,7 +582,6 @@ async def confirm_delete_callback(callback: CallbackQuery, bot: Bot):
 
 @router.callback_query(F.data.startswith(PackManagementCallback.CANCEL_DELETE))
 async def cancel_delete_callback(callback: CallbackQuery):
-    """Cancel pack deletion (Handler kept but button removed from UI)"""
     await callback.answer()
     
     try:
@@ -656,13 +622,8 @@ async def cancel_delete_callback(callback: CallbackQuery):
         logger.error(f"Error in cancel_delete_callback: {e}")
 
 
-# ============================================================================
-# ADD STICKER TO PACK
-# ============================================================================
-
 @router.callback_query(F.data.startswith(PackManagementCallback.ADD_STICKER))
 async def add_sticker_callback(callback: CallbackQuery, state: FSMContext):
-    """Start add sticker process"""
     await callback.answer()
     
     try:
@@ -710,7 +671,6 @@ async def add_sticker_callback(callback: CallbackQuery, state: FSMContext):
 
 @router.message(PackManagementStates.waiting_for_sticker_to_add)
 async def process_sticker_addition(message: Message, state: FSMContext, bot: Bot):
-    """Process sticker addition"""
     data = await state.get_data()
     short_name = data.get("short_name")
     pack_data = data.get("pack_data")
@@ -731,6 +691,13 @@ async def process_sticker_addition(message: Message, state: FSMContext, bot: Bot
             cancel_msg = "<b>Operation cancelled.</b>"
         await message.reply(cancel_msg)
         await state.clear()
+        return
+    
+    if await is_sticker_processing(user_id):
+        wait_msg = await get_text(user_id, "STICKER_PROCESSING_WAIT")
+        if wait_msg is None:
+            wait_msg = "⏳ <b>Please wait!</b>\n\nYour previous sticker is still being added. Try again in a moment."
+        await message.reply(wait_msg)
         return
     
     media = None
@@ -763,53 +730,59 @@ async def process_sticker_addition(message: Message, state: FSMContext, bot: Bot
         processing_msg_text = "⌛ Adding sticker to your pack..."
     processing_msg = await message.reply(processing_msg_text)
     
-    success, pack_full = await add_sticker_to_pack(
-        bot=bot,
-        user_id=user_id,
-        pack_short_name=short_name,
-        pack_data=pack_data,
-        media=media,
-        media_type=media_type,
-        message=message,
-        state=state
-    )
+    start_sticker_processing(user_id)
     
-    if success:
-        new_count = current_count + 1
-        await state.update_data(sticker_count=new_count)
-        await update_pack_sticker_count(short_name, new_count)
-        
-        pack_link = f"https://t.me/addstickers/{short_name}"
-        
-        success_msg = await get_text(user_id, "STICKER_ADDED_SUCCESS")
-        if success_msg is None:
-            success_msg = "✅ <b>Sticker added successfully!</b>"
-        
-        await processing_msg.edit_text(
-            success_msg,
-            reply_markup=await get_pack_link_keyboard(user_id, pack_link)
+    try:
+        success, pack_full = await add_sticker_to_pack(
+            bot=bot,
+            user_id=user_id,
+            pack_short_name=short_name,
+            pack_data=pack_data,
+            media=media,
+            media_type=media_type,
+            message=message,
+            state=state
         )
-    elif pack_full:
-        pack_full_msg = await get_text(user_id, "PACK_FULL_120_LIMIT")
-        if pack_full_msg is None:
-            pack_full_msg = "❌ <b>Pack is full!</b>\n\nThis pack has reached the maximum limit of 120 stickers."
         
-        await processing_msg.edit_text(pack_full_msg)
-        await state.clear()
-    else:
-        fail_msg = await get_text(user_id, "STICKER_ADD_FAILED")
-        if fail_msg is None:
-            fail_msg = "❌ Failed to add sticker. Please try again with a different file."
-        await processing_msg.edit_text(fail_msg)
+        if success:
+            try:
+                telegram_pack = await bot.get_sticker_set(short_name)
+                real_count = len(telegram_pack.stickers)
+                await update_pack_sticker_count(short_name, real_count)
+                await state.update_data(sticker_count=real_count)
+            except:
+                new_count = current_count + 1
+                await state.update_data(sticker_count=new_count)
+                await update_pack_sticker_count(short_name, new_count)
+            
+            pack_link = f"https://t.me/addstickers/{short_name}"
+            
+            success_msg = await get_text(user_id, "STICKER_ADDED_SUCCESS")
+            if success_msg is None:
+                success_msg = "✅ <b>Sticker added successfully!</b>"
+            
+            await processing_msg.edit_text(
+                success_msg,
+                reply_markup=await get_pack_link_keyboard(user_id, pack_link)
+            )
+        elif pack_full:
+            pack_full_msg = await get_text(user_id, "PACK_FULL_120_LIMIT")
+            if pack_full_msg is None:
+                pack_full_msg = "❌ <b>Pack is full!</b>\n\nThis pack has reached the maximum limit of 120 stickers."
+            
+            await processing_msg.edit_text(pack_full_msg)
+            await state.clear()
+        else:
+            fail_msg = await get_text(user_id, "STICKER_ADD_FAILED")
+            if fail_msg is None:
+                fail_msg = "❌ Failed to add sticker. Please try again with a different file."
+            await processing_msg.edit_text(fail_msg)
+    finally:
+        stop_sticker_processing(user_id)
 
-
-# ============================================================================
-# CREATE NEW PACK
-# ============================================================================
 
 @router.callback_query(F.data == PackManagementCallback.CREATE_NEW_PACK)
 async def create_new_pack_callback(callback: CallbackQuery, state: FSMContext):
-    """Start new pack creation"""
     await callback.answer()
     
     try:
@@ -831,7 +804,6 @@ async def create_new_pack_callback(callback: CallbackQuery, state: FSMContext):
 
 @router.message(PackManagementStates.waiting_for_first_sticker)
 async def process_first_sticker(message: Message, state: FSMContext):
-    """Process first sticker for new pack"""
     user_id = message.from_user.id
     
     if not message.photo and not message.sticker and not message.animation and not message.video:
@@ -882,7 +854,6 @@ async def process_first_sticker(message: Message, state: FSMContext):
 
 @router.message(PackManagementStates.waiting_for_new_pack_name)
 async def process_new_pack_name(message: Message, state: FSMContext, bot: Bot):
-    """Process new pack name and create pack"""
     user_id = message.from_user.id
     
     if not message.text:
@@ -1043,13 +1014,8 @@ async def process_new_pack_name(message: Message, state: FSMContext, bot: Bot):
     await state.clear()
 
 
-# ============================================================================
-# PAGINATION
-# ============================================================================
-
 @router.callback_query(F.data.startswith(PackManagementCallback.NEXT_PAGE))
 async def next_page_callback(callback: CallbackQuery):
-    """Navigate to next page"""
     await callback.answer()
     
     try:
@@ -1080,7 +1046,6 @@ async def next_page_callback(callback: CallbackQuery):
 
 @router.callback_query(F.data.startswith(PackManagementCallback.PREV_PAGE))
 async def prev_page_callback(callback: CallbackQuery):
-    """Navigate to previous page"""
     await callback.answer()
     
     try:
@@ -1109,13 +1074,8 @@ async def prev_page_callback(callback: CallbackQuery):
         logger.error(f"Error in prev_page_callback: {e}")
 
 
-# ============================================================================
-# NAVIGATION - BACK TO MANAGE
-# ============================================================================
-
 @router.callback_query(F.data == PackManagementCallback.BACK_TO_MANAGE)
 async def back_to_manage_callback(callback: CallbackQuery):
-    """Navigate back to manage packs"""
     await callback.answer()
     
     try:
@@ -1146,13 +1106,8 @@ async def back_to_manage_callback(callback: CallbackQuery):
         logger.error(f"Error in back_to_manage_callback: {e}")
 
 
-# ============================================================================
-# CANCEL HANDLER
-# ============================================================================
-
 @router.message(StateFilter(PackManagementStates), Command("cancel"))
 async def cancel_pack_management(message: Message, state: FSMContext):
-    """Cancel any pack management operation"""
     user_id = message.from_user.id
     await state.clear()
     

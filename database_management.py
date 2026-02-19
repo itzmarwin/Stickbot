@@ -16,12 +16,11 @@ DB_CONNECT_TIMEOUT_MS = 10000
 DB_SOCKET_TIMEOUT_MS = 30000
 DB_WAIT_QUEUE_TIMEOUT_MS = 10000
 
-CURRENT_SCHEMA_VERSION = 2
+CURRENT_SCHEMA_VERSION = 1
 SCHEMA_COLLECTION = "schema_version"
 
-# DEFAULT_WELCOME_TEXT aur DEFAULT_GOODBYE_TEXT yahan se remove kiye gaye hain
-# Ab ye welcome.py aur goodbye.py mein define hote hain premium emoji ke saath
-
+DEFAULT_WELCOME_TEXT = "Welcome {MENTION} Hope you have a great time here."
+DEFAULT_GOODBYE_TEXT = "Goodbye {MENTION} We hope to see you again."
 DEFAULT_AUTO_DELETE_SECONDS = 600
 
 management_client: Optional[AsyncIOMotorClient] = None
@@ -118,8 +117,6 @@ async def _check_and_migrate_schema():
     for version in range(current_version + 1, CURRENT_SCHEMA_VERSION + 1):
         if version == 1:
             await _migrate_to_v1()
-        elif version == 2:
-            await _migrate_to_v2()
         
         await _set_schema_version(version)
         logger.info(f"✅ Migrated to v{version}")
@@ -159,56 +156,6 @@ async def _migrate_to_v1():
         
     except Exception as e:
         logger.error(f"❌ Migration to v1 failed: {e}")
-        raise
-
-
-async def _migrate_to_v2():
-    """
-    v2 Migration:
-    - welcome.entities aur goodbye.entities field add karo (formatting + premium emoji support)
-    - welcome.default_text aur goodbye.default_text fields remove karo
-      (ab ye welcome.py / goodbye.py mein code mein define hain)
-    """
-    try:
-        cursor = management_db.welcome_settings.find({})
-        
-        migrated = 0
-        async for doc in cursor:
-            chat_id = doc["chat_id"]
-            update_fields = {}
-            unset_fields = {}
-
-            # entities field add karo agar nahi hai
-            if "entities" not in doc.get("welcome", {}):
-                update_fields["welcome.entities"] = []
-
-            if "entities" not in doc.get("goodbye", {}):
-                update_fields["goodbye.entities"] = []
-
-            # purana default_text field hatao — ab code mein hai
-            if "default_text" in doc.get("welcome", {}):
-                unset_fields["welcome.default_text"] = ""
-
-            if "default_text" in doc.get("goodbye", {}):
-                unset_fields["goodbye.default_text"] = ""
-
-            mongo_update = {}
-            if update_fields:
-                mongo_update["$set"] = update_fields
-            if unset_fields:
-                mongo_update["$unset"] = unset_fields
-
-            if mongo_update:
-                await management_db.welcome_settings.update_one(
-                    {"chat_id": chat_id},
-                    mongo_update
-                )
-                migrated += 1
-
-        logger.info(f"✅ Migrated {migrated} documents to v2 schema (entities support added)")
-
-    except Exception as e:
-        logger.error(f"❌ Migration to v2 failed: {e}")
         raise
 
 
@@ -253,9 +200,8 @@ async def create_default_welcome_settings(chat_id: int) -> bool:
                 "media_type": None,
                 "media_id": None,
                 "text": None,
-                "entities": [],           # formatting + premium emoji entities
                 "buttons": [],
-                # default_text yahan nahi hai — ab welcome.py mein define hoga
+                "default_text": DEFAULT_WELCOME_TEXT,
                 "auto_delete": {"enabled": False, "delete_after": None}
             },
             "goodbye": {
@@ -264,9 +210,8 @@ async def create_default_welcome_settings(chat_id: int) -> bool:
                 "media_type": None,
                 "media_id": None,
                 "text": None,
-                "entities": [],           # formatting + premium emoji entities
                 "buttons": [],
-                # default_text yahan nahi hai — ab goodbye.py mein define hoga
+                "default_text": DEFAULT_GOODBYE_TEXT,
                 "auto_delete": {"enabled": False, "delete_after": None}
             },
             "created_at": now,
@@ -323,14 +268,11 @@ async def set_custom_welcome(
     media_type: Optional[str],
     media_id: Optional[str],
     text: str,
-    buttons: Optional[List[Dict]] = None,
-    entities: Optional[List[Dict]] = None   # ← NEW: formatting + premium emoji
+    buttons: Optional[List[Dict]] = None
 ) -> bool:
     if buttons is None:
         buttons = []
-    if entities is None:
-        entities = []
-
+    
     try:
         await management_db.welcome_settings.update_one(
             {"chat_id": chat_id},
@@ -340,7 +282,6 @@ async def set_custom_welcome(
                     "welcome.media_type": media_type,
                     "welcome.media_id": media_id,
                     "welcome.text": text,
-                    "welcome.entities": entities,   # ← save entities
                     "welcome.buttons": buttons,
                     "updated_at": datetime.utcnow()
                 }
@@ -361,14 +302,11 @@ async def set_custom_goodbye(
     media_type: Optional[str],
     media_id: Optional[str],
     text: str,
-    buttons: Optional[List[Dict]] = None,
-    entities: Optional[List[Dict]] = None   # ← NEW: formatting + premium emoji
+    buttons: Optional[List[Dict]] = None
 ) -> bool:
     if buttons is None:
         buttons = []
-    if entities is None:
-        entities = []
-
+    
     try:
         await management_db.welcome_settings.update_one(
             {"chat_id": chat_id},
@@ -378,7 +316,6 @@ async def set_custom_goodbye(
                     "goodbye.media_type": media_type,
                     "goodbye.media_id": media_id,
                     "goodbye.text": text,
-                    "goodbye.entities": entities,   # ← save entities
                     "goodbye.buttons": buttons,
                     "updated_at": datetime.utcnow()
                 }
@@ -405,7 +342,6 @@ async def delete_custom_welcome(chat_id: int) -> bool:
                     "welcome.media_type": None,
                     "welcome.media_id": None,
                     "welcome.text": None,
-                    "welcome.entities": [],     # ← reset entities bhi
                     "welcome.buttons": [],
                     "updated_at": datetime.utcnow()
                 }
@@ -435,7 +371,6 @@ async def delete_custom_goodbye(chat_id: int) -> bool:
                     "goodbye.media_type": None,
                     "goodbye.media_id": None,
                     "goodbye.text": None,
-                    "goodbye.entities": [],     # ← reset entities bhi
                     "goodbye.buttons": [],
                     "updated_at": datetime.utcnow()
                 }

@@ -35,6 +35,9 @@ from database_management import (
 
 logger = logging.getLogger(__name__)
 
+# Default welcome text with premium emoji
+DEFAULT_WELCOME_TEXT = '<emoji id="5447432232698389583">👋</emoji> Welcome {MENTION} Hope you have a great time here 👋.'
+
 
 async def setup_welcome_handlers(client: Client):
     
@@ -46,14 +49,12 @@ async def setup_welcome_handlers(client: Client):
             chat_id = message.chat.id
             user_id = message.from_user.id if message.from_user else None
             
-            # Simple admin check - no anonymous detection
             try:
                 is_admin = await is_user_admin(client, chat_id, user_id)
                 if not is_admin:
                     await message.reply_text("Only admins can use this command.", parse_mode=ParseMode.HTML)
                     return
             except ChatAdminRequired:
-                # Bot needs admin privileges to check
                 await message.reply_text(
                     "<b>I need admin privileges to verify permissions.</b>\n\n"
                     "Please promote me to admin first.",
@@ -87,7 +88,7 @@ async def setup_welcome_handlers(client: Client):
                     if welcome_config.get('custom_set') and welcome_config.get('text'):
                         text = welcome_config['text']
                     else:
-                        text = welcome_config.get('default_text', 'Hey {MENTION}!\nWelcome to {GROUPNAME}!')
+                        text = DEFAULT_WELCOME_TEXT
                     
                     reply_markup = None
                     if welcome_config.get('buttons'):
@@ -99,13 +100,13 @@ async def setup_welcome_handlers(client: Client):
                             media_id = welcome_config['media_id']
                             
                             if media_type == "photo":
-                                await message.reply_photo(photo=media_id, caption=text, reply_markup=reply_markup)
+                                await message.reply_photo(photo=media_id, caption=text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
                             elif media_type == "video":
-                                await message.reply_video(video=media_id, caption=text, reply_markup=reply_markup)
+                                await message.reply_video(video=media_id, caption=text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
                             elif media_type == "animation":
-                                await message.reply_animation(animation=media_id, caption=text, reply_markup=reply_markup)
+                                await message.reply_animation(animation=media_id, caption=text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
                         else:
-                            await message.reply_text(text=text, reply_markup=reply_markup)
+                            await message.reply_text(text=text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
                     except BadRequest:
                         await message.reply_text("Preview unavailable (media may have expired)", parse_mode=ParseMode.HTML)
                 
@@ -113,7 +114,6 @@ async def setup_welcome_handlers(client: Client):
             
             action = command_parts[1].lower()
             
-            # Check if action requires bot admin privileges
             if action in ["on", "off"]:
                 if not await is_bot_admin(client, chat_id):
                     await message.reply_text(
@@ -240,17 +240,20 @@ async def setup_welcome_handlers(client: Client):
             if replied_msg.photo:
                 media_type = "photo"
                 media_id = replied_msg.photo.file_id
-                text = replied_msg.caption or ""
+                # .html preserves bold, italic, spoiler, strikethrough, custom emoji, links, etc.
+                text = replied_msg.caption.html if replied_msg.caption else ""
             elif replied_msg.video:
                 media_type = "video"
                 media_id = replied_msg.video.file_id
-                text = replied_msg.caption or ""
+                text = replied_msg.caption.html if replied_msg.caption else ""
             elif replied_msg.animation:
                 media_type = "animation"
                 media_id = replied_msg.animation.file_id
-                text = replied_msg.caption or ""
+                text = replied_msg.caption.html if replied_msg.caption else ""
             elif replied_msg.text:
-                text = replied_msg.text
+                # .html preserves ALL formatting: bold, italic, underline, strikethrough,
+                # spoiler, blockquote, text links, custom emoji (premium), mono, etc.
+                text = replied_msg.text.html
             else:
                 await message.reply_text(
                     "<b>Unsupported message type.</b>\n\n"
@@ -260,7 +263,9 @@ async def setup_welcome_handlers(client: Client):
                 return
             
             is_caption = media_type is not None
-            validation_error = validate_text_length(text, is_caption)
+            # Validate length using plain text (not html) to get accurate character count
+            plain_text = replied_msg.caption.text if (media_type and replied_msg.caption) else (replied_msg.text if replied_msg.text else "")
+            validation_error = validate_text_length(plain_text, is_caption)
             if validation_error:
                 await message.reply_text(f"{validation_error}", parse_mode=ParseMode.HTML)
                 return
@@ -278,7 +283,7 @@ async def setup_welcome_handlers(client: Client):
                     return
             
             if not text or len(text.strip()) == 0:
-                text = "Hey {MENTION}!\nWelcome to {GROUPNAME}!"
+                text = DEFAULT_WELCOME_TEXT
             
             success = await set_custom_welcome(
                 chat_id=chat_id,
@@ -475,32 +480,22 @@ async def setup_welcome_handlers(client: Client):
     @client.on_chat_member_updated(filters.group)
     async def welcome_new_member(client: Client, member_update: ChatMemberUpdated):
         try:
-            # CRITICAL: Improved checks to prevent false welcomes on kick/unban
-            
-            # Check 1: Must have new_chat_member
             if not member_update.new_chat_member:
                 return
             
-            # Check 2: Old member must not exist (truly new join)
-            # This prevents welcome on unban/kick scenarios
             if member_update.old_chat_member:
-                # Additional check: if old status was banned/kicked and now member, it's an unban (not a new join)
                 old_status = member_update.old_chat_member.status
                 new_status = member_update.new_chat_member.status
                 
-                # If user was banned/kicked/left and now is member/restricted, it's NOT a new join
                 if old_status in {ChatMemberStatus.BANNED, ChatMemberStatus.LEFT, ChatMemberStatus.RESTRICTED}:
                     return
                 
-                # If there's an old_chat_member at all, it's not a fresh join
                 return
             
-            # Check 3: New status must be member (not banned, left, restricted)
             new_status = member_update.new_chat_member.status
             if new_status in {ChatMemberStatus.BANNED, ChatMemberStatus.LEFT, ChatMemberStatus.RESTRICTED}:
                 return
             
-            # Check 4: Must be a regular member status
             if new_status != ChatMemberStatus.MEMBER:
                 return
             
@@ -510,10 +505,9 @@ async def setup_welcome_handlers(client: Client):
             if user.is_bot:
                 return
             
-            # Silent flood check - no message sent to group
             is_flooding, flood_msg = check_join_flood(chat_id)
             if is_flooding:
-                return  # Silently skip without sending any message
+                return
             
             welcome_config = await get_cached_settings(chat_id, 'welcome')
             
@@ -536,7 +530,7 @@ async def setup_welcome_handlers(client: Client):
             if welcome_config.get('custom_set') and welcome_config.get('text'):
                 text = welcome_config['text']
             else:
-                text = welcome_config.get('default_text', 'Hey {MENTION}!\nWelcome to {GROUPNAME}!')
+                text = DEFAULT_WELCOME_TEXT
             
             formatted_text = format_message_text(text, user, member_update.chat)
             

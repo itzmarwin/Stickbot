@@ -19,8 +19,6 @@ DB_WAIT_QUEUE_TIMEOUT_MS = 10000
 CURRENT_SCHEMA_VERSION = 1
 SCHEMA_COLLECTION = "schema_version"
 
-DEFAULT_WELCOME_TEXT = "Welcome {MENTION} Hope you have a great time here."
-DEFAULT_GOODBYE_TEXT = "Goodbye {MENTION} We hope to see you again."
 DEFAULT_AUTO_DELETE_SECONDS = 600
 
 management_client: Optional[AsyncIOMotorClient] = None
@@ -201,7 +199,6 @@ async def create_default_welcome_settings(chat_id: int) -> bool:
                 "media_id": None,
                 "text": None,
                 "buttons": [],
-                "default_text": DEFAULT_WELCOME_TEXT,
                 "auto_delete": {"enabled": False, "delete_after": None}
             },
             "goodbye": {
@@ -211,7 +208,6 @@ async def create_default_welcome_settings(chat_id: int) -> bool:
                 "media_id": None,
                 "text": None,
                 "buttons": [],
-                "default_text": DEFAULT_GOODBYE_TEXT,
                 "auto_delete": {"enabled": False, "delete_after": None}
             },
             "created_at": now,

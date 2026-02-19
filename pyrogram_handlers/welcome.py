@@ -41,7 +41,7 @@ from database_management import (
 logger = logging.getLogger(__name__)
 
 
-
+DEFAULT_WELCOME_TEXT = '<emoji id="5447432232698389583">👋</emoji> Welcome {MENTION} Hope you have a great time here 👋.'
 
 def _adjust_entities_after_text_change(
     original_text: str,

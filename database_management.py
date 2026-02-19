@@ -198,6 +198,7 @@ async def create_default_welcome_settings(chat_id: int) -> bool:
                 "media_type": None,
                 "media_id": None,
                 "text": None,
+                "entities": [],
                 "buttons": [],
                 "auto_delete": {"enabled": False, "delete_after": None}
             },
@@ -207,6 +208,7 @@ async def create_default_welcome_settings(chat_id: int) -> bool:
                 "media_type": None,
                 "media_id": None,
                 "text": None,
+                "entities": [],
                 "buttons": [],
                 "auto_delete": {"enabled": False, "delete_after": None}
             },
@@ -264,11 +266,14 @@ async def set_custom_welcome(
     media_type: Optional[str],
     media_id: Optional[str],
     text: str,
+    entities: Optional[List[Dict]] = None,
     buttons: Optional[List[Dict]] = None
 ) -> bool:
     if buttons is None:
         buttons = []
-    
+    if entities is None:
+        entities = []
+
     try:
         await management_db.welcome_settings.update_one(
             {"chat_id": chat_id},
@@ -278,6 +283,7 @@ async def set_custom_welcome(
                     "welcome.media_type": media_type,
                     "welcome.media_id": media_id,
                     "welcome.text": text,
+                    "welcome.entities": entities,
                     "welcome.buttons": buttons,
                     "updated_at": datetime.utcnow()
                 }
@@ -298,11 +304,14 @@ async def set_custom_goodbye(
     media_type: Optional[str],
     media_id: Optional[str],
     text: str,
+    entities: Optional[List[Dict]] = None,
     buttons: Optional[List[Dict]] = None
 ) -> bool:
     if buttons is None:
         buttons = []
-    
+    if entities is None:
+        entities = []
+
     try:
         await management_db.welcome_settings.update_one(
             {"chat_id": chat_id},
@@ -312,6 +321,7 @@ async def set_custom_goodbye(
                     "goodbye.media_type": media_type,
                     "goodbye.media_id": media_id,
                     "goodbye.text": text,
+                    "goodbye.entities": entities,
                     "goodbye.buttons": buttons,
                     "updated_at": datetime.utcnow()
                 }
@@ -338,12 +348,12 @@ async def delete_custom_welcome(chat_id: int) -> bool:
                     "welcome.media_type": None,
                     "welcome.media_id": None,
                     "welcome.text": None,
+                    "welcome.entities": [],
                     "welcome.buttons": [],
                     "updated_at": datetime.utcnow()
                 }
             }
         )
-        
         if result.modified_count > 0:
             return True
         else:
@@ -367,12 +377,12 @@ async def delete_custom_goodbye(chat_id: int) -> bool:
                     "goodbye.media_type": None,
                     "goodbye.media_id": None,
                     "goodbye.text": None,
+                    "goodbye.entities": [],
                     "goodbye.buttons": [],
                     "updated_at": datetime.utcnow()
                 }
             }
         )
-        
         if result.modified_count > 0:
             return True
         else:

@@ -106,7 +106,7 @@ async def setup_welcome_handlers(client: Client):
                             elif media_type == "animation":
                                 await message.reply_animation(animation=media_id, caption=text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
                         else:
-                            await message.reply_text(text=text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
+                            await message.reply_text(text=text, reply_markup=reply_markup, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
                     except BadRequest:
                         await message.reply_text("Preview unavailable (media may have expired)", parse_mode=ParseMode.HTML)
                 
@@ -574,7 +574,8 @@ async def setup_welcome_handlers(client: Client):
                         chat_id=chat_id,
                         text=formatted_text,
                         reply_markup=reply_markup,
-                        parse_mode=ParseMode.HTML
+                        parse_mode=ParseMode.HTML,
+                        disable_web_page_preview=True
                     )
                 
                 auto_delete = welcome_config.get('auto_delete', {})

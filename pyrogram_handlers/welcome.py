@@ -8,6 +8,7 @@ from pyrogram_handlers.utils import (
     parse_buttons,
     create_button_markup,
     format_message_text,
+    get_message_html,
     format_time,
     validate_text_length,
     validate_auto_delete_time,
@@ -240,20 +241,19 @@ async def setup_welcome_handlers(client: Client):
             if replied_msg.photo:
                 media_type = "photo"
                 media_id = replied_msg.photo.file_id
-                # .html preserves bold, italic, spoiler, strikethrough, custom emoji, links, etc.
-                text = replied_msg.caption.html if replied_msg.caption else ""
+                text = get_message_html(replied_msg)
             elif replied_msg.video:
                 media_type = "video"
                 media_id = replied_msg.video.file_id
-                text = replied_msg.caption.html if replied_msg.caption else ""
+                text = get_message_html(replied_msg)
             elif replied_msg.animation:
                 media_type = "animation"
                 media_id = replied_msg.animation.file_id
-                text = replied_msg.caption.html if replied_msg.caption else ""
+                text = get_message_html(replied_msg)
             elif replied_msg.text:
-                # .html preserves ALL formatting: bold, italic, underline, strikethrough,
-                # spoiler, blockquote, text links, custom emoji (premium), mono, etc.
-                text = replied_msg.text.html
+                # get_message_html handles ALL formatting: bold, italic, underline, strikethrough,
+                # spoiler, blockquote, expandable_blockquote, text links, custom emoji, mono, etc.
+                text = get_message_html(replied_msg)
             else:
                 await message.reply_text(
                     "<b>Unsupported message type.</b>\n\n"

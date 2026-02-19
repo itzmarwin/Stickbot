@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 from pyrogram import Client
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
-from pyrogram.enums import ChatMemberStatus, ChatMembersFilter
+from pyrogram.enums import ChatMemberStatus, ChatMembersFilter, MessageEntityType
 from pyrogram.errors import ChatAdminRequired, UserNotParticipant
 from cachetools import TTLCache
 
@@ -144,9 +144,8 @@ def get_message_html(message) -> str:
     Manually convert message text/caption with ALL entities to proper HTML string.
     Handles: bold, italic, underline, strikethrough, spoiler, blockquote,
     expandable_blockquote, code, pre, text_link, text_mention, custom_emoji.
-    Unlike .html property, this correctly handles blockquote entity.
+    Uses MessageEntityType enum for correct Pyrogram comparison.
     """
-    # Get raw text and entities
     if message.text:
         raw_text = message.text
         entities = message.entities or []
@@ -157,59 +156,61 @@ def get_message_html(message) -> str:
         return ""
 
     if not entities:
-        # No entities — just escape and return
         return _escape_html(raw_text)
 
-    # Build list of (start, end, open_tag, close_tag) for each entity
     tags = []
     for entity in entities:
         start = entity.offset
         end = entity.offset + entity.length
-        etype = entity.type.value if hasattr(entity.type, 'value') else str(entity.type)
+        etype = entity.type  # This is a MessageEntityType enum
 
-        if etype == "bold" or etype == "MessageEntityType.BOLD":
+        if etype == MessageEntityType.BOLD:
             tags.append((start, end, "<b>", "</b>"))
-        elif etype == "italic" or etype == "MessageEntityType.ITALIC":
+        elif etype == MessageEntityType.ITALIC:
             tags.append((start, end, "<i>", "</i>"))
-        elif etype == "underline" or etype == "MessageEntityType.UNDERLINE":
+        elif etype == MessageEntityType.UNDERLINE:
             tags.append((start, end, "<u>", "</u>"))
-        elif etype == "strikethrough" or etype == "MessageEntityType.STRIKETHROUGH":
+        elif etype == MessageEntityType.STRIKETHROUGH:
             tags.append((start, end, "<s>", "</s>"))
-        elif etype == "spoiler" or etype == "MessageEntityType.SPOILER":
+        elif etype == MessageEntityType.SPOILER:
             tags.append((start, end, "<tg-spoiler>", "</tg-spoiler>"))
-        elif etype == "blockquote" or etype == "MessageEntityType.BLOCKQUOTE":
+        elif etype == MessageEntityType.BLOCKQUOTE:
             tags.append((start, end, "<blockquote>", "</blockquote>"))
-        elif etype == "expandable_blockquote" or etype == "MessageEntityType.EXPANDABLE_BLOCKQUOTE":
-            tags.append((start, end, "<blockquote expandable>", "</blockquote>"))
-        elif etype == "code" or etype == "MessageEntityType.CODE":
+        elif etype == MessageEntityType.CODE:
             tags.append((start, end, "<code>", "</code>"))
-        elif etype == "pre" or etype == "MessageEntityType.PRE":
+        elif etype == MessageEntityType.PRE:
             lang = getattr(entity, 'language', '') or ''
             if lang:
                 tags.append((start, end, f'<pre><code class="language-{lang}">', "</code></pre>"))
             else:
                 tags.append((start, end, "<pre>", "</pre>"))
-        elif etype == "text_link" or etype == "MessageEntityType.TEXT_LINK":
+        elif etype == MessageEntityType.TEXT_LINK:
             url = getattr(entity, 'url', '') or ''
             tags.append((start, end, f'<a href="{url}">', "</a>"))
-        elif etype == "text_mention" or etype == "MessageEntityType.TEXT_MENTION":
+        elif etype == MessageEntityType.TEXT_MENTION:
             user = getattr(entity, 'user', None)
             uid = user.id if user else 0
             tags.append((start, end, f'<a href="tg://user?id={uid}">', "</a>"))
-        elif etype == "custom_emoji" or etype == "MessageEntityType.CUSTOM_EMOJI":
+        elif etype == MessageEntityType.CUSTOM_EMOJI:
             emoji_id = getattr(entity, 'custom_emoji_id', '') or ''
             tags.append((start, end, f'<emoji id="{emoji_id}">', "</emoji>"))
-        # mention, hashtag, url, phone, email — no HTML wrapping needed
+        # expandable_blockquote — check by name in case older Pyrogram doesn't have it
+        else:
+            try:
+                if etype == MessageEntityType.EXPANDABLE_BLOCKQUOTE:
+                    tags.append((start, end, "<blockquote expandable>", "</blockquote>"))
+            except AttributeError:
+                pass
 
     if not tags:
         return _escape_html(raw_text)
 
-    # Collect open/close events at each position
-    # At same position: close tags (order=0) come before open tags (order=1)
+    # Collect open/close events
+    # At same position: close tags (order=0) before open tags (order=1)
     events = []
     for (start, end, open_tag, close_tag) in tags:
-        events.append((start, 1, open_tag))   # 1 = open tag
-        events.append((end, 0, close_tag))     # 0 = close tag (sorts first at same pos)
+        events.append((start, 1, open_tag))
+        events.append((end, 0, close_tag))
 
     events.sort(key=lambda x: (x[0], x[1]))
 
@@ -221,7 +222,6 @@ def get_message_html(message) -> str:
         result.append(tag)
         prev = pos
 
-    # Remaining text after last entity
     if prev < len(raw_text):
         result.append(_escape_html(raw_text[prev:]))
 

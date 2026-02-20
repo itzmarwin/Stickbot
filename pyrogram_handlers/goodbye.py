@@ -112,7 +112,7 @@ async def setup_goodbye_handlers(client: Client):
                                 text=text,
                                 reply_markup=reply_markup,
                                 parse_mode=ParseMode.HTML,
-                                link_preview_options={"is_disabled": True}
+                                disable_web_page_preview=True
                             )
                     except BadRequest:
                         await message.reply_text("Preview unavailable (media may have expired)", parse_mode=ParseMode.HTML)
@@ -557,7 +557,7 @@ async def setup_goodbye_handlers(client: Client):
                         text=formatted_text,
                         reply_markup=reply_markup,
                         parse_mode=ParseMode.HTML,
-                        link_preview_options={"is_disabled": True}
+                        disable_web_page_preview=True
                     )
 
                 auto_delete = goodbye_config.get('auto_delete', {})

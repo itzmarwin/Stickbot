@@ -486,31 +486,38 @@ async def setup_goodbye_handlers(client: Client):
     @client.on_chat_member_updated(filters.group, group=1)
     async def goodbye_left_member(client: Client, member_update: ChatMemberUpdated):
         try:
+            logger.info(f"🔍 GOODBYE DEBUG: chat_member_updated received in chat {member_update.chat.id}")
+
             # Check 1: old aur new dono hone chahiye
             if not member_update.old_chat_member or not member_update.new_chat_member:
+                logger.info("🔍 GOODBYE DEBUG: Missing old or new chat member - returning")
                 return
 
             old_status = member_update.old_chat_member.status
             new_status = member_update.new_chat_member.status
+            logger.info(f"🔍 GOODBYE DEBUG: old_status={old_status}, new_status={new_status}")
 
             # Check 2: New status LEFT hona chahiye
             if new_status != ChatMemberStatus.LEFT:
+                logger.info(f"🔍 GOODBYE DEBUG: new_status is not LEFT, it is {new_status} - returning")
                 return
 
             # Check 3: Sirf genuine leave/kick — BANNED skip karo
-            # MEMBER/RESTRICTED/ADMINISTRATOR/OWNER → LEFT = left ya kick ✅
-            # Koi bhi → BANNED = ban ❌ skip
             if old_status not in {
                 ChatMemberStatus.MEMBER,
                 ChatMemberStatus.RESTRICTED,
                 ChatMemberStatus.ADMINISTRATOR,
                 ChatMemberStatus.OWNER
             }:
+                logger.info(f"🔍 GOODBYE DEBUG: old_status {old_status} not in allowed set - returning")
                 return
 
             user = member_update.old_chat_member.user
             if not user or user.is_bot:
+                logger.info("🔍 GOODBYE DEBUG: user is None or bot - returning")
                 return
+            
+            logger.info(f"🔍 GOODBYE DEBUG: User {user.id} left chat {member_update.chat.id} - proceeding")
 
             chat_id = member_update.chat.id
 

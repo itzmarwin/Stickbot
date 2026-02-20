@@ -483,7 +483,7 @@ async def setup_goodbye_handlers(client: Client):
 
     # FIX: filters.left_chat_member supergroups me reliable nahi tha
     # Ab chat_member_updated use ho raha hai — same as welcome handler
-    @client.on_chat_member_updated(filters.group)
+    @client.on_chat_member_updated(filters.group, group=1)
     async def goodbye_left_member(client: Client, member_update: ChatMemberUpdated):
         try:
             # Check 1: old aur new dono hone chahiye

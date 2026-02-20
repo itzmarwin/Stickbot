@@ -314,6 +314,10 @@ def entities_to_dict(entities: Optional[List[MessageEntity]]) -> List[Dict]:
     Pyrogram MessageEntity objects ko plain dict list mein convert karta hai
     taaki MongoDB mein save ho sake.
 
+    KEY FIX: entity.custom_emoji_id Pyrogram 2.0.x mein ek raw
+    MessageEntityCustomEmoji object hota hai — iska document_id field
+    actual numeric ID hai. Hum ise str mein convert karke save karte hain.
+
     Supported entity types:
     - bold, italic, underline, strikethrough, spoiler
     - code, pre (monospace)
@@ -328,17 +332,17 @@ def entities_to_dict(entities: Optional[List[MessageEntity]]) -> List[Dict]:
     result = []
     for entity in entities:
         try:
-            # ✅ FIX: type ko safely string mein convert karo
+            # ✅ entity.type safely string mein convert karo
             entity_type = entity.type
             if hasattr(entity_type, 'value'):
-                type_str = entity_type.value          # MessageEntityType enum → string
+                type_str = entity_type.value
             else:
-                type_str = str(entity_type)           # fallback
+                type_str = str(entity_type)
 
             entity_dict = {
                 "type": type_str,
-                "offset": int(entity.offset),         # ensure plain int
-                "length": int(entity.length),         # ensure plain int
+                "offset": int(entity.offset),
+                "length": int(entity.length),
             }
 
             # url — text_link ke liye
@@ -363,27 +367,45 @@ def entities_to_dict(entities: Optional[List[MessageEntity]]) -> List[Dict]:
             if language and isinstance(language, str):
                 entity_dict["language"] = language
 
-            # ✅ FIX: custom_emoji_id — raw Pyrogram object ho sakta hai, str mein convert karo
-            # Pyrogram 2.0.x mein ye kabhi str hota hai, kabhi raw MessageEntityCustomEmoji object
-            custom_emoji_id = getattr(entity, 'custom_emoji_id', None)
-            if custom_emoji_id is not None:
-                # Raw object ho sakta hai jaise MessageEntityCustomEmoji — str() se ID nikalo
-                emoji_id_str = str(custom_emoji_id)
-                # Agar ye ek object hai toh uska document_id ya id field lo
-                if hasattr(custom_emoji_id, 'document_id'):
-                    emoji_id_str = str(custom_emoji_id.document_id)
-                elif hasattr(custom_emoji_id, 'id'):
-                    emoji_id_str = str(custom_emoji_id.id)
-                # Sirf valid numeric string save karo
+            # ✅ MAIN FIX: custom_emoji_id extract karna
+            # Pyrogram 2.0.x mein entity.custom_emoji_id ek
+            # pyrogram.raw.types.MessageEntityCustomEmoji object hota hai
+            # jiska .document_id field actual emoji ID (int) hai
+            # Hum ise safely str mein convert karke save karte hain
+            custom_emoji_id_raw = getattr(entity, 'custom_emoji_id', None)
+            if custom_emoji_id_raw is not None:
+                emoji_id_str = None
+
+                if isinstance(custom_emoji_id_raw, int):
+                    # Already int hai — direct convert karo
+                    emoji_id_str = str(custom_emoji_id_raw)
+
+                elif isinstance(custom_emoji_id_raw, str):
+                    # Already string hai
+                    emoji_id_str = custom_emoji_id_raw
+
+                elif hasattr(custom_emoji_id_raw, 'document_id'):
+                    # Raw MessageEntityCustomEmoji object — .document_id se ID lo
+                    emoji_id_str = str(custom_emoji_id_raw.document_id)
+
+                elif hasattr(custom_emoji_id_raw, 'id'):
+                    # Fallback — .id field
+                    emoji_id_str = str(custom_emoji_id_raw.id)
+
+                else:
+                    # Last resort — log karo aur skip karo
+                    logger.warning(
+                        f"custom_emoji_id unknown type: {type(custom_emoji_id_raw).__name__}, "
+                        f"attrs: {[a for a in dir(custom_emoji_id_raw) if not a.startswith('_')]}"
+                    )
+
                 if emoji_id_str and emoji_id_str.lstrip('-').isdigit():
                     entity_dict["custom_emoji_id"] = emoji_id_str
-                else:
-                    logger.warning(f"custom_emoji_id invalid value: {emoji_id_str!r}, skipping")
 
             result.append(entity_dict)
 
         except Exception as e:
-            logger.warning(f"Entity convert karne mein error: {e}, entity: {entity}")
+            logger.warning(f"Entity convert error: {e}, type={type(entity).__name__}")
             continue
 
     return result

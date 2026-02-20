@@ -1,7 +1,7 @@
 import logging
 from pyrogram import Client, filters
-from pyrogram.types import Message, ChatMemberUpdated
-from pyrogram.enums import ChatMemberStatus, ParseMode
+from pyrogram.types import Message
+from pyrogram.enums import ParseMode
 from pyrogram.errors import ChatAdminRequired, MessageDeleteForbidden, BadRequest, FloodWait
 
 from pyrogram_handlers.utils import (
@@ -244,8 +244,6 @@ async def setup_goodbye_handlers(client: Client):
             media_id = None
             text = None
 
-            # KEY FIX: .html use karo taaki bold, italic, strikethrough,
-            # spoiler, underline, links, blockquote, premium emoji — sab preserve ho
             if replied_msg.photo:
                 media_type = "photo"
                 media_id = replied_msg.photo.file_id
@@ -481,45 +479,17 @@ async def setup_goodbye_handlers(client: Client):
             await message.reply_text("Please try again later. If it still doesn't work contact the support group.", parse_mode=ParseMode.HTML)
 
 
-    # FIX: filters.left_chat_member supergroups me reliable nahi tha
-    # Ab chat_member_updated use ho raha hai — same as welcome handler
-    @client.on_chat_member_updated(filters.group, group=1)
-    async def goodbye_left_member(client: Client, member_update: ChatMemberUpdated):
+    # pyrotgfork mein left_chat_member message event properly kaam karta hai
+    # on_chat_member_updated mein old_chat_member None aata tha isliye ye use kar rahe hain
+    @client.on_message(filters.left_chat_member & filters.group)
+    async def goodbye_left_member(client: Client, message: Message):
         try:
-            logger.info(f"🔍 GOODBYE DEBUG: chat_member_updated received in chat {member_update.chat.id}")
+            left_member = message.left_chat_member
 
-            # Check 1: old aur new dono hone chahiye
-            if not member_update.old_chat_member or not member_update.new_chat_member:
-                logger.info("🔍 GOODBYE DEBUG: Missing old or new chat member - returning")
+            if not left_member or left_member.is_bot:
                 return
 
-            old_status = member_update.old_chat_member.status
-            new_status = member_update.new_chat_member.status
-            logger.info(f"🔍 GOODBYE DEBUG: old_status={old_status}, new_status={new_status}")
-
-            # Check 2: New status LEFT hona chahiye
-            if new_status != ChatMemberStatus.LEFT:
-                logger.info(f"🔍 GOODBYE DEBUG: new_status is not LEFT, it is {new_status} - returning")
-                return
-
-            # Check 3: Sirf genuine leave/kick — BANNED skip karo
-            if old_status not in {
-                ChatMemberStatus.MEMBER,
-                ChatMemberStatus.RESTRICTED,
-                ChatMemberStatus.ADMINISTRATOR,
-                ChatMemberStatus.OWNER
-            }:
-                logger.info(f"🔍 GOODBYE DEBUG: old_status {old_status} not in allowed set - returning")
-                return
-
-            user = member_update.old_chat_member.user
-            if not user or user.is_bot:
-                logger.info("🔍 GOODBYE DEBUG: user is None or bot - returning")
-                return
-            
-            logger.info(f"🔍 GOODBYE DEBUG: User {user.id} left chat {member_update.chat.id} - proceeding")
-
-            chat_id = member_update.chat.id
+            chat_id = message.chat.id
 
             goodbye_config = await get_cached_settings(chat_id, 'goodbye')
 
@@ -539,13 +509,12 @@ async def setup_goodbye_handlers(client: Client):
             if not goodbye_config.get('enabled'):
                 return
 
-            # Custom ya default text
             if goodbye_config.get('custom_set') and goodbye_config.get('text'):
                 text = goodbye_config['text']
             else:
                 text = DEFAULT_GOODBYE_TEXT
 
-            formatted_text = format_message_text(text, user, member_update.chat)
+            formatted_text = format_message_text(text, left_member, message.chat)
 
             reply_markup = None
             if goodbye_config.get('buttons'):
@@ -605,6 +574,6 @@ async def setup_goodbye_handlers(client: Client):
                 log_error("Send goodbye failed", send_error, chat_id=chat_id)
 
         except Exception as e:
-            log_error("goodbye_left_member", e, chat_id=member_update.chat.id)
+            log_error("goodbye_left_member", e, chat_id=message.chat.id)
 
     logger.info("✅ Goodbye handlers setup complete")

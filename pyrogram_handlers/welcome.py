@@ -21,7 +21,6 @@ from pyrogram_handlers.utils import (
     schedule_message_deletion,
     cancel_pending_deletions,
     check_join_flood,
-    entities_to_dict,
     dict_to_entities,
     DEFAULT_AUTO_DELETE_SECONDS,
     log_error
@@ -336,7 +335,7 @@ async def setup_welcome_handlers(client: Client):
                 raw_entities = []
 
             # ✅ CHANGE 5: Entities ko dict format mein convert karo DB mein save karne ke liye
-            entities_list = entities_to_dict(raw_entities) if raw_entities else []
+            entities_list = _safe_entities_to_dict(raw_entities) if raw_entities else []
 
             success = await set_custom_welcome(
                 chat_id=chat_id,
@@ -869,3 +868,91 @@ def parse_buttons_with_entities(text, entities):
                 adjusted_entities.append(new_entity)
 
     return cleaned_text, button_rows, adjusted_entities, None
+
+# ✅ SAFE ENTITIES CONVERTER — utils.py pe depend nahi karta
+# custom_emoji_id raw Pyrogram object ko safely str mein convert karta hai
+def _safe_entities_to_dict(entities) -> list:
+    """
+    Pyrogram MessageEntity list ko MongoDB-safe plain dict list mein convert karta hai.
+
+    ROOT FIX: Pyrogram 2.0.x mein entity.custom_emoji_id ek raw
+    pyrogram.raw.types.MessageEntityCustomEmoji object hota hai jiska
+    .document_id field actual numeric ID hai. Isko str() se convert
+    karna galat result deta tha — ab .document_id se directly lete hain.
+    """
+    if not entities:
+        return []
+
+    import logging as _logging
+    _logger = _logging.getLogger(__name__)
+
+    result = []
+    for e in entities:
+        try:
+            # Type string safely extract karo
+            etype = e.type
+            if hasattr(etype, 'value'):
+                type_str = etype.value
+            else:
+                type_str = str(etype)
+
+            d = {
+                "type": type_str,
+                "offset": int(e.offset),
+                "length": int(e.length),
+            }
+
+            # url — text_link ke liye
+            url = getattr(e, 'url', None)
+            if url and isinstance(url, str):
+                d["url"] = url
+
+            # language — pre/code ke liye
+            lang = getattr(e, 'language', None)
+            if lang and isinstance(lang, str):
+                d["language"] = lang
+
+            # user — text_mention ke liye
+            user_obj = getattr(e, 'user', None)
+            if user_obj is not None:
+                try:
+                    d["user_id"] = int(user_obj.id)
+                    d["user_first_name"] = str(user_obj.first_name or "")
+                    d["user_last_name"] = str(user_obj.last_name or "")
+                    d["user_username"] = str(user_obj.username or "")
+                    d["user_is_bot"] = bool(getattr(user_obj, 'is_bot', False))
+                except Exception as ue:
+                    _logger.warning(f"User extract error: {ue}")
+
+            # ✅ MAIN FIX: custom_emoji_id
+            # entity.custom_emoji_id = MessageEntityCustomEmoji object
+            # uska .document_id = actual int ID
+            raw = getattr(e, 'custom_emoji_id', None)
+            if raw is not None:
+                emoji_str = None
+                if isinstance(raw, int):
+                    emoji_str = str(raw)
+                elif isinstance(raw, str):
+                    emoji_str = raw
+                elif hasattr(raw, 'document_id'):
+                    # ✅ Ye wala case fix karta hai error ko
+                    emoji_str = str(raw.document_id)
+                elif hasattr(raw, 'id'):
+                    emoji_str = str(raw.id)
+                else:
+                    _logger.warning(
+                        f"custom_emoji_id unknown: {type(raw).__name__}, "
+                        f"attrs={[x for x in dir(raw) if not x.startswith('_')]}"
+                    )
+
+                if emoji_str and emoji_str.lstrip('-').isdigit():
+                    d["custom_emoji_id"] = emoji_str
+
+            result.append(d)
+
+        except Exception as ex:
+            import logging as _log2
+            _log2.getLogger(__name__).warning(f"Entity skip: {type(e).__name__} — {ex}")
+            continue
+
+    return result

@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 from pyrogram import Client
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
-from pyrogram.enums import ChatMemberStatus, ChatMembersFilter, MessageEntityType
+from pyrogram.enums import ChatMemberStatus, ChatMembersFilter
 from pyrogram.errors import ChatAdminRequired, UserNotParticipant
 from cachetools import TTLCache
 
@@ -139,100 +139,6 @@ def create_button_markup(button_rows: Optional[List[List[Dict]]]) -> Optional[In
     return InlineKeyboardMarkup(keyboard) if keyboard else None
 
 
-def get_message_html(message) -> str:
-    """
-    Manually convert message text/caption with ALL entities to proper HTML string.
-    Handles: bold, italic, underline, strikethrough, spoiler, blockquote,
-    expandable_blockquote, code, pre, text_link, text_mention, custom_emoji.
-    Uses MessageEntityType enum for correct Pyrogram comparison.
-    """
-    if message.text:
-        raw_text = message.text
-        entities = message.entities or []
-    elif message.caption:
-        raw_text = message.caption
-        entities = message.caption_entities or []
-    else:
-        return ""
-
-    if not entities:
-        return _escape_html(raw_text)
-
-    tags = []
-    for entity in entities:
-        start = entity.offset
-        end = entity.offset + entity.length
-        etype = entity.type  # This is a MessageEntityType enum
-
-        if etype == MessageEntityType.BOLD:
-            tags.append((start, end, "<b>", "</b>"))
-        elif etype == MessageEntityType.ITALIC:
-            tags.append((start, end, "<i>", "</i>"))
-        elif etype == MessageEntityType.UNDERLINE:
-            tags.append((start, end, "<u>", "</u>"))
-        elif etype == MessageEntityType.STRIKETHROUGH:
-            tags.append((start, end, "<s>", "</s>"))
-        elif etype == MessageEntityType.SPOILER:
-            tags.append((start, end, "<tg-spoiler>", "</tg-spoiler>"))
-        elif etype == MessageEntityType.BLOCKQUOTE:
-            tags.append((start, end, "<blockquote>", "</blockquote>"))
-        elif etype == MessageEntityType.CODE:
-            tags.append((start, end, "<code>", "</code>"))
-        elif etype == MessageEntityType.PRE:
-            lang = getattr(entity, 'language', '') or ''
-            if lang:
-                tags.append((start, end, f'<pre><code class="language-{lang}">', "</code></pre>"))
-            else:
-                tags.append((start, end, "<pre>", "</pre>"))
-        elif etype == MessageEntityType.TEXT_LINK:
-            url = getattr(entity, 'url', '') or ''
-            tags.append((start, end, f'<a href="{url}">', "</a>"))
-        elif etype == MessageEntityType.TEXT_MENTION:
-            user = getattr(entity, 'user', None)
-            uid = user.id if user else 0
-            tags.append((start, end, f'<a href="tg://user?id={uid}">', "</a>"))
-        elif etype == MessageEntityType.CUSTOM_EMOJI:
-            emoji_id = getattr(entity, 'custom_emoji_id', '') or ''
-            tags.append((start, end, f'<emoji id="{emoji_id}">', "</emoji>"))
-        # expandable_blockquote — check by name in case older Pyrogram doesn't have it
-        else:
-            try:
-                if etype == MessageEntityType.EXPANDABLE_BLOCKQUOTE:
-                    tags.append((start, end, "<blockquote expandable>", "</blockquote>"))
-            except AttributeError:
-                pass
-
-    if not tags:
-        return _escape_html(raw_text)
-
-    # Collect open/close events
-    # At same position: close tags (order=0) before open tags (order=1)
-    events = []
-    for (start, end, open_tag, close_tag) in tags:
-        events.append((start, 1, open_tag))
-        events.append((end, 0, close_tag))
-
-    events.sort(key=lambda x: (x[0], x[1]))
-
-    result = []
-    prev = 0
-    for (pos, _, tag) in events:
-        if pos > prev:
-            result.append(_escape_html(raw_text[prev:pos]))
-        result.append(tag)
-        prev = pos
-
-    if prev < len(raw_text):
-        result.append(_escape_html(raw_text[prev:]))
-
-    return "".join(result)
-
-
-def _escape_html(text: str) -> str:
-    """Escape HTML special characters in plain text."""
-    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-
-
 def format_message_text(text: str, user, chat) -> str:
     first_name = user.first_name or "User"
     last_name = user.last_name or ""
@@ -310,11 +216,17 @@ async def is_user_admin(client: Client, chat_id: int, user_id: int) -> bool:
         return member.status in [ChatMemberStatus.OWNER, ChatMemberStatus.ADMINISTRATOR]
     
     except ChatAdminRequired as e:
+        # This exception means TWO things:
+        # 1. User is anonymous admin (legitimate Telegram feature)
+        # 2. Bot doesn't have admin privileges (bot limitation in private groups)
+        
         error_msg = str(e).lower()
         
+        # Check if it's a bot privilege issue
         if "chat_admin_required" in error_msg or "channels.getparticipant" in error_msg:
             logger.warning(f"Bot lacks admin privileges in chat {chat_id}, trying fallback method")
             
+            # Fallback: Try to get administrators list
             try:
                 async for admin in client.get_chat_members(chat_id, filter=ChatMembersFilter.ADMINISTRATORS):
                     if admin.user.id == user_id:
@@ -326,8 +238,10 @@ async def is_user_admin(client: Client, chat_id: int, user_id: int) -> bool:
                 
             except Exception as fallback_error:
                 logger.error(f"Fallback method also failed for chat {chat_id}: {fallback_error}")
+                # Re-raise as ChatAdminRequired with clear message
                 raise ChatAdminRequired("Bot needs admin privileges to verify user status")
         else:
+            # It's truly anonymous admin - re-raise
             logger.info(f"User {user_id} appears to be anonymous admin in chat {chat_id}")
             raise
     
@@ -535,92 +449,6 @@ def get_utils_stats() -> Dict[str, Any]:
             'window_seconds': FLOOD_TIME_WINDOW
         }
     }
-
-
-def entities_to_list(entities) -> List[Dict]:
-    """
-    Convert Pyrogram MessageEntity list → serializable list of dicts for MongoDB.
-    """
-    if not entities:
-        return []
-
-    result = []
-    for e in entities:
-        try:
-            etype = e.type
-            # Always convert to string value — never store enum or raw Pyrogram objects
-            type_str = etype.value if hasattr(etype, 'value') else str(etype)
-
-            user = getattr(e, "user", None)
-
-            # Safely get custom_emoji_id — could be int or string depending on Pyrogram version
-            custom_emoji_id = getattr(e, "custom_emoji_id", None)
-            if custom_emoji_id is not None:
-                custom_emoji_id = str(custom_emoji_id)
-
-            entry = {
-                "type": type_str,                                          # string
-                "offset": int(e.offset),                                   # int
-                "length": int(e.length),                                   # int
-                "url": str(getattr(e, "url", None) or "") or None,        # string or None
-                "language": str(getattr(e, "language", None) or "") or None,  # string or None
-                "custom_emoji_id": custom_emoji_id,                        # string or None
-                "user_id": int(user.id) if user else None,                 # int or None
-                "user_first_name": str(getattr(user, "first_name", "") or "") if user else None,
-            }
-            result.append(entry)
-        except Exception as ex:
-            logger.warning(f"Skipping entity during entities_to_list: {ex}")
-            continue
-
-    return result
-
-
-def list_to_entities(entities_list: List[Dict]):
-    """
-    Convert list of dicts (from MongoDB) → Pyrogram MessageEntity list.
-    """
-    if not entities_list:
-        return None
-
-    from pyrogram.types import MessageEntity, User
-
-    result = []
-    for e in entities_list:
-        try:
-            type_str = e.get("type", "")
-
-            etype = None
-            for member in MessageEntityType:
-                if member.value == type_str:
-                    etype = member
-                    break
-
-            if etype is None:
-                continue
-
-            user = None
-            if etype == MessageEntityType.TEXT_MENTION and e.get("user_id"):
-                user = User(
-                    id=e["user_id"],
-                    first_name=e.get("user_first_name") or "",
-                    is_bot=False
-                )
-
-            result.append(MessageEntity(
-                type=etype,
-                offset=e["offset"],
-                length=e["length"],
-                url=e.get("url"),
-                user=user,
-                language=e.get("language"),
-                custom_emoji_id=e.get("custom_emoji_id"),
-            ))
-        except Exception as ex:
-            logger.warning(f"Skipping entity during list_to_entities: {ex}")
-            continue
-
-    return result if result else None
 
 
 logger.info("✅ Pyrogram utilities module loaded")

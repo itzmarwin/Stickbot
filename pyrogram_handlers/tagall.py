@@ -13,7 +13,7 @@ from pyrogram_handlers.utils import (
 
 logger = logging.getLogger(__name__)
 
-BATCH_SIZE = 10
+BATCH_SIZE = 6
 DELAY_BETWEEN_BATCHES = 3
 MAX_RETRIES = 3
 MAX_MESSAGE_LENGTH = 3900

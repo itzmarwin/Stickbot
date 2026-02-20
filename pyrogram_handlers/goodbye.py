@@ -573,4 +573,5 @@ async def setup_goodbye_handlers(client: Client):
         except Exception as e:
             log_error("goodbye_left_member", e, chat_id=member_update.chat.id)
             
+            
             logger.info("✅ Goodbye handlers setup complete")

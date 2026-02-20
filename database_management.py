@@ -313,19 +313,86 @@ async def update_goodbye_status(chat_id: int, enabled: bool) -> bool:
 
 
 # ✅ CHANGE 6: set_custom_welcome mein entities parameter ADD kiya
+
+def _sanitize_entities_for_mongo(entities: list) -> list:
+    """
+    MongoDB mein save karne se pehle entities list ko completely sanitize karta hai.
+    Har field ko primitive Python type (str, int, bool, None) mein convert karta hai.
+    Koi bhi Pyrogram raw object andar nahi aana chahiye.
+    """
+    import json
+
+    if not entities:
+        return []
+
+    safe = []
+    for item in entities:
+        try:
+            # Agar already dict hai toh har value check karo
+            if not isinstance(item, dict):
+                logger.warning(f"Entity is not dict: {type(item).__name__}, skipping")
+                continue
+
+            clean = {}
+            for key, val in item.items():
+                if val is None:
+                    clean[key] = None
+                elif isinstance(val, bool):
+                    clean[key] = val
+                elif isinstance(val, int):
+                    clean[key] = val
+                elif isinstance(val, str):
+                    clean[key] = val
+                elif isinstance(val, float):
+                    clean[key] = val
+                else:
+                    # ✅ NUCLEAR OPTION: koi bhi unknown type ko str mein convert karo
+                    # Agar custom_emoji_id raw object hai toh document_id extract karo
+                    if key == "custom_emoji_id":
+                        if hasattr(val, 'document_id'):
+                            str_val = str(val.document_id)
+                        elif hasattr(val, 'id'):
+                            str_val = str(val.id)
+                        else:
+                            str_val = str(val)
+                        if str_val.lstrip('-').isdigit():
+                            clean[key] = str_val
+                        else:
+                            logger.warning(f"custom_emoji_id could not extract: {type(val).__name__}")
+                    else:
+                        logger.warning(f"Unknown type for key '{key}': {type(val).__name__}, converting to str")
+                        clean[key] = str(val)
+
+            # JSON encode test — agar fail ho toh skip karo
+            try:
+                json.dumps(clean)
+                safe.append(clean)
+            except (TypeError, ValueError) as je:
+                logger.warning(f"Entity JSON encode failed: {je}, skipping: {clean}")
+
+        except Exception as ex:
+            logger.warning(f"Sanitize entity error: {ex}")
+            continue
+
+    return safe
+
 async def set_custom_welcome(
     chat_id: int,
     media_type: Optional[str],
     media_id: Optional[str],
     text: str,
-    entities: Optional[List[Dict]] = None,   # ✅ NEW: bold/italic/spoiler/blockquote/premium emoji sab
+    entities: Optional[List[Dict]] = None,
     buttons: Optional[List[Dict]] = None
 ) -> bool:
     if buttons is None:
         buttons = []
     if entities is None:
         entities = []
-    
+
+    # ✅ FINAL SANITIZER: entities list mein koi bhi non-serializable object
+    # MongoDB tak nahi pahunchna chahiye — ye last-resort check hai
+    safe_entities = _sanitize_entities_for_mongo(entities)
+
     try:
         await management_db.welcome_settings.update_one(
             {"chat_id": chat_id},
@@ -335,7 +402,7 @@ async def set_custom_welcome(
                     "welcome.media_type": media_type,
                     "welcome.media_id": media_id,
                     "welcome.text": text,
-                    "welcome.entities": entities,   # ✅ NEW: entities save ho rahi hain
+                    "welcome.entities": safe_entities,
                     "welcome.buttons": buttons,
                     "updated_at": datetime.utcnow()
                 }
@@ -357,14 +424,17 @@ async def set_custom_goodbye(
     media_type: Optional[str],
     media_id: Optional[str],
     text: str,
-    entities: Optional[List[Dict]] = None,   # ✅ NEW: bold/italic/spoiler/blockquote/premium emoji sab
+    entities: Optional[List[Dict]] = None,
     buttons: Optional[List[Dict]] = None
 ) -> bool:
     if buttons is None:
         buttons = []
     if entities is None:
         entities = []
-    
+
+    # ✅ FINAL SANITIZER
+    safe_entities = _sanitize_entities_for_mongo(entities)
+
     try:
         await management_db.welcome_settings.update_one(
             {"chat_id": chat_id},
@@ -374,7 +444,7 @@ async def set_custom_goodbye(
                     "goodbye.media_type": media_type,
                     "goodbye.media_id": media_id,
                     "goodbye.text": text,
-                    "goodbye.entities": entities,   # ✅ NEW: entities save ho rahi hain
+                    "goodbye.entities": safe_entities,
                     "goodbye.buttons": buttons,
                     "updated_at": datetime.utcnow()
                 }

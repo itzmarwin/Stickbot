@@ -3,7 +3,7 @@ import asyncio
 import random
 from pyrogram import Client, filters
 from pyrogram.types import Message
-from pyrogram.enums import ChatMemberStatus
+from pyrogram.enums import ChatMemberStatus, ParseMode
 from pyrogram.errors import FloodWait, ChatAdminRequired
 
 from pyrogram_handlers.utils import (
@@ -52,7 +52,7 @@ async def send_mention_batch(message_target, mentions: str, header_html: str = N
         await message_target.reply_text(
             mentions,
             disable_web_page_preview=True,
-            parse_mode="html"
+            parse_mode=ParseMode.HTML
         )
         return True
     except FloodWait as e:
@@ -72,7 +72,7 @@ async def send_fresh_message(client: Client, chat_id: int, text: str, retry_coun
             chat_id,
             text,
             disable_web_page_preview=True,
-            parse_mode="html"
+            parse_mode=ParseMode.HTML
         )
         return True
     except FloodWait as e:

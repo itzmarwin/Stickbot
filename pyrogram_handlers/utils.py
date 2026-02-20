@@ -328,29 +328,57 @@ def entities_to_dict(entities: Optional[List[MessageEntity]]) -> List[Dict]:
     result = []
     for entity in entities:
         try:
+            # ✅ FIX: type ko safely string mein convert karo
+            entity_type = entity.type
+            if hasattr(entity_type, 'value'):
+                type_str = entity_type.value          # MessageEntityType enum → string
+            else:
+                type_str = str(entity_type)           # fallback
+
             entity_dict = {
-                "type": entity.type.value if hasattr(entity.type, 'value') else str(entity.type),
-                "offset": entity.offset,
-                "length": entity.length,
+                "type": type_str,
+                "offset": int(entity.offset),         # ensure plain int
+                "length": int(entity.length),         # ensure plain int
             }
 
-            # Optional fields — sirf tab add karo jab value ho
-            if hasattr(entity, 'url') and entity.url:
-                entity_dict["url"] = entity.url
+            # url — text_link ke liye
+            url = getattr(entity, 'url', None)
+            if url and isinstance(url, str):
+                entity_dict["url"] = url
 
-            if hasattr(entity, 'user') and entity.user:
-                # User object ko dict mein save karo
-                entity_dict["user_id"] = entity.user.id
-                entity_dict["user_first_name"] = entity.user.first_name or ""
-                entity_dict["user_last_name"] = entity.user.last_name or ""
-                entity_dict["user_username"] = entity.user.username or ""
-                entity_dict["user_is_bot"] = entity.user.is_bot or False
+            # user — text_mention ke liye
+            user_obj = getattr(entity, 'user', None)
+            if user_obj is not None:
+                try:
+                    entity_dict["user_id"] = int(user_obj.id)
+                    entity_dict["user_first_name"] = str(user_obj.first_name or "")
+                    entity_dict["user_last_name"] = str(user_obj.last_name or "")
+                    entity_dict["user_username"] = str(user_obj.username or "")
+                    entity_dict["user_is_bot"] = bool(user_obj.is_bot or False)
+                except Exception as user_err:
+                    logger.warning(f"User field extract error: {user_err}")
 
-            if hasattr(entity, 'language') and entity.language:
-                entity_dict["language"] = entity.language
+            # language — pre/code ke liye
+            language = getattr(entity, 'language', None)
+            if language and isinstance(language, str):
+                entity_dict["language"] = language
 
-            if hasattr(entity, 'custom_emoji_id') and entity.custom_emoji_id:
-                entity_dict["custom_emoji_id"] = entity.custom_emoji_id
+            # ✅ FIX: custom_emoji_id — raw Pyrogram object ho sakta hai, str mein convert karo
+            # Pyrogram 2.0.x mein ye kabhi str hota hai, kabhi raw MessageEntityCustomEmoji object
+            custom_emoji_id = getattr(entity, 'custom_emoji_id', None)
+            if custom_emoji_id is not None:
+                # Raw object ho sakta hai jaise MessageEntityCustomEmoji — str() se ID nikalo
+                emoji_id_str = str(custom_emoji_id)
+                # Agar ye ek object hai toh uska document_id ya id field lo
+                if hasattr(custom_emoji_id, 'document_id'):
+                    emoji_id_str = str(custom_emoji_id.document_id)
+                elif hasattr(custom_emoji_id, 'id'):
+                    emoji_id_str = str(custom_emoji_id.id)
+                # Sirf valid numeric string save karo
+                if emoji_id_str and emoji_id_str.lstrip('-').isdigit():
+                    entity_dict["custom_emoji_id"] = emoji_id_str
+                else:
+                    logger.warning(f"custom_emoji_id invalid value: {emoji_id_str!r}, skipping")
 
             result.append(entity_dict)
 

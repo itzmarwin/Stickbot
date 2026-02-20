@@ -19,8 +19,6 @@ DB_WAIT_QUEUE_TIMEOUT_MS = 10000
 CURRENT_SCHEMA_VERSION = 1
 SCHEMA_COLLECTION = "schema_version"
 
-DEFAULT_WELCOME_TEXT = "Welcome {MENTION} Hope you have a great time here."
-DEFAULT_GOODBYE_TEXT = "Goodbye {MENTION} We hope to see you again."
 DEFAULT_AUTO_DELETE_SECONDS = 600
 
 management_client: Optional[AsyncIOMotorClient] = None
@@ -115,11 +113,15 @@ async def _check_and_migrate_schema():
     logger.info(f"🔄 Schema migration: v{current_version} → v{CURRENT_SCHEMA_VERSION}")
     
     for version in range(current_version + 1, CURRENT_SCHEMA_VERSION + 1):
-        if version == 1:
-            await _migrate_to_v1()
-        
-        await _set_schema_version(version)
-        logger.info(f"✅ Migrated to v{version}")
+        try:
+            if version == 1:
+                await _migrate_to_v1()
+            
+            await _set_schema_version(version)
+            logger.info(f"✅ Migrated to v{version}")
+        except Exception as e:
+            logger.error(f"❌ Migration to v{version} failed, stopping: {e}")
+            raise
 
 
 async def _migrate_to_v1():
@@ -201,7 +203,6 @@ async def create_default_welcome_settings(chat_id: int) -> bool:
                 "media_id": None,
                 "text": None,
                 "buttons": [],
-                "default_text": DEFAULT_WELCOME_TEXT,
                 "auto_delete": {"enabled": False, "delete_after": None}
             },
             "goodbye": {
@@ -211,7 +212,6 @@ async def create_default_welcome_settings(chat_id: int) -> bool:
                 "media_id": None,
                 "text": None,
                 "buttons": [],
-                "default_text": DEFAULT_GOODBYE_TEXT,
                 "auto_delete": {"enabled": False, "delete_after": None}
             },
             "created_at": now,

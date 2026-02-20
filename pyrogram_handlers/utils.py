@@ -546,21 +546,32 @@ def entities_to_list(entities) -> List[Dict]:
 
     result = []
     for e in entities:
-        etype = e.type
-        type_str = etype.value if hasattr(etype, 'value') else str(etype)
+        try:
+            etype = e.type
+            # Always convert to string value — never store enum or raw Pyrogram objects
+            type_str = etype.value if hasattr(etype, 'value') else str(etype)
 
-        user = getattr(e, "user", None)
-        entry = {
-            "type": type_str,
-            "offset": e.offset,
-            "length": e.length,
-            "url": getattr(e, "url", None),
-            "language": getattr(e, "language", None),
-            "custom_emoji_id": getattr(e, "custom_emoji_id", None),
-            "user_id": user.id if user else None,
-            "user_first_name": getattr(user, "first_name", "") if user else None,
-        }
-        result.append(entry)
+            user = getattr(e, "user", None)
+
+            # Safely get custom_emoji_id — could be int or string depending on Pyrogram version
+            custom_emoji_id = getattr(e, "custom_emoji_id", None)
+            if custom_emoji_id is not None:
+                custom_emoji_id = str(custom_emoji_id)
+
+            entry = {
+                "type": type_str,                                          # string
+                "offset": int(e.offset),                                   # int
+                "length": int(e.length),                                   # int
+                "url": str(getattr(e, "url", None) or "") or None,        # string or None
+                "language": str(getattr(e, "language", None) or "") or None,  # string or None
+                "custom_emoji_id": custom_emoji_id,                        # string or None
+                "user_id": int(user.id) if user else None,                 # int or None
+                "user_first_name": str(getattr(user, "first_name", "") or "") if user else None,
+            }
+            result.append(entry)
+        except Exception as ex:
+            logger.warning(f"Skipping entity during entities_to_list: {ex}")
+            continue
 
     return result
 

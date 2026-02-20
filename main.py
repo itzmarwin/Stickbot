@@ -53,17 +53,7 @@ async def setup_pyrogram():
             "bot_session",
             api_id=TELEGRAM_API_ID,
             api_hash=TELEGRAM_API_HASH,
-            bot_token=BOT_TOKEN,
-            # chat_member explicitly add kiya — welcome/goodbye ke liye zaroori
-            # private, public, supergroup sabme kaam karega
-            allowed_updates=[
-                "message",
-                "chat_member",
-                "callback_query",
-                "inline_query",
-                "chosen_inline_result",
-                "chat_join_request"
-            ]
+            bot_token=BOT_TOKEN
         )
 
         await pyro_client.start()

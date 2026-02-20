@@ -481,123 +481,128 @@ async def setup_goodbye_handlers(client: Client):
             await message.reply_text("Please try again later. If it still doesn't work contact the support group.", parse_mode=ParseMode.HTML)
 
 
-    # FIX: filters.left_chat_member supergroups me reliable nahi tha
-    # Ab chat_member_updated use ho raha hai — same as welcome handler
-    @client.on_chat_member_updated(filters.group)
-    async def goodbye_left_member(client: Client, member_update: ChatMemberUpdated):
-        try:
-            # Check 1: old aur new dono hone chahiye
-            if not member_update.old_chat_member or not member_update.new_chat_member:
-                return
+    @client.on_chat_member_updated()
+async def goodbye_left_member(client: Client, member_update: ChatMemberUpdated):
+    try:
+        # Safety check
+        if not member_update.old_chat_member or not member_update.new_chat_member:
+            return
 
-            old_status = member_update.old_chat_member.status
-            new_status = member_update.new_chat_member.status
+        chat = member_update.chat
 
-            # Check 2: New status LEFT hona chahiye
-            if new_status != ChatMemberStatus.LEFT:
-                return
+        # Sirf group / supergroup me chale
+        if chat.type not in ("group", "supergroup"):
+            return
 
-            # Check 3: Sirf genuine leave/kick — BANNED skip karo
-            # MEMBER/RESTRICTED/ADMINISTRATOR/OWNER → LEFT = left ya kick ✅
-            # Koi bhi → BANNED = ban ❌ skip
-            if old_status not in {
+        old_status = member_update.old_chat_member.status
+        new_status = member_update.new_chat_member.status
+
+        # Leave / Kick / Ban detect
+        if not (
+            old_status in {
                 ChatMemberStatus.MEMBER,
                 ChatMemberStatus.RESTRICTED,
                 ChatMemberStatus.ADMINISTRATOR,
                 ChatMemberStatus.OWNER
-            }:
-                return
+            }
+            and new_status in {
+                ChatMemberStatus.LEFT,
+                ChatMemberStatus.BANNED
+            }
+        ):
+            return
 
-            user = member_update.old_chat_member.user
-            if not user or user.is_bot:
-                return
+        user = member_update.old_chat_member.user
+        if not user or user.is_bot:
+            return
 
-            chat_id = member_update.chat.id
+        chat_id = chat.id
 
-            goodbye_config = await get_cached_settings(chat_id, 'goodbye')
+        # 🔥 Cache first (important for scale)
+        goodbye_config = await get_cached_settings(chat_id, 'goodbye')
 
-            if not goodbye_config:
+        if not goodbye_config:
+            settings = await get_welcome_settings(chat_id)
+
+            if not settings:
+                await create_default_welcome_settings(chat_id)
                 settings = await get_welcome_settings(chat_id)
 
-                if not settings:
-                    await create_default_welcome_settings(chat_id)
-                    settings = await get_welcome_settings(chat_id)
-
-                if not settings or not settings.get('goodbye', {}).get('enabled'):
-                    return
-
-                goodbye_config = settings['goodbye']
-                await update_cached_settings(chat_id, 'goodbye', goodbye_config)
-
-            if not goodbye_config.get('enabled'):
+            if not settings or not settings.get('goodbye', {}).get('enabled'):
                 return
 
-            # Custom ya default text
-            if goodbye_config.get('custom_set') and goodbye_config.get('text'):
-                text = goodbye_config['text']
-            else:
-                text = DEFAULT_GOODBYE_TEXT
+            goodbye_config = settings['goodbye']
+            await update_cached_settings(chat_id, 'goodbye', goodbye_config)
 
-            formatted_text = format_message_text(text, user, member_update.chat)
+        if not goodbye_config.get('enabled'):
+            return
 
-            reply_markup = None
-            if goodbye_config.get('buttons'):
-                reply_markup = create_button_markup(goodbye_config['buttons'])
+        # Custom ya default text
+        if goodbye_config.get('custom_set') and goodbye_config.get('text'):
+            text = goodbye_config['text']
+        else:
+            text = DEFAULT_GOODBYE_TEXT
 
-            sent_message = None
+        formatted_text = format_message_text(text, user, chat)
 
-            try:
-                if goodbye_config.get('media_type') and goodbye_config.get('media_id'):
-                    media_type = goodbye_config['media_type']
-                    media_id = goodbye_config['media_id']
+        reply_markup = None
+        if goodbye_config.get('buttons'):
+            reply_markup = create_button_markup(goodbye_config['buttons'])
 
-                    if media_type == "photo":
-                        sent_message = await client.send_photo(
-                            chat_id=chat_id,
-                            photo=media_id,
-                            caption=formatted_text,
-                            reply_markup=reply_markup,
-                            parse_mode=ParseMode.HTML
-                        )
-                    elif media_type == "video":
-                        sent_message = await client.send_video(
-                            chat_id=chat_id,
-                            video=media_id,
-                            caption=formatted_text,
-                            reply_markup=reply_markup,
-                            parse_mode=ParseMode.HTML
-                        )
-                    elif media_type == "animation":
-                        sent_message = await client.send_animation(
-                            chat_id=chat_id,
-                            animation=media_id,
-                            caption=formatted_text,
-                            reply_markup=reply_markup,
-                            parse_mode=ParseMode.HTML
-                        )
-                else:
-                    sent_message = await client.send_message(
+        sent_message = None
+
+        try:
+            if goodbye_config.get('media_type') and goodbye_config.get('media_id'):
+                media_type = goodbye_config['media_type']
+                media_id = goodbye_config['media_id']
+
+                if media_type == "photo":
+                    sent_message = await client.send_photo(
                         chat_id=chat_id,
-                        text=formatted_text,
+                        photo=media_id,
+                        caption=formatted_text,
                         reply_markup=reply_markup,
-                        parse_mode=ParseMode.HTML,
-                        link_preview_options={"is_disabled": True}
+                        parse_mode=ParseMode.HTML
                     )
+                elif media_type == "video":
+                    sent_message = await client.send_video(
+                        chat_id=chat_id,
+                        video=media_id,
+                        caption=formatted_text,
+                        reply_markup=reply_markup,
+                        parse_mode=ParseMode.HTML
+                    )
+                elif media_type == "animation":
+                    sent_message = await client.send_animation(
+                        chat_id=chat_id,
+                        animation=media_id,
+                        caption=formatted_text,
+                        reply_markup=reply_markup,
+                        parse_mode=ParseMode.HTML
+                    )
+            else:
+                sent_message = await client.send_message(
+                    chat_id=chat_id,
+                    text=formatted_text,
+                    reply_markup=reply_markup,
+                    parse_mode=ParseMode.HTML,
+                    disable_web_page_preview=True
+                )
 
-                auto_delete = goodbye_config.get('auto_delete', {})
-                if auto_delete.get('enabled') and sent_message:
-                    delete_after = auto_delete.get('delete_after', DEFAULT_AUTO_DELETE_SECONDS)
-                    can_delete = await bot_can_delete_messages(client, chat_id)
+            auto_delete = goodbye_config.get('auto_delete', {})
+            if auto_delete.get('enabled') and sent_message:
+                delete_after = auto_delete.get('delete_after', DEFAULT_AUTO_DELETE_SECONDS)
+                can_delete = await bot_can_delete_messages(client, chat_id)
 
-                    if can_delete:
-                        await schedule_message_deletion(sent_message, delete_after, chat_id, 'goodbye')
+                if can_delete:
+                    await schedule_message_deletion(sent_message, delete_after, chat_id, 'goodbye')
 
-            except (BadRequest, MessageDeleteForbidden, FloodWait):
-                pass
-            except Exception as send_error:
-                log_error("Send goodbye failed", send_error, chat_id=chat_id)
+        except (BadRequest, MessageDeleteForbidden, FloodWait):
+            pass
+        except Exception as send_error:
+            log_error("Send goodbye failed", send_error, chat_id=chat_id)
 
-        except Exception as e:
-            log_error("goodbye_left_member", e, chat_id=member_update.chat.id)
+    except Exception as e:
+        log_error("goodbye_left_member", e, chat_id=member_update.chat.id)
 
     logger.info("✅ Goodbye handlers setup complete")

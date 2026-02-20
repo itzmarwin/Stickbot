@@ -36,8 +36,8 @@ logger = logging.getLogger(__name__)
 
 # Default goodbye message with premium emoji
 DEFAULT_GOODBYE_TEXT = (
-    '<emoji id="5445278980909310899">👋</emoji> Goodbye {MENTION}! '
-    'We hope to see you again.'
+    ' Goodbye {MENTION}! '
+    'We hope to see you again <emoji id="5445278980909310899">👋</emoji>'
 )
 
 

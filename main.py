@@ -32,7 +32,7 @@ from pyrogram_handlers.extra import setup_extra_handlers
 from pyrogram_handlers.ban import setup_ban_handlers
 
 logging.basicConfig(
-    level=logging.INFO,  # ← Change WARNING to INFO
+    level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
@@ -53,7 +53,17 @@ async def setup_pyrogram():
             "bot_session",
             api_id=TELEGRAM_API_ID,
             api_hash=TELEGRAM_API_HASH,
-            bot_token=BOT_TOKEN
+            bot_token=BOT_TOKEN,
+            # chat_member explicitly add kiya — welcome/goodbye ke liye zaroori
+            # private, public, supergroup sabme kaam karega
+            allowed_updates=[
+                "message",
+                "chat_member",
+                "callback_query",
+                "inline_query",
+                "chosen_inline_result",
+                "chat_join_request"
+            ]
         )
 
         await pyro_client.start()

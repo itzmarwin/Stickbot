@@ -1,7 +1,7 @@
 import logging
 from pyrogram import Client, filters
-from pyrogram.types import Message
-from pyrogram.enums import ParseMode
+from pyrogram.types import Message, ChatMemberUpdated
+from pyrogram.enums import ChatMemberStatus, ParseMode
 from pyrogram.errors import ChatAdminRequired, MessageDeleteForbidden, BadRequest, FloodWait
 
 from pyrogram_handlers.utils import (
@@ -108,7 +108,12 @@ async def setup_goodbye_handlers(client: Client):
                             elif media_type == "animation":
                                 await message.reply_animation(animation=media_id, caption=text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
                         else:
-                            await message.reply_text(text=text, reply_markup=reply_markup, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
+                            await message.reply_text(
+                                text=text,
+                                reply_markup=reply_markup,
+                                parse_mode=ParseMode.HTML,
+                                link_preview_options={"is_disabled": True}
+                            )
                     except BadRequest:
                         await message.reply_text("Preview unavailable (media may have expired)", parse_mode=ParseMode.HTML)
 
@@ -476,15 +481,38 @@ async def setup_goodbye_handlers(client: Client):
             await message.reply_text("Please try again later. If it still doesn't work contact the support group.", parse_mode=ParseMode.HTML)
 
 
-    @client.on_message(filters.left_chat_member & filters.group)
-    async def goodbye_left_member(client: Client, message: Message):
+    # FIX: filters.left_chat_member supergroups me reliable nahi tha
+    # Ab chat_member_updated use ho raha hai — same as welcome handler
+    @client.on_chat_member_updated(filters.group)
+    async def goodbye_left_member(client: Client, member_update: ChatMemberUpdated):
         try:
-            chat_id = message.chat.id
-            left_member = message.left_chat_member
-
-            # Bot nahi hona chahiye
-            if not left_member or left_member.is_bot:
+            # Check 1: old aur new dono hone chahiye
+            if not member_update.old_chat_member or not member_update.new_chat_member:
                 return
+
+            old_status = member_update.old_chat_member.status
+            new_status = member_update.new_chat_member.status
+
+            # Check 2: New status LEFT hona chahiye
+            if new_status != ChatMemberStatus.LEFT:
+                return
+
+            # Check 3: Sirf genuine leave/kick — BANNED skip karo
+            # MEMBER/RESTRICTED/ADMINISTRATOR/OWNER → LEFT = left ya kick ✅
+            # Koi bhi → BANNED = ban ❌ skip
+            if old_status not in {
+                ChatMemberStatus.MEMBER,
+                ChatMemberStatus.RESTRICTED,
+                ChatMemberStatus.ADMINISTRATOR,
+                ChatMemberStatus.OWNER
+            }:
+                return
+
+            user = member_update.old_chat_member.user
+            if not user or user.is_bot:
+                return
+
+            chat_id = member_update.chat.id
 
             goodbye_config = await get_cached_settings(chat_id, 'goodbye')
 
@@ -510,7 +538,7 @@ async def setup_goodbye_handlers(client: Client):
             else:
                 text = DEFAULT_GOODBYE_TEXT
 
-            formatted_text = format_message_text(text, left_member, message.chat)
+            formatted_text = format_message_text(text, user, member_update.chat)
 
             reply_markup = None
             if goodbye_config.get('buttons'):
@@ -553,7 +581,7 @@ async def setup_goodbye_handlers(client: Client):
                         text=formatted_text,
                         reply_markup=reply_markup,
                         parse_mode=ParseMode.HTML,
-                        disable_web_page_preview=True
+                        link_preview_options={"is_disabled": True}
                     )
 
                 auto_delete = goodbye_config.get('auto_delete', {})
@@ -570,6 +598,6 @@ async def setup_goodbye_handlers(client: Client):
                 log_error("Send goodbye failed", send_error, chat_id=chat_id)
 
         except Exception as e:
-            log_error("goodbye_left_member", e, chat_id=message.chat.id)
+            log_error("goodbye_left_member", e, chat_id=member_update.chat.id)
 
     logger.info("✅ Goodbye handlers setup complete")

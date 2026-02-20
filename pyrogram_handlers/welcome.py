@@ -870,15 +870,16 @@ def parse_buttons_with_entities(text, entities):
     return cleaned_text, button_rows, adjusted_entities, None
 
 # ✅ SAFE ENTITIES CONVERTER — utils.py pe depend nahi karta
-# custom_emoji_id raw Pyrogram object ko safely str mein convert karta hai
+# Raw Pyrogram TL objects aur MessageEntity objects dono handle karta hai
 def _safe_entities_to_dict(entities) -> list:
     """
-    Pyrogram MessageEntity list ko MongoDB-safe plain dict list mein convert karta hai.
+    COMPLETE FIX: replied_msg.entities do tarah ke objects de sakta hai:
+    1. Pyrogram MessageEntity objects (entity.type = MessageEntityType enum)
+    2. Raw TL objects (MessageEntityBold, MessageEntityItalic etc.)
+       - in mein .type nahi hota, class ka naam hi type hota hai
+       - MessageEntityCustomEmoji mein .document_id hota hai
 
-    ROOT FIX: Pyrogram 2.0.x mein entity.custom_emoji_id ek raw
-    pyrogram.raw.types.MessageEntityCustomEmoji object hota hai jiska
-    .document_id field actual numeric ID hai. Isko str() se convert
-    karna galat result deta tha — ab .document_id se directly lete hain.
+    Ye function dono cases handle karta hai.
     """
     if not entities:
         return []
@@ -886,73 +887,108 @@ def _safe_entities_to_dict(entities) -> list:
     import logging as _logging
     _logger = _logging.getLogger(__name__)
 
+    # Raw TL class name → standard type string mapping
+    RAW_TYPE_MAP = {
+        'MessageEntityBold':          'bold',
+        'MessageEntityItalic':        'italic',
+        'MessageEntityUnderline':     'underline',
+        'MessageEntityStrike':        'strikethrough',
+        'MessageEntitySpoiler':       'spoiler',
+        'MessageEntityCode':          'code',
+        'MessageEntityPre':           'pre',
+        'MessageEntityBlockquote':    'blockquote',
+        'MessageEntityTextUrl':       'text_link',
+        'MessageEntityMentionName':   'text_mention',
+        'MessageEntityCustomEmoji':   'custom_emoji',
+        'MessageEntityMention':       'mention',
+        'MessageEntityHashtag':       'hashtag',
+        'MessageEntityCashtag':       'cashtag',
+        'MessageEntityBotCommand':    'bot_command',
+        'MessageEntityUrl':           'url',
+        'MessageEntityEmail':         'email',
+        'MessageEntityPhone':         'phone_number',
+    }
+
     result = []
     for e in entities:
         try:
-            # Type string safely extract karo
-            etype = e.type
-            if hasattr(etype, 'value'):
-                type_str = etype.value
+            class_name = type(e).__name__
+
+            # ── Type string determine karo ──────────────────────────────
+            if class_name in RAW_TYPE_MAP:
+                # Raw TL object hai
+                type_str = RAW_TYPE_MAP[class_name]
+                offset   = int(e.offset)
+                length   = int(e.length)
+            elif hasattr(e, 'type'):
+                # Pyrogram MessageEntity object hai
+                etype = e.type
+                if hasattr(etype, 'value'):
+                    type_str = etype.value
+                else:
+                    type_str = str(etype)
+                offset = int(e.offset)
+                length = int(e.length)
             else:
-                type_str = str(etype)
+                _logger.warning(f"Unknown entity class: {class_name}, skipping")
+                continue
 
             d = {
-                "type": type_str,
-                "offset": int(e.offset),
-                "length": int(e.length),
+                "type":   type_str,
+                "offset": offset,
+                "length": length,
             }
 
-            # url — text_link ke liye
+            # ── url (text_link / MessageEntityTextUrl) ──────────────────
             url = getattr(e, 'url', None)
             if url and isinstance(url, str):
                 d["url"] = url
 
-            # language — pre/code ke liye
+            # ── language (pre / MessageEntityPre) ──────────────────────
             lang = getattr(e, 'language', None)
             if lang and isinstance(lang, str):
                 d["language"] = lang
 
-            # user — text_mention ke liye
-            user_obj = getattr(e, 'user', None)
-            if user_obj is not None:
+            # ── user_id (text_mention / MessageEntityMentionName) ───────
+            # Raw TL: e.user_id (int)
+            # Pyrogram: e.user (User object)
+            raw_user_id = getattr(e, 'user_id', None)
+            user_obj    = getattr(e, 'user', None)
+
+            if raw_user_id is not None:
+                d["user_id"] = int(raw_user_id)
+            elif user_obj is not None:
                 try:
-                    d["user_id"] = int(user_obj.id)
+                    d["user_id"]         = int(user_obj.id)
                     d["user_first_name"] = str(user_obj.first_name or "")
-                    d["user_last_name"] = str(user_obj.last_name or "")
-                    d["user_username"] = str(user_obj.username or "")
-                    d["user_is_bot"] = bool(getattr(user_obj, 'is_bot', False))
+                    d["user_last_name"]  = str(user_obj.last_name  or "")
+                    d["user_username"]   = str(user_obj.username   or "")
+                    d["user_is_bot"]     = bool(getattr(user_obj, 'is_bot', False))
                 except Exception as ue:
                     _logger.warning(f"User extract error: {ue}")
 
-            # ✅ MAIN FIX: custom_emoji_id
-            # entity.custom_emoji_id = MessageEntityCustomEmoji object
-            # uska .document_id = actual int ID
-            raw = getattr(e, 'custom_emoji_id', None)
-            if raw is not None:
-                emoji_str = None
-                if isinstance(raw, int):
-                    emoji_str = str(raw)
-                elif isinstance(raw, str):
-                    emoji_str = raw
-                elif hasattr(raw, 'document_id'):
-                    # ✅ Ye wala case fix karta hai error ko
-                    emoji_str = str(raw.document_id)
-                elif hasattr(raw, 'id'):
-                    emoji_str = str(raw.id)
-                else:
-                    _logger.warning(
-                        f"custom_emoji_id unknown: {type(raw).__name__}, "
-                        f"attrs={[x for x in dir(raw) if not x.startswith('_')]}"
-                    )
-
-                if emoji_str and emoji_str.lstrip('-').isdigit():
-                    d["custom_emoji_id"] = emoji_str
+            # ── custom_emoji_id (MessageEntityCustomEmoji) ──────────────
+            # Raw TL: e.document_id (int)  ← MAIN FIX
+            # Pyrogram MessageEntity: e.custom_emoji_id (str ya raw object)
+            if class_name == 'MessageEntityCustomEmoji':
+                # Raw TL object — .document_id directly int hai
+                doc_id = getattr(e, 'document_id', None)
+                if doc_id is not None:
+                    d["custom_emoji_id"] = str(doc_id)
+            else:
+                raw_emoji = getattr(e, 'custom_emoji_id', None)
+                if raw_emoji is not None:
+                    if isinstance(raw_emoji, int):
+                        d["custom_emoji_id"] = str(raw_emoji)
+                    elif isinstance(raw_emoji, str):
+                        d["custom_emoji_id"] = raw_emoji
+                    elif hasattr(raw_emoji, 'document_id'):
+                        d["custom_emoji_id"] = str(raw_emoji.document_id)
 
             result.append(d)
 
         except Exception as ex:
-            import logging as _log2
-            _log2.getLogger(__name__).warning(f"Entity skip: {type(e).__name__} — {ex}")
+            _logger.warning(f"Entity skip ({type(e).__name__}): {ex}")
             continue
 
     return result

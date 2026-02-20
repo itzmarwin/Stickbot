@@ -35,9 +35,15 @@ from database_management import (
 
 logger = logging.getLogger(__name__)
 
+# Default welcome message with premium emoji
+DEFAULT_WELCOME_TEXT = (
+    '<emoji id="5447432232698389583">👋</emoji> Welcome {MENTION}! '
+    'Hope you have a great time here.'
+)
+
 
 async def setup_welcome_handlers(client: Client):
-    
+
     @client.on_message(filters.command("welcome") & filters.group)
     async def welcome_command(client: Client, message: Message):
         chat_id = None
@@ -45,15 +51,13 @@ async def setup_welcome_handlers(client: Client):
         try:
             chat_id = message.chat.id
             user_id = message.from_user.id if message.from_user else None
-            
-            # Simple admin check - no anonymous detection
+
             try:
                 is_admin = await is_user_admin(client, chat_id, user_id)
                 if not is_admin:
                     await message.reply_text("Only admins can use this command.", parse_mode=ParseMode.HTML)
                     return
             except ChatAdminRequired:
-                # Bot needs admin privileges to check
                 await message.reply_text(
                     "<b>I need admin privileges to verify permissions.</b>\n\n"
                     "Please promote me to admin first.",
@@ -64,56 +68,55 @@ async def setup_welcome_handlers(client: Client):
                 logger.error(f"Admin check failed: {type(e).__name__} - {e}")
                 await message.reply_text("Only admins can use this command.", parse_mode=ParseMode.HTML)
                 return
-            
+
             command_parts = message.text.split(maxsplit=1)
-            
+
             if len(command_parts) < 2:
                 settings = await get_welcome_settings(chat_id)
-                
+
                 if not settings:
                     await create_default_welcome_settings(chat_id)
                     settings = await get_welcome_settings(chat_id)
-                
+
                 welcome_config = settings.get('welcome', {})
                 is_enabled = welcome_config.get('enabled', False)
                 status_text = "enabled" if is_enabled else "disabled"
-                
+
                 await message.reply_text(
                     f"<b>Welcome messages are currently {status_text}.</b>",
                     parse_mode=ParseMode.HTML
                 )
-                
+
                 if is_enabled:
                     if welcome_config.get('custom_set') and welcome_config.get('text'):
                         text = welcome_config['text']
                     else:
-                        text = welcome_config.get('default_text', 'Hey {MENTION}!\nWelcome to {GROUPNAME}!')
-                    
+                        text = DEFAULT_WELCOME_TEXT
+
                     reply_markup = None
                     if welcome_config.get('buttons'):
                         reply_markup = create_button_markup(welcome_config['buttons'])
-                    
+
                     try:
                         if welcome_config.get('media_type') and welcome_config.get('media_id'):
                             media_type = welcome_config['media_type']
                             media_id = welcome_config['media_id']
-                            
+
                             if media_type == "photo":
-                                await message.reply_photo(photo=media_id, caption=text, reply_markup=reply_markup)
+                                await message.reply_photo(photo=media_id, caption=text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
                             elif media_type == "video":
-                                await message.reply_video(video=media_id, caption=text, reply_markup=reply_markup)
+                                await message.reply_video(video=media_id, caption=text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
                             elif media_type == "animation":
-                                await message.reply_animation(animation=media_id, caption=text, reply_markup=reply_markup)
+                                await message.reply_animation(animation=media_id, caption=text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
                         else:
-                            await message.reply_text(text=text, reply_markup=reply_markup)
+                            await message.reply_text(text=text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
                     except BadRequest:
                         await message.reply_text("Preview unavailable (media may have expired)", parse_mode=ParseMode.HTML)
-                
+
                 return
-            
+
             action = command_parts[1].lower()
-            
-            # Check if action requires bot admin privileges
+
             if action in ["on", "off"]:
                 if not await is_bot_admin(client, chat_id):
                     await message.reply_text(
@@ -121,26 +124,26 @@ async def setup_welcome_handlers(client: Client):
                         parse_mode=ParseMode.HTML
                     )
                     return
-            
+
             settings = await get_welcome_settings(chat_id)
-            
+
             if not settings:
                 await create_default_welcome_settings(chat_id)
                 settings = await get_welcome_settings(chat_id)
-            
+
             welcome_config = settings.get('welcome', {})
-            
+
             if action == "on":
                 if welcome_config.get('enabled'):
                     await message.reply_text("Welcome is already enabled", parse_mode=ParseMode.HTML)
                     return
-                
+
                 success = await update_welcome_status(chat_id, True)
-                
+
                 if success:
                     settings = await get_welcome_settings(chat_id)
                     await update_cached_settings(chat_id, 'welcome', settings['welcome'])
-                    
+
                     if welcome_config.get('custom_set'):
                         await message.reply_text(
                             "<b>Welcome enabled!</b>\n\n"
@@ -154,34 +157,34 @@ async def setup_welcome_handlers(client: Client):
                             "Use <code>/setwelcome</code> to set a custom message.",
                             parse_mode=ParseMode.HTML
                         )
-            
+
             elif action == "off":
                 if not welcome_config.get('enabled'):
                     await message.reply_text("Welcome is already disabled.", parse_mode=ParseMode.HTML)
                     return
-                
+
                 success = await update_welcome_status(chat_id, False)
-                
+
                 if success:
                     await clear_cached_settings(chat_id, 'welcome')
                     await message.reply_text(
                         "<b>Welcome disabled.</b>",
                         parse_mode=ParseMode.HTML
                     )
-            
+
             else:
                 await message.reply_text(
                     "Use <code>/welcome on</code> or <code>/welcome off</code>",
                     parse_mode=ParseMode.HTML
                 )
-        
+
         except FloodWait as e:
             await message.reply_text(f"⏳ Please wait {e.value} seconds before trying again.", parse_mode=ParseMode.HTML)
         except Exception as e:
             log_error("welcome_command", e, chat_id=chat_id or 0, user_id=user_id or 0)
             await message.reply_text("An error occurred. Please try again shortly.", parse_mode=ParseMode.HTML)
-    
-    
+
+
     @client.on_message(filters.command("setwelcome") & filters.group)
     async def setwelcome_command(client: Client, message: Message):
         chat_id = None
@@ -189,7 +192,7 @@ async def setup_welcome_handlers(client: Client):
         try:
             chat_id = message.chat.id
             user_id = message.from_user.id if message.from_user else None
-            
+
             try:
                 is_admin = await is_user_admin(client, chat_id, user_id)
                 if not is_admin:
@@ -205,24 +208,24 @@ async def setup_welcome_handlers(client: Client):
             except Exception:
                 await message.reply_text("Only admins can use this command!", parse_mode=ParseMode.HTML)
                 return
-            
+
             if not await is_bot_admin(client, chat_id):
                 await message.reply_text("<b>Please promote the bot to admin first.</b>", parse_mode=ParseMode.HTML)
                 return
-            
+
             if not message.reply_to_message:
                 await message.reply_text(
                     "<b>Please reply to a message.</b>",
                     parse_mode=ParseMode.HTML
                 )
                 return
-            
+
             settings = await get_welcome_settings(chat_id)
-            
+
             if not settings:
                 await create_default_welcome_settings(chat_id)
                 settings = await get_welcome_settings(chat_id)
-            
+
             if settings.get('welcome', {}).get('custom_set'):
                 await message.reply_text(
                     "<b>Welcome message already set.</b>\n\n"
@@ -230,41 +233,43 @@ async def setup_welcome_handlers(client: Client):
                     parse_mode=ParseMode.HTML
                 )
                 return
-            
+
             replied_msg = message.reply_to_message
-            
+
             media_type = None
             media_id = None
             text = None
-            
+
+            # KEY FIX: .html use karo taaki bold, italic, strikethrough,
+            # spoiler, underline, links, premium emoji — sab preserve ho
             if replied_msg.photo:
                 media_type = "photo"
                 media_id = replied_msg.photo.file_id
-                text = replied_msg.caption or ""
+                text = replied_msg.caption.html if replied_msg.caption else ""
             elif replied_msg.video:
                 media_type = "video"
                 media_id = replied_msg.video.file_id
-                text = replied_msg.caption or ""
+                text = replied_msg.caption.html if replied_msg.caption else ""
             elif replied_msg.animation:
                 media_type = "animation"
                 media_id = replied_msg.animation.file_id
-                text = replied_msg.caption or ""
+                text = replied_msg.caption.html if replied_msg.caption else ""
             elif replied_msg.text:
-                text = replied_msg.text
+                text = replied_msg.text.html
             else:
                 await message.reply_text(
                     "<b>Unsupported message type.</b>\n\n"
-                    "Supported: Photo, Video, GIF",
+                    "Supported: Photo, Video, GIF, Text",
                     parse_mode=ParseMode.HTML
                 )
                 return
-            
+
             is_caption = media_type is not None
             validation_error = validate_text_length(text, is_caption)
             if validation_error:
                 await message.reply_text(f"{validation_error}", parse_mode=ParseMode.HTML)
                 return
-            
+
             button_rows = []
             if text:
                 text, button_rows, error = parse_buttons(text)
@@ -276,10 +281,10 @@ async def setup_welcome_handlers(client: Client):
                         parse_mode=ParseMode.HTML
                     )
                     return
-            
+
             if not text or len(text.strip()) == 0:
-                text = "Hey {MENTION}!\nWelcome to {GROUPNAME}!"
-            
+                text = DEFAULT_WELCOME_TEXT
+
             success = await set_custom_welcome(
                 chat_id=chat_id,
                 media_type=media_type,
@@ -287,12 +292,12 @@ async def setup_welcome_handlers(client: Client):
                 text=text,
                 buttons=button_rows
             )
-            
+
             if success:
                 await update_welcome_status(chat_id, True)
                 settings = await get_welcome_settings(chat_id)
                 await update_cached_settings(chat_id, 'welcome', settings['welcome'])
-                
+
                 await message.reply_text(
                     "<b>Welcome message set successfully.</b>\n\n"
                     "Welcome is now <b>enabled</b>.",
@@ -300,12 +305,12 @@ async def setup_welcome_handlers(client: Client):
                 )
             else:
                 await message.reply_text("Failed to set welcome message. Please try again.", parse_mode=ParseMode.HTML)
-        
+
         except Exception as e:
             log_error("setwelcome_command", e, chat_id=chat_id or 0, user_id=user_id or 0)
             await message.reply_text("Please try again later. If it still doesn't work, contact the support group", parse_mode=ParseMode.HTML)
-    
-    
+
+
     @client.on_message(filters.command("delwelcome") & filters.group)
     async def delwelcome_command(client: Client, message: Message):
         chat_id = None
@@ -313,7 +318,7 @@ async def setup_welcome_handlers(client: Client):
         try:
             chat_id = message.chat.id
             user_id = message.from_user.id if message.from_user else None
-            
+
             try:
                 is_admin = await is_user_admin(client, chat_id, user_id)
                 if not is_admin:
@@ -329,13 +334,13 @@ async def setup_welcome_handlers(client: Client):
             except Exception:
                 await message.reply_text("Only admins can use this command!", parse_mode=ParseMode.HTML)
                 return
-            
+
             settings = await get_welcome_settings(chat_id)
-            
+
             if not settings:
                 await message.reply_text("No welcome settings found for this group.", parse_mode=ParseMode.HTML)
                 return
-            
+
             if not settings.get('welcome', {}).get('custom_set'):
                 await message.reply_text(
                     "<b>No custom welcome message set.</b>\n\n"
@@ -343,9 +348,9 @@ async def setup_welcome_handlers(client: Client):
                     parse_mode=ParseMode.HTML
                 )
                 return
-            
+
             success = await delete_custom_welcome(chat_id)
-            
+
             if success:
                 await clear_cached_settings(chat_id, 'welcome')
                 await message.reply_text(
@@ -356,12 +361,12 @@ async def setup_welcome_handlers(client: Client):
                 )
             else:
                 await message.reply_text("Failed to delete welcome message. Please try again.", parse_mode=ParseMode.HTML)
-        
+
         except Exception as e:
             log_error("delwelcome_command", e, chat_id=chat_id or 0, user_id=user_id or 0)
             await message.reply_text("Please try again later. If it still doesn't work, contact the support group", parse_mode=ParseMode.HTML)
-    
-    
+
+
     @client.on_message(filters.command("cleanwelcome") & filters.group)
     async def cleanwelcome_command(client: Client, message: Message):
         chat_id = None
@@ -369,7 +374,7 @@ async def setup_welcome_handlers(client: Client):
         try:
             chat_id = message.chat.id
             user_id = message.from_user.id if message.from_user else None
-            
+
             try:
                 is_admin = await is_user_admin(client, chat_id, user_id)
                 if not is_admin:
@@ -385,18 +390,18 @@ async def setup_welcome_handlers(client: Client):
             except Exception:
                 await message.reply_text("Only admins can use this command", parse_mode=ParseMode.HTML)
                 return
-            
+
             command_parts = message.text.split()
             settings = await get_welcome_settings(chat_id)
-            
+
             if not settings:
                 await create_default_welcome_settings(chat_id)
                 settings = await get_welcome_settings(chat_id)
-            
+
             if len(command_parts) == 1:
                 auto_delete = settings.get('welcome', {}).get('auto_delete', {})
                 is_enabled = auto_delete.get('enabled', False)
-                
+
                 if is_enabled:
                     delete_after = auto_delete.get('delete_after', DEFAULT_AUTO_DELETE_SECONDS)
                     time_str = format_time(delete_after)
@@ -408,17 +413,17 @@ async def setup_welcome_handlers(client: Client):
                 else:
                     await message.reply_text("<b>Auto-delete is disabled</b>", parse_mode=ParseMode.HTML)
                 return
-            
+
             action = command_parts[1].lower()
-            
+
             if action == "on":
                 auto_delete = settings.get('welcome', {}).get('auto_delete', {})
                 if auto_delete.get('enabled'):
                     await message.reply_text("Auto-delete is already enabled", parse_mode=ParseMode.HTML)
                     return
-                
+
                 success = await update_welcome_auto_delete(chat_id, True, DEFAULT_AUTO_DELETE_SECONDS)
-                
+
                 if success:
                     settings = await get_welcome_settings(chat_id)
                     await update_cached_settings(chat_id, 'welcome', settings['welcome'])
@@ -427,30 +432,30 @@ async def setup_welcome_handlers(client: Client):
                         f"Welcome messages will be deleted after: <b>{format_time(DEFAULT_AUTO_DELETE_SECONDS)}</b>",
                         parse_mode=ParseMode.HTML
                     )
-            
+
             elif action == "off":
                 auto_delete = settings.get('welcome', {}).get('auto_delete', {})
                 if not auto_delete.get('enabled'):
                     await message.reply_text("Auto-delete is already disabled.", parse_mode=ParseMode.HTML)
                     return
-                
+
                 success = await update_welcome_auto_delete(chat_id, False, None)
-                
+
                 if success:
                     settings = await get_welcome_settings(chat_id)
                     await update_cached_settings(chat_id, 'welcome', settings['welcome'])
                     await cancel_pending_deletions(chat_id, 'welcome')
                     await message.reply_text("<b>Auto-delete disabled</b>", parse_mode=ParseMode.HTML)
-            
+
             elif action.isdigit():
                 delete_after = int(action)
                 validation_error = validate_auto_delete_time(delete_after)
                 if validation_error:
                     await message.reply_text(f"{validation_error}", parse_mode=ParseMode.HTML)
                     return
-                
+
                 success = await update_welcome_auto_delete(chat_id, True, delete_after)
-                
+
                 if success:
                     settings = await get_welcome_settings(chat_id)
                     await update_cached_settings(chat_id, 'welcome', settings['welcome'])
@@ -460,97 +465,92 @@ async def setup_welcome_handlers(client: Client):
                         f"Welcome messages will be deleted after: <b>{time_str}</b>",
                         parse_mode=ParseMode.HTML
                     )
-            
+
             else:
                 await message.reply_text(
                     "Use <code>/cleanwelcome on</code> or <code>/cleanwelcome off</code>",
                     parse_mode=ParseMode.HTML
                 )
-        
+
         except Exception as e:
             log_error("cleanwelcome_command", e, chat_id=chat_id or 0, user_id=user_id or 0)
             await message.reply_text("Please try again later. If it still doesn't work, contact the support group", parse_mode=ParseMode.HTML)
-    
-    
+
+
     @client.on_chat_member_updated(filters.group)
     async def welcome_new_member(client: Client, member_update: ChatMemberUpdated):
         try:
-            # CRITICAL: Improved checks to prevent false welcomes on kick/unban
-            
-            # Check 1: Must have new_chat_member
+            # Check 1: new_chat_member hona chahiye
             if not member_update.new_chat_member:
                 return
-            
-            # Check 2: Old member must not exist (truly new join)
-            # This prevents welcome on unban/kick scenarios
-            if member_update.old_chat_member:
-                # Additional check: if old status was banned/kicked and now member, it's an unban (not a new join)
-                old_status = member_update.old_chat_member.status
-                new_status = member_update.new_chat_member.status
-                
-                # If user was banned/kicked/left and now is member/restricted, it's NOT a new join
-                if old_status in {ChatMemberStatus.BANNED, ChatMemberStatus.LEFT, ChatMemberStatus.RESTRICTED}:
-                    return
-                
-                # If there's an old_chat_member at all, it's not a fresh join
-                return
-            
-            # Check 3: New status must be member (not banned, left, restricted)
+
+            old_status = member_update.old_chat_member.status if member_update.old_chat_member else None
             new_status = member_update.new_chat_member.status
-            if new_status in {ChatMemberStatus.BANNED, ChatMemberStatus.LEFT, ChatMemberStatus.RESTRICTED}:
-                return
-            
-            # Check 4: Must be a regular member status
+
+            # Check 2: New status MEMBER hona chahiye
             if new_status != ChatMemberStatus.MEMBER:
                 return
-            
-            user = member_update.new_chat_member.user if member_update.new_chat_member else member_update.from_user
-            chat_id = member_update.chat.id
-            
-            if user.is_bot:
+
+            # Check 3: Genuine join filter
+            # None     → MEMBER = fresh join ✅
+            # LEFT     → MEMBER = wapas join kiya ✅
+            # BANNED   → MEMBER = unban ❌ skip
+            # RESTRICTED → MEMBER = unrestrict ❌ skip
+            # ADMINISTRATOR/OWNER → MEMBER = demotion ❌ skip
+            if old_status is not None and old_status not in {
+                ChatMemberStatus.LEFT,
+                ChatMemberStatus.MEMBER
+            }:
                 return
-            
-            # Silent flood check - no message sent to group
-            is_flooding, flood_msg = check_join_flood(chat_id)
+
+            user = member_update.new_chat_member.user
+            if not user or user.is_bot:
+                return
+
+            chat_id = member_update.chat.id
+
+            # Silent flood check
+            is_flooding, _ = check_join_flood(chat_id)
             if is_flooding:
-                return  # Silently skip without sending any message
-            
+                return
+
             welcome_config = await get_cached_settings(chat_id, 'welcome')
-            
+
             if not welcome_config:
                 settings = await get_welcome_settings(chat_id)
-                
+
                 if not settings:
                     await create_default_welcome_settings(chat_id)
                     settings = await get_welcome_settings(chat_id)
-                
+
                 if not settings or not settings.get('welcome', {}).get('enabled'):
                     return
-                
+
                 welcome_config = settings['welcome']
                 await update_cached_settings(chat_id, 'welcome', welcome_config)
-            
+
             if not welcome_config.get('enabled'):
                 return
-            
+
+            # Custom ya default text
             if welcome_config.get('custom_set') and welcome_config.get('text'):
                 text = welcome_config['text']
             else:
-                text = welcome_config.get('default_text', 'Hey {MENTION}!\nWelcome to {GROUPNAME}!')
-            
+                text = DEFAULT_WELCOME_TEXT
+
             formatted_text = format_message_text(text, user, member_update.chat)
-            
+
             reply_markup = None
             if welcome_config.get('buttons'):
                 reply_markup = create_button_markup(welcome_config['buttons'])
-            
+
             sent_message = None
-            
+
             try:
                 if welcome_config.get('media_type') and welcome_config.get('media_id'):
                     media_type = welcome_config['media_type']
                     media_id = welcome_config['media_id']
-                    
+
                     if media_type == "photo":
                         sent_message = await client.send_photo(
                             chat_id=chat_id,
@@ -582,21 +582,21 @@ async def setup_welcome_handlers(client: Client):
                         reply_markup=reply_markup,
                         parse_mode=ParseMode.HTML
                     )
-                
+
                 auto_delete = welcome_config.get('auto_delete', {})
                 if auto_delete.get('enabled') and sent_message:
                     delete_after = auto_delete.get('delete_after', DEFAULT_AUTO_DELETE_SECONDS)
                     can_delete = await bot_can_delete_messages(client, chat_id)
-                    
+
                     if can_delete:
                         await schedule_message_deletion(sent_message, delete_after, chat_id, 'welcome')
-                
+
             except (BadRequest, MessageDeleteForbidden, FloodWait):
                 pass
             except Exception as send_error:
                 log_error("Send welcome failed", send_error, chat_id=chat_id)
-        
+
         except Exception as e:
             log_error("welcome_new_member", e, chat_id=member_update.chat.id)
-    
+
     logger.info("✅ Welcome handlers setup complete")

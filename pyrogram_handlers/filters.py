@@ -110,13 +110,7 @@ async def setup_filter_handlers(client: Client):
             # /filter akela — usage batao
             if len(parts) < 2:
                 await message.reply_text(
-                    "<b>How to add a filter:</b>\n\n"
-                    "<b>Option 1</b> — Text reply:\n"
-                    "<code>/filter keyword your reply message</code>\n\n"
-                    "<b>Option 2</b> — Reply to a message:\n"
-                    "Reply to any message with <code>/filter keyword</code>\n\n"
-                    "<b>Example:</b>\n"
-                    "<code>/filter hello Hello! How are you?</code>",
+                    "Add a filter with /filter <keyword> <reply> or reply to a message using /filter <keyword>.",
                     parse_mode=ParseMode.HTML
                 )
                 return
@@ -169,9 +163,8 @@ async def setup_filter_handlers(client: Client):
 
             else:
                 await message.reply_text(
-                    "<b>Please provide a reply message.</b>\n\n"
-                    "Either write text after keyword or reply to a message.\n\n"
-                    "<code>/filter keyword your reply</code>",
+                    "<b>Please provide a reply message.</b>\n"
+                    "Either write text after keyword or reply to a message.",
                     parse_mode=ParseMode.HTML
                 )
                 return
@@ -218,8 +211,7 @@ async def setup_filter_handlers(client: Client):
 
             if not chat_filters:
                 await message.reply_text(
-                    "No active filters in this group.\n\n"
-                    "Use <code>/filter keyword reply</code> to add one.",
+                    "No active filters in this group.",
                     parse_mode=ParseMode.HTML
                 )
                 return
@@ -280,8 +272,7 @@ async def setup_filter_handlers(client: Client):
 
             if keyword not in chat_filters:
                 await message.reply_text(
-                    f"No filter found for <code>{keyword}</code>.\n\n"
-                    f"Use <code>/filters</code> to see all active filters.",
+                    f"No filter found for <code>{keyword}</code>.",
                     parse_mode=ParseMode.HTML
                 )
                 return

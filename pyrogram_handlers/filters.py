@@ -228,7 +228,7 @@ async def setup_filter_handlers(client: Client):
             keyword_list = "\n".join([f"- <code>{kw}</code>" for kw in keywords])
 
             await message.reply_text(
-                f"<b>Active filters ({len(keywords)}):</b>\n\n"
+                f"<b>Active filters:</b>\n\n"
                 f"{keyword_list}",
                 parse_mode=ParseMode.HTML
             )

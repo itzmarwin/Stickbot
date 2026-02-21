@@ -268,8 +268,7 @@ async def setup_filter_handlers(client: Client):
             parts = message.text.split(maxsplit=1)
             if len(parts) < 2:
                 await message.reply_text(
-                    "<b>Usage:</b> <code>/stopfilter keyword</code>\n\n"
-                    "Use <code>/filters</code> to see all active filters.",
+                    "You forgot the filter keyword",
                     parse_mode=ParseMode.HTML
                 )
                 return

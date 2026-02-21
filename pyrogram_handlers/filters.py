@@ -147,12 +147,17 @@ async def setup_filter_handlers(client: Client):
                     media_type = "animation"
                     media_id = replied.animation.file_id
                     text = replied.caption.html if replied.caption else None
+                elif replied.sticker:
+                    media_type = "sticker"
+                    media_id = replied.sticker.file_id
+                    text = None
                 elif replied.text:
                     text = replied.text.html
                 else:
                     await message.reply_text(
-                        "<b>Unsupported message type.</b>\n\n"
-                        "Supported: Text, Photo, Video, GIF",
+                        "This media type is not supported as a filter.
+"
+                        "Try again with: Text, Photo, Video, GIF or Sticker.",
                         parse_mode=ParseMode.HTML
                     )
                     return

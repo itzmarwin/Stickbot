@@ -241,8 +241,8 @@ async def setup_filter_handlers(client: Client):
     # ============================================================
     # /stop <keyword> — ek specific filter delete karo
     # ============================================================
-    @client.on_message(filters.command("stop") & filters.group)
-    async def stop_filter_command(client: Client, message: Message):
+    @client.on_message(filters.command("stopfilter") & filters.group)
+    async def stopfilter_command(client: Client, message: Message):
         chat_id = None
         user_id = None
         try:
@@ -268,7 +268,7 @@ async def setup_filter_handlers(client: Client):
             parts = message.text.split(maxsplit=1)
             if len(parts) < 2:
                 await message.reply_text(
-                    "<b>Usage:</b> <code>/stop keyword</code>\n\n"
+                    "<b>Usage:</b> <code>/stopfilter keyword</code>\n\n"
                     "Use <code>/filters</code> to see all active filters.",
                     parse_mode=ParseMode.HTML
                 )

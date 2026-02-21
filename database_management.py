@@ -54,6 +54,14 @@ async def _create_indexes():
     await management_db.welcome_settings.create_index([("chat_id", 1), ("welcome.enabled", 1)], name="idx_chat_welcome")
     await management_db.welcome_settings.create_index([("updated_at", 1)], name="idx_updated_at")
 
+    # Filters indexes — chat_id + keyword combined unique index
+    await management_db.filters.create_index(
+        [("chat_id", 1), ("keyword", 1)],
+        unique=True,
+        name="idx_filter_chat_keyword"
+    )
+    await management_db.filters.create_index("chat_id", name="idx_filter_chat_id")
+
 
 async def _get_current_schema_version() -> int:
     version_doc = await management_db[SCHEMA_COLLECTION].find_one({"_id": "current"})
@@ -120,6 +128,10 @@ async def close_management_db():
 def get_management_db():
     return management_db
 
+
+# ============================================================
+# WELCOME / GOODBYE FUNCTIONS (unchanged)
+# ============================================================
 
 async def get_welcome_settings(chat_id: int) -> Optional[Dict[str, Any]]:
     return await management_db.welcome_settings.find_one({"chat_id": chat_id})
@@ -331,3 +343,77 @@ async def get_enabled_chats(message_type: str) -> List[int]:
     cursor = management_db.welcome_settings.find({field: True}, {"chat_id": 1})
     chat_ids = [doc["chat_id"] async for doc in cursor]
     return chat_ids
+
+
+# ============================================================
+# FILTERS FUNCTIONS — Alag collection "filters" use hogi
+# ============================================================
+
+async def add_filter(
+    chat_id: int,
+    keyword: str,
+    media_type: Optional[str],
+    media_id: Optional[str],
+    text: Optional[str]
+) -> bool:
+    """
+    Ek filter add karo ya update karo (same keyword hoga toh overwrite).
+    keyword lowercase mein save hoga — case-insensitive matching ke liye.
+    """
+    try:
+        await management_db.filters.update_one(
+            {"chat_id": chat_id, "keyword": keyword.lower()},
+            {
+                "$set": {
+                    "chat_id": chat_id,
+                    "keyword": keyword.lower(),
+                    "media_type": media_type,
+                    "media_id": media_id,
+                    "text": text,
+                    "updated_at": datetime.utcnow()
+                },
+                "$setOnInsert": {
+                    "created_at": datetime.utcnow()
+                }
+            },
+            upsert=True
+        )
+        return True
+    except Exception:
+        return False
+
+
+async def get_filter(chat_id: int, keyword: str) -> Optional[Dict[str, Any]]:
+    """Ek specific filter lo keyword se."""
+    return await management_db.filters.find_one(
+        {"chat_id": chat_id, "keyword": keyword.lower()}
+    )
+
+
+async def get_all_filters(chat_id: int) -> List[Dict[str, Any]]:
+    """
+    Ek group ke saare filters lo — RAM cache mein load karne ke liye.
+    Sorted alphabetically.
+    """
+    cursor = management_db.filters.find(
+        {"chat_id": chat_id},
+        {"keyword": 1, "media_type": 1, "media_id": 1, "text": 1}
+    ).sort("keyword", 1)
+    return [doc async for doc in cursor]
+
+
+async def delete_filter(chat_id: int, keyword: str) -> bool:
+    """Ek specific filter delete karo."""
+    result = await management_db.filters.delete_one(
+        {"chat_id": chat_id, "keyword": keyword.lower()}
+    )
+    return result.deleted_count > 0
+
+
+async def delete_all_filters(chat_id: int) -> int:
+    """
+    Group ke saare filters delete karo.
+    Return: kitne delete hue.
+    """
+    result = await management_db.filters.delete_many({"chat_id": chat_id})
+    return result.deleted_count

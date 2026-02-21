@@ -30,6 +30,7 @@ from pyrogram_handlers.goodbye import setup_goodbye_handlers
 from pyrogram_handlers.restart import setup_restart_handlers
 from pyrogram_handlers.extra import setup_extra_handlers
 from pyrogram_handlers.ban import setup_ban_handlers
+from pyrogram_handlers.filters import setup_filter_handlers
 
 logging.basicConfig(
     level=logging.INFO,
@@ -65,6 +66,7 @@ async def setup_pyrogram():
         await setup_welcome_handlers(pyro_client)
         await setup_goodbye_handlers(pyro_client)
         await setup_ban_handlers(pyro_client)
+        await setup_filter_handlers(pyro_client)
         await setup_afk_handlers(pyro_client)
         await setup_restart_handlers(pyro_client)
         await setup_extra_handlers(pyro_client)

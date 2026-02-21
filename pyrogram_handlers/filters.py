@@ -155,9 +155,7 @@ async def setup_filter_handlers(client: Client):
                     text = replied.text.html
                 else:
                     await message.reply_text(
-                        "This media type is not supported as a filter.
-"
-                        "Try again with: Text, Photo, Video, GIF or Sticker.",
+                        "This media type is not supported as a filter. Try again with: Text, Photo, Video, GIF or Sticker.",
                         parse_mode=ParseMode.HTML
                     )
                     return

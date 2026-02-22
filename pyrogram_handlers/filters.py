@@ -58,7 +58,8 @@ async def _ensure_cache(chat_id: int):
 
 async def setup_filter_handlers(client: Client):
 
-    @client.on_message(filters.command("filter") & filters.group)
+    # ✅ group=0 → Sare filter commands sabse pehle execute honge
+    @client.on_message(filters.command("filter") & filters.group, group=0)
     async def filter_command(client: Client, message: Message):
         chat_id = message.chat.id
         user_id = message.from_user.id if message.from_user else None
@@ -146,7 +147,8 @@ async def setup_filter_handlers(client: Client):
             await message.reply_text("Failed to save filter. Please try again.", parse_mode=ParseMode.HTML)
 
 
-    @client.on_message(filters.command("filters") & filters.group)
+    # ✅ group=0 → Command
+    @client.on_message(filters.command("filters") & filters.group, group=0)
     async def filters_list_command(client: Client, message: Message):
         chat_id = message.chat.id
 
@@ -167,7 +169,8 @@ async def setup_filter_handlers(client: Client):
         )
 
 
-    @client.on_message(filters.command("stopfilter") & filters.group)
+    # ✅ group=0 → Command
+    @client.on_message(filters.command("stopfilter") & filters.group, group=0)
     async def stopfilter_command(client: Client, message: Message):
         chat_id = message.chat.id
         user_id = message.from_user.id if message.from_user else None
@@ -206,7 +209,8 @@ async def setup_filter_handlers(client: Client):
             await message.reply_text("Failed to remove filter. Please try again.", parse_mode=ParseMode.HTML)
 
 
-    @client.on_message(filters.command("stopallfilters") & filters.group)
+    # ✅ group=0 → Command
+    @client.on_message(filters.command("stopallfilters") & filters.group, group=0)
     async def stop_all_filters_command(client: Client, message: Message):
         chat_id = message.chat.id
         user_id = message.from_user.id if message.from_user else None
@@ -233,7 +237,8 @@ async def setup_filter_handlers(client: Client):
         )
 
 
-    @client.on_message(filters.group & filters.text)
+    # ✅ group=2 → Filter trigger AFK (group=1) ke baad chalega
+    @client.on_message(filters.group & filters.text, group=2)
     async def filter_trigger(client: Client, message: Message):
         chat_id = message.chat.id
 
@@ -245,6 +250,10 @@ async def setup_filter_handlers(client: Client):
 
         msg_text = message.text.lower() if message.text else ""
         if not msg_text:
+            return
+
+        # ✅ Commands ko skip karo - unke apne handlers hain (group=0)
+        if msg_text.startswith("/"):
             return
 
         matched_filter = None

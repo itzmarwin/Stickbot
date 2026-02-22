@@ -102,6 +102,11 @@ def format_afk_message(user_mention: str, reason: Optional[str], duration: str) 
 
 async def setup_afk_handlers(client: Client):
 
+    @client.on_message(filters.group)
+    async def test_handler(_, message: Message):
+        if message.text and message.text.startswith(".afk"):
+            await message.reply("TEST WORKS")
+
     @client.on_message(cmd("afk") & filters.group)
     async def afk_command(_, message: Message):
         user = message.from_user

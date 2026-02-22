@@ -6,7 +6,7 @@ from pyrogram.types import Message
 from pyrogram.enums import MessageEntityType
 
 from database import get_afk_user, set_afk_user, remove_afk_user
-from pyrogram_handlers.commands import cmd
+from pyrogram_handlers.commands import cmd, get_args
 
 
 class AFKCache:
@@ -100,7 +100,7 @@ async def setup_afk_handlers(client: Client):
     @client.on_message(cmd("afk") & filters.group)
     async def afk_command(_, message: Message):
         user = message.from_user
-        reason = " ".join(message.command[1:]).strip() or None
+        reason = " ".join(get_args(message)).strip() or None
         now = datetime.now()
 
         await set_afk_user(user.id, user.first_name, reason, now)

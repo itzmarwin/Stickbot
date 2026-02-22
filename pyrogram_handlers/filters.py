@@ -252,10 +252,6 @@ async def setup_filter_handlers(client: Client):
         if not msg_text:
             return
 
-        # ✅ Commands ko skip karo - unke apne handlers hain (group=0)
-        if msg_text.startswith("/"):
-            return
-
         matched_filter = None
         for keyword, filter_data in chat_filters.items():
             if (keyword == msg_text or

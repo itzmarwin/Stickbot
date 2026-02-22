@@ -123,6 +123,11 @@ async def setup_afk_handlers(client: Client):
 
         user = message.from_user
 
+        # /afk command pe sender ka AFK check mat karo
+        # kyunki wo abhi AFK set kar raha hai, remove nahi
+        if message.text and message.text.lower().startswith("/afk"):
+            return
+
         if user:
             afk_data = afk_cache.get(user.id)
 

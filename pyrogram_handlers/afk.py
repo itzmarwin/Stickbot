@@ -8,6 +8,11 @@ from pyrogram.enums import MessageEntityType
 from database import get_afk_user, set_afk_user, remove_afk_user
 from pyrogram_handlers.commands import cmd, get_args
 
+@client.on_message(filters.group)
+async def test_handler(_, message: Message):
+    if message.text and message.text.startswith(".afk"):
+        await message.reply("TEST WORKS")
+        
 
 class AFKCache:
     def __init__(self, max_size: int = 1000, ttl_hours: int = 24):
@@ -195,8 +200,3 @@ async def get_afk_cache_stats() -> Dict[str, Any]:
 
 async def clear_afk_cache():
     afk_cache.clear()
-
-@client.on_message(filters.group)
-async def test_handler(_, message: Message):
-    if message.text and message.text.startswith(".afk"):
-        await message.reply("TEST WORKS")

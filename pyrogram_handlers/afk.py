@@ -96,7 +96,8 @@ def format_afk_message(user_mention: str, reason: Optional[str], duration: str) 
 
 async def setup_afk_handlers(client: Client):
 
-    @client.on_message(filters.command("afk") & filters.group)
+    # ✅ CHANGE 1: group=0 → Command sabse pehle execute hoga
+    @client.on_message(filters.command("afk") & filters.group, group=0)
     async def afk_command(_, message: Message):
         user = message.from_user
         reason = " ".join(message.command[1:]).strip() or None
@@ -116,8 +117,14 @@ async def setup_afk_handlers(client: Client):
 
         await message.reply(response)
 
-    @client.on_message(filters.all & ~filters.service & filters.group)
+    # ✅ CHANGE 2: group=1 → Monitor commands ke baad chalega
+    @client.on_message(filters.all & ~filters.service & filters.group, group=1)
     async def afk_user_handler(_, message: Message):
+
+        # ✅ CHANGE 3: Commands skip karo - unke apne handlers hain
+        if message.text and message.text.startswith("/"):
+            return
+
         user = message.from_user
 
         if user:

@@ -121,10 +121,6 @@ async def setup_afk_handlers(client: Client):
     @client.on_message(filters.all & ~filters.service & filters.group, group=1)
     async def afk_user_handler(_, message: Message):
 
-        # ✅ CHANGE 3: Commands skip karo - unke apne handlers hain
-        if message.text and message.text.startswith("/"):
-            return
-
         user = message.from_user
 
         if user:

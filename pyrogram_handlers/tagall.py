@@ -6,6 +6,7 @@ from pyrogram.enums import ChatMemberStatus
 from pyrogram.errors import FloodWait, ChatAdminRequired
 
 from pyrogram_handlers.utils import is_user_admin
+from pyrogram_handlers.commands import cmd
 
 BATCH_SIZE = 6
 DELAY_BETWEEN_BATCHES = 3
@@ -61,7 +62,7 @@ async def send_fresh_message(client: Client, chat_id: int, text: str, retry_coun
 
 async def setup_tagall_handlers(client: Client):
 
-    @client.on_message(filters.command(["tagall", "all"]) & filters.group)
+    @client.on_message(cmd(["tagall", "all"]) & filters.group)
     async def emoji_tagall_command(client: Client, message: Message):
         chat_id = message.chat.id
         user_id = message.from_user.id if message.from_user else None
@@ -160,7 +161,7 @@ async def setup_tagall_handlers(client: Client):
         active_tagall[chat_id] = False
 
 
-    @client.on_message(filters.command(["uall", "utagall", "utag"]) & filters.group)
+    @client.on_message(cmd(["uall", "utagall", "utag"]) & filters.group)
     async def username_tagall_command(client: Client, message: Message):
         chat_id = message.chat.id
         user_id = message.from_user.id if message.from_user else None
@@ -257,7 +258,7 @@ async def setup_tagall_handlers(client: Client):
         active_tagall[chat_id] = False
 
 
-    @client.on_message(filters.command("call") & filters.group)
+    @client.on_message(cmd("call") & filters.group)
     async def call_command(client: Client, message: Message):
         chat_id = message.chat.id
         user_id = message.from_user.id if message.from_user else None
@@ -347,7 +348,7 @@ async def setup_tagall_handlers(client: Client):
         active_tagall[chat_id] = False
 
 
-    @client.on_message(filters.command(["stop", "cancel"]) & filters.group)
+    @client.on_message(cmd(["stop", "cancel"]) & filters.group)
     async def stop_tagall_command(client: Client, message: Message):
         chat_id = message.chat.id
         user_id = message.from_user.id if message.from_user else None

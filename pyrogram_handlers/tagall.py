@@ -274,6 +274,9 @@ async def setup_tagall_handlers(client: Client):
             )
             return
 
+        is_reply = message.reply_to_message is not None
+        has_text = len(message.text.split(maxsplit=1)) > 1
+
         progress_msg = await message.reply_text("𝖥𝖾𝗍𝖼𝗁𝗂𝗇𝗀 𝗆𝖾𝗆𝖻𝖾𝗋𝗌...")
         members = await get_all_members(client, chat_id)
 
@@ -284,21 +287,61 @@ async def setup_tagall_handlers(client: Client):
         await progress_msg.delete()
         active_tagall[chat_id] = True
 
-        for i in range(0, len(members), BATCH_SIZE):
-            if chat_id not in active_tagall or not active_tagall[chat_id]:
-                return
+        if is_reply:
+            original_message = message.reply_to_message
 
-            batch = members[i:i + BATCH_SIZE]
-            random_emojis = random.sample(EMOJI_POOL, min(len(batch), len(EMOJI_POOL)))
-            mentions = " ".join([
-                f"[{random_emojis[idx]}](tg://user?id={user.id})"
-                for idx, user in enumerate(batch)
-            ])
+            for i in range(0, len(members), BATCH_SIZE):
+                if chat_id not in active_tagall or not active_tagall[chat_id]:
+                    return
 
-            await send_fresh_message(client, chat_id, mentions)
+                batch = members[i:i + BATCH_SIZE]
+                random_emojis = random.sample(EMOJI_POOL, min(len(batch), len(EMOJI_POOL)))
+                mentions = " ".join([
+                    f"[{random_emojis[idx]}](tg://user?id={user.id})"
+                    for idx, user in enumerate(batch)
+                ])
 
-            if i + BATCH_SIZE < len(members):
-                await asyncio.sleep(DELAY_BETWEEN_BATCHES)
+                await send_mention_batch(original_message, mentions)
+
+                if i + BATCH_SIZE < len(members):
+                    await asyncio.sleep(DELAY_BETWEEN_BATCHES)
+
+        elif has_text:
+            header = message.text.split(maxsplit=1)[1]
+
+            for i in range(0, len(members), BATCH_SIZE):
+                if chat_id not in active_tagall or not active_tagall[chat_id]:
+                    return
+
+                batch = members[i:i + BATCH_SIZE]
+                random_emojis = random.sample(EMOJI_POOL, min(len(batch), len(EMOJI_POOL)))
+                mentions = " ".join([
+                    f"[{random_emojis[idx]}](tg://user?id={user.id})"
+                    for idx, user in enumerate(batch)
+                ])
+                text = f"{header}\n\n{mentions}"
+
+                await send_fresh_message(client, chat_id, text)
+
+                if i + BATCH_SIZE < len(members):
+                    await asyncio.sleep(DELAY_BETWEEN_BATCHES)
+
+        else:
+            for i in range(0, len(members), BATCH_SIZE):
+                if chat_id not in active_tagall or not active_tagall[chat_id]:
+                    return
+
+                batch = members[i:i + BATCH_SIZE]
+                random_emojis = random.sample(EMOJI_POOL, min(len(batch), len(EMOJI_POOL)))
+                mentions = " ".join([
+                    f"[{random_emojis[idx]}](tg://user?id={user.id})"
+                    for idx, user in enumerate(batch)
+                ])
+
+                await send_fresh_message(client, chat_id, mentions)
+
+                if i + BATCH_SIZE < len(members):
+                    await asyncio.sleep(DELAY_BETWEEN_BATCHES)
 
         await client.send_message(chat_id, "𝖳𝖺𝗀𝖺𝗅𝗅 𝖤𝗇𝖽𝖾𝖽")
         active_tagall[chat_id] = False

@@ -1,5 +1,6 @@
 import time
 from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo import ReturnDocument
 from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError, DuplicateKeyError, OperationFailure
 from datetime import datetime
 from typing import Optional, Dict, Any, List
@@ -51,12 +52,10 @@ async def init_management_db():
 
 
 async def _create_indexes():
-    # Welcome indexes
     await management_db.welcome_settings.create_index("chat_id", unique=True, name="idx_chat_id")
     await management_db.welcome_settings.create_index([("chat_id", 1), ("welcome.enabled", 1)], name="idx_chat_welcome")
     await management_db.welcome_settings.create_index([("updated_at", 1)], name="idx_updated_at")
 
-    # Filters indexes
     await management_db.filters.create_index(
         [("chat_id", 1), ("keyword", 1)],
         unique=True,
@@ -64,14 +63,12 @@ async def _create_indexes():
     )
     await management_db.filters.create_index("chat_id", name="idx_filter_chat_id")
 
-    # Warns indexes — chat_id+user_id compound unique
     await management_db.warns.create_index(
         [("chat_id", 1), ("user_id", 1)],
         unique=True,
         name="idx_warns_chat_user"
     )
 
-    # Warn settings index — ek document per group
     await management_db.warn_settings.create_index(
         "chat_id",
         unique=True,
@@ -323,12 +320,9 @@ async def delete_all_filters(chat_id: int) -> int:
 
 # ============================================================
 # WARNS FUNCTIONS
-# — 2 collections: warns (user data) + warn_settings (group config)
-# — RAM cache warn_settings mein — DB call sirf update pe hogi
 # ============================================================
 
 async def get_user_warns(chat_id: int, user_id: int) -> Dict[str, Any]:
-    """User ki warns lo — sirf zaruri fields."""
     doc = await management_db.warns.find_one(
         {"chat_id": chat_id, "user_id": user_id},
         {"warns": 1, "reasons": 1}
@@ -340,25 +334,24 @@ async def get_user_warns(chat_id: int, user_id: int) -> Dict[str, Any]:
 
 async def add_warn(chat_id: int, user_id: int, reason: Optional[str] = None) -> Dict[str, Any]:
     """
-    Warn add karo — upsert se ek hi DB call mein sab ho jaata hai.
-    Return: updated warns count aur reasons.
+    FIX: return_document=ReturnDocument.AFTER
+    Pehle True tha — jis se purana document return hota tha (pre-update count)
+    Ab AFTER se updated count milega
     """
-    reason_to_add = reason if reason else None
-
     update = {
         "$inc": {"warns": 1},
         "$set": {"chat_id": chat_id, "user_id": user_id, "updated_at": datetime.utcnow()},
         "$setOnInsert": {"created_at": datetime.utcnow()}
     }
 
-    if reason_to_add:
-        update["$push"] = {"reasons": reason_to_add}
+    if reason:
+        update["$push"] = {"reasons": reason}
 
     result = await management_db.warns.find_one_and_update(
         {"chat_id": chat_id, "user_id": user_id},
         update,
         upsert=True,
-        return_document=True,
+        return_document=ReturnDocument.AFTER,  # FIX: True -> ReturnDocument.AFTER
         projection={"warns": 1, "reasons": 1}
     )
 
@@ -369,7 +362,6 @@ async def add_warn(chat_id: int, user_id: int, reason: Optional[str] = None) -> 
 
 
 async def remove_one_warn(chat_id: int, user_id: int) -> Dict[str, Any]:
-    """Ek warn hatao — 0 se neeche nahi jaayega."""
     doc = await management_db.warns.find_one(
         {"chat_id": chat_id, "user_id": user_id},
         {"warns": 1, "reasons": 1}
@@ -378,7 +370,6 @@ async def remove_one_warn(chat_id: int, user_id: int) -> Dict[str, Any]:
     if not doc or doc.get("warns", 0) <= 0:
         return {"warns": 0, "reasons": []}
 
-    # Last reason hatao
     new_warns = doc["warns"] - 1
     reasons = doc.get("reasons", [])
     if reasons:
@@ -393,13 +384,11 @@ async def remove_one_warn(chat_id: int, user_id: int) -> Dict[str, Any]:
 
 
 async def reset_user_warns(chat_id: int, user_id: int) -> bool:
-    """User ki saari warns reset karo — document delete karo (space bachao)."""
     result = await management_db.warns.delete_one({"chat_id": chat_id, "user_id": user_id})
     return result.deleted_count > 0
 
 
 async def get_warn_settings(chat_id: int) -> Dict[str, Any]:
-    """Group ki warn settings lo."""
     doc = await management_db.warn_settings.find_one(
         {"chat_id": chat_id},
         {"warn_limit": 1, "warn_mode": 1}
@@ -413,7 +402,6 @@ async def get_warn_settings(chat_id: int) -> Dict[str, Any]:
 
 
 async def set_warn_limit(chat_id: int, limit: int) -> bool:
-    """Group ka warn limit set karo."""
     await management_db.warn_settings.update_one(
         {"chat_id": chat_id},
         {
@@ -426,7 +414,6 @@ async def set_warn_limit(chat_id: int, limit: int) -> bool:
 
 
 async def set_warn_mode(chat_id: int, mode: str) -> bool:
-    """Group ka warn mode set karo — ban/mute/kick."""
     await management_db.warn_settings.update_one(
         {"chat_id": chat_id},
         {

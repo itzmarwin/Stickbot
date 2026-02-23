@@ -1,8 +1,9 @@
 import logging
+import re
 from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, ChatPermissions
 from pyrogram.enums import ParseMode
-from pyrogram.errors import UserNotParticipant, PeerIdInvalid
+from pyrogram.errors import PeerIdInvalid
 
 from pyrogram_handlers.utils import is_user_admin
 from database_management import (
@@ -20,16 +21,12 @@ logger = logging.getLogger(__name__)
 DEFAULT_WARN_LIMIT = 3
 DEFAULT_WARN_MODE = "ban"
 
-# ============================================================
-# RAM CACHE — warn_settings per group
-# ============================================================
 _warn_settings_cache: dict = {}
 
 
 async def _get_cached_warn_settings(chat_id: int) -> dict:
     if chat_id not in _warn_settings_cache:
         settings = await get_warn_settings(chat_id)
-        # DB mein nahi mila toh defaults use karo
         _warn_settings_cache[chat_id] = {
             "warn_limit": settings.get("warn_limit", DEFAULT_WARN_LIMIT),
             "warn_mode": settings.get("warn_mode", DEFAULT_WARN_MODE)
@@ -46,9 +43,6 @@ def _update_settings_cache(chat_id: int, key: str, value):
     _warn_settings_cache[chat_id][key] = value
 
 
-# ============================================================
-# HELPER — User resolve karo (reply/username/userid)
-# ============================================================
 async def _resolve_user(client: Client, message: Message):
     if message.reply_to_message:
         user = message.reply_to_message.from_user
@@ -76,7 +70,31 @@ async def _resolve_user(client: Client, message: Message):
         return None, f"Could not find user <code>{target}</code>."
 
 
+def _extract_reason(message: Message) -> str | None:
+    """
+    Reason extract karo — 10 words tak.
+    Reply mode: /warn reason words here
+    Non-reply mode: /warn @user reason words here
+    """
+    parts = message.text.split(maxsplit=1)
+
+    if message.reply_to_message:
+        # /warn reason here — sab kuch command ke baad reason hai
+        if len(parts) >= 2:
+            reason_words = parts[1].strip().split()
+            return " ".join(reason_words[:10]) if reason_words else None
+    else:
+        # /warn @user reason here — pehla word user hai, baaki reason
+        if len(parts) >= 2:
+            after_cmd = parts[1].strip().split(maxsplit=1)
+            if len(after_cmd) >= 2:
+                reason_words = after_cmd[1].strip().split()
+                return " ".join(reason_words[:10]) if reason_words else None
+    return None
+
+
 def _warn_buttons(chat_id: int, user_id: int) -> InlineKeyboardMarkup:
+    """Normal warn buttons."""
     return InlineKeyboardMarkup([
         [
             InlineKeyboardButton("-1", callback_data=f"warn_minus|{chat_id}|{user_id}"),
@@ -84,9 +102,50 @@ def _warn_buttons(chat_id: int, user_id: int) -> InlineKeyboardMarkup:
             InlineKeyboardButton("+1", callback_data=f"warn_plus|{chat_id}|{user_id}"),
         ],
         [
-            InlineKeyboardButton("Close", callback_data=f"warn_close"),
+            InlineKeyboardButton("Close", callback_data="warn_close"),
         ]
     ])
+
+
+def _action_buttons(chat_id: int, user_id: int, mode: str) -> InlineKeyboardMarkup:
+    """Limit reach hone ke baad action buttons."""
+    if mode == "ban":
+        return InlineKeyboardMarkup([[
+            InlineKeyboardButton("Unban", callback_data=f"warn_unban|{chat_id}|{user_id}"),
+            InlineKeyboardButton("Close", callback_data="warn_close"),
+        ]])
+    elif mode == "mute":
+        return InlineKeyboardMarkup([[
+            InlineKeyboardButton("Unmute", callback_data=f"warn_unmute|{chat_id}|{user_id}"),
+            InlineKeyboardButton("Close", callback_data="warn_close"),
+        ]])
+    else:  # kick
+        return InlineKeyboardMarkup([[
+            InlineKeyboardButton("Close", callback_data="warn_close"),
+        ]])
+
+
+def _warn_text(user_mention: str, warn_count: int, warn_limit: int, admin_mention: str, reason: str = None) -> str:
+    text = (
+        f"{user_mention} has received a warning "
+        f"(<b>{warn_count}/{warn_limit}</b>) "
+        f"from admin {admin_mention}."
+    )
+    if reason:
+        text += f"\n<b>Reason:</b> {reason}"
+    return text
+
+
+def _action_text(user_mention: str, warn_count: int, warn_limit: int, admin_mention: str, mode: str, reason: str = None) -> str:
+    text = (
+        f"{user_mention} has received a warning "
+        f"(<b>{warn_count}/{warn_limit}</b>) "
+        f"from admin {admin_mention}."
+    )
+    if reason:
+        text += f"\n<b>Reason:</b> {reason}"
+    text += f"\n\nWarning limit reached! Applying action: <b>{mode}</b>."
+    return text
 
 
 async def _apply_warn_action(client: Client, chat_id: int, user_id: int, mode: str):
@@ -103,18 +162,6 @@ async def _apply_warn_action(client: Client, chat_id: int, user_id: int, mode: s
             )
     except Exception as e:
         logger.error(f"Failed to apply warn action {mode} on {user_id} in {chat_id}: {e}")
-
-
-def _warn_text(user_mention: str, warn_count: int, warn_limit: int, admin_mention: str, reason: str = None) -> str:
-    text = (
-        f"{user_mention} has received a warning "
-        f"(<b>{warn_count}/{warn_limit}</b>) "
-        f"from admin {admin_mention}."
-    )
-    if reason:
-        text += f"\n<b>Reason:</b> {reason}"
-    text += "\n\nReply to this message to manage warnings or apply additional actions."
-    return text
 
 
 async def setup_warn_handlers(client: Client):
@@ -153,13 +200,7 @@ async def setup_warn_handlers(client: Client):
             await message.reply_text("Admins cannot be warned.", parse_mode=ParseMode.HTML)
             return
 
-        # Reason extract karo
-        parts = message.text.split(maxsplit=2)
-        reason = None
-        if message.reply_to_message and len(parts) >= 2:
-            reason = parts[1].strip()
-        elif not message.reply_to_message and len(parts) >= 3:
-            reason = parts[2].strip()
+        reason = _extract_reason(message)
 
         warn_data = await add_warn(chat_id, user.id, reason)
         warn_count = warn_data["warns"]
@@ -171,22 +212,19 @@ async def setup_warn_handlers(client: Client):
         admin_mention = message.from_user.mention if message.from_user else "Admin"
         user_mention = user.mention
 
-        # Warn limit reach ho gayi — pehle msg bhejo, phir reset, phir action
         if warn_limit > 0 and warn_count >= warn_limit:
-            text = _warn_text(user_mention, warn_count, warn_limit, admin_mention, reason)
-            text += f"\n\n⚠️ Warning limit reached! Applying action: <b>{warn_mode}</b>."
-
             await message.reply_text(
-                text,
+                _action_text(user_mention, warn_count, warn_limit, admin_mention, warn_mode, reason),
                 parse_mode=ParseMode.HTML,
-                reply_markup=_warn_buttons(chat_id, user.id)
+                reply_markup=_action_buttons(chat_id, user.id, warn_mode)
             )
-            # Pehle reset, phir action — Mikobot jaise
             await reset_user_warns(chat_id, user.id)
             await _apply_warn_action(client, chat_id, user.id, warn_mode)
         else:
+            text = _warn_text(user_mention, warn_count, warn_limit, admin_mention, reason)
+            text += "\n\nReply to this message to manage warnings or apply additional actions."
             await message.reply_text(
-                _warn_text(user_mention, warn_count, warn_limit, admin_mention, reason),
+                text,
                 parse_mode=ParseMode.HTML,
                 reply_markup=_warn_buttons(chat_id, user.id)
             )
@@ -322,8 +360,7 @@ async def setup_warn_handlers(client: Client):
             limit = settings["warn_limit"]
             if limit == 0:
                 await message.reply_text(
-                    "Warn limit is currently set to <b>0</b>.\n"
-                    "Warning system is effectively disabled.",
+                    "Warn limit is currently set to <b>0</b>.\nWarning system is effectively disabled.",
                     parse_mode=ParseMode.HTML
                 )
             else:
@@ -357,10 +394,7 @@ async def setup_warn_handlers(client: Client):
                 parse_mode=ParseMode.HTML
             )
         else:
-            await message.reply_text(
-                f"Warn limit updated to <b>{limit}</b>.",
-                parse_mode=ParseMode.HTML
-            )
+            await message.reply_text(f"Warn limit updated to <b>{limit}</b>.", parse_mode=ParseMode.HTML)
 
 
     # ============================================================
@@ -372,18 +406,18 @@ async def setup_warn_handlers(client: Client):
         admin_id = message.from_user.id if message.from_user else None
         parts = message.text.split(maxsplit=1)
 
+        mode_desc = {
+            "ban": "Users who exceed the warning limit will be automatically banned.",
+            "mute": "Users who exceed the warning limit will be automatically muted.",
+            "kick": "Users who exceed the warning limit will be automatically kicked.",
+        }
+
         if len(parts) < 2:
             settings = await _get_cached_warn_settings(chat_id)
             mode = settings["warn_mode"]
-            mode_desc = {
-                "ban": "Users who exceed the warning limit will be automatically banned.",
-                "mute": "Users who exceed the warning limit will be automatically muted.",
-                "kick": "Users who exceed the warning limit will be automatically kicked.",
-            }.get(mode, "")
-
             await message.reply_text(
                 f"<b>Warn Mode: {mode.capitalize()}</b>\n"
-                f"{mode_desc}\n\n"
+                f"{mode_desc.get(mode, '')}\n\n"
                 f"Change mode:\n<code>/warnmode ban | mute | kick</code>",
                 parse_mode=ParseMode.HTML
             )
@@ -404,20 +438,14 @@ async def setup_warn_handlers(client: Client):
         await set_warn_mode(chat_id, mode)
         _update_settings_cache(chat_id, "warn_mode", mode)
 
-        mode_desc = {
-            "ban": "Users who exceed the warning limit will be automatically banned.",
-            "mute": "Users who exceed the warning limit will be automatically muted.",
-            "kick": "Users who exceed the warning limit will be automatically kicked.",
-        }.get(mode, "")
-
         await message.reply_text(
-            f"<b>Warn Mode: {mode.capitalize()}</b>\n{mode_desc}",
+            f"<b>Warn Mode: {mode.capitalize()}</b>\n{mode_desc.get(mode, '')}",
             parse_mode=ParseMode.HTML
         )
 
 
     # ============================================================
-    # CALLBACK — Buttons (-1, Reset All, +1, Close)
+    # CALLBACK — Buttons
     # ============================================================
     @client.on_callback_query(filters.regex(r"^warn_"))
     async def warn_callback(client: Client, callback: CallbackQuery):
@@ -430,6 +458,7 @@ async def setup_warn_handlers(client: Client):
 
         data = callback.data
 
+        # Close
         if data == "warn_close":
             await callback.message.delete()
             await callback.answer()
@@ -447,30 +476,61 @@ async def setup_warn_handlers(client: Client):
         settings = await _get_cached_warn_settings(target_chat_id)
         warn_limit = settings["warn_limit"]
 
-        if action == "warn_plus":
-            warn_data = await add_warn(target_chat_id, target_user_id)
-            warn_count = warn_data["warns"]
-            await callback.answer(f"Warning added: {warn_count}/{warn_limit}")
+        # Unban
+        if action == "warn_unban":
+            try:
+                await client.unban_chat_member(target_chat_id, target_user_id)
+                await callback.answer("User unbanned!", show_alert=True)
+                await callback.message.delete()
+            except Exception as e:
+                await callback.answer(f"Failed to unban: {e}", show_alert=True)
+            return
 
-        elif action == "warn_minus":
+        # Unmute
+        if action == "warn_unmute":
+            try:
+                await client.restrict_chat_member(
+                    target_chat_id, target_user_id,
+                    ChatPermissions(
+                        can_send_messages=True,
+                        can_send_media_messages=True,
+                        can_send_other_messages=True,
+                        can_add_web_page_previews=True
+                    )
+                )
+                await callback.answer("User unmuted!", show_alert=True)
+                await callback.message.delete()
+            except Exception as e:
+                await callback.answer(f"Failed to unmute: {e}", show_alert=True)
+            return
+
+        # -1
+        if action == "warn_minus":
             warn_data = await remove_one_warn(target_chat_id, target_user_id)
             warn_count = warn_data["warns"]
             await callback.answer(f"Warning removed: {warn_count}/{warn_limit}")
 
+        # +1
+        elif action == "warn_plus":
+            warn_data = await add_warn(target_chat_id, target_user_id)
+            warn_count = warn_data["warns"]
+            await callback.answer(f"Warning added: {warn_count}/{warn_limit}")
+
+        # Reset All
         elif action == "warn_reset":
             await reset_user_warns(target_chat_id, target_user_id)
             warn_count = 0
             await callback.answer("All warnings reset!")
 
-        # Message text + buttons update karo
+        else:
+            return
+
+        # Message text update karo with new count
         try:
             warn_data = await get_user_warns(target_chat_id, target_user_id)
             warn_count = warn_data["warns"]
 
-            # Original message ka text update karo with new count
             original_text = callback.message.text or ""
-            # Count pattern update karo e.g. (2/3) -> (1/3)
-            import re
             new_text = re.sub(
                 r'\(\d+/\d+\)',
                 f'({warn_count}/{warn_limit})',

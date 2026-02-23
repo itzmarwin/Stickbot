@@ -9,7 +9,7 @@ from pyrogram_handlers.utils import is_user_admin
 from pyrogram_handlers.commands import cmd
 
 BATCH_SIZE = 6
-DELAY_BETWEEN_BATCHES = 3
+DELAY_BETWEEN_BATCHES = 2
 MAX_RETRIES = 3
 MAX_MESSAGE_LENGTH = 3900
 

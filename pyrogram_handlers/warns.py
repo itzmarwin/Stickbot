@@ -71,20 +71,13 @@ async def _resolve_user(client: Client, message: Message):
 
 
 def _extract_reason(message: Message) -> str | None:
-    """
-    Reason extract karo — 10 words tak.
-    Reply mode: /warn reason words here
-    Non-reply mode: /warn @user reason words here
-    """
     parts = message.text.split(maxsplit=1)
 
     if message.reply_to_message:
-        # /warn reason here — sab kuch command ke baad reason hai
         if len(parts) >= 2:
             reason_words = parts[1].strip().split()
             return " ".join(reason_words[:10]) if reason_words else None
     else:
-        # /warn @user reason here — pehla word user hai, baaki reason
         if len(parts) >= 2:
             after_cmd = parts[1].strip().split(maxsplit=1)
             if len(after_cmd) >= 2:
@@ -94,7 +87,6 @@ def _extract_reason(message: Message) -> str | None:
 
 
 def _warn_buttons(chat_id: int, user_id: int) -> InlineKeyboardMarkup:
-    """Normal warn buttons."""
     return InlineKeyboardMarkup([
         [
             InlineKeyboardButton("-1", callback_data=f"warn_minus|{chat_id}|{user_id}"),
@@ -108,7 +100,6 @@ def _warn_buttons(chat_id: int, user_id: int) -> InlineKeyboardMarkup:
 
 
 def _action_buttons(chat_id: int, user_id: int, mode: str) -> InlineKeyboardMarkup:
-    """Limit reach hone ke baad action buttons."""
     if mode == "ban":
         return InlineKeyboardMarkup([[
             InlineKeyboardButton("Unban", callback_data=f"warn_unban|{chat_id}|{user_id}"),
@@ -166,9 +157,6 @@ async def _apply_warn_action(client: Client, chat_id: int, user_id: int, mode: s
 
 async def setup_warn_handlers(client: Client):
 
-    # ============================================================
-    # /warn
-    # ============================================================
     @client.on_message(filters.command("warn") & filters.group)
     async def warn_command(client: Client, message: Message):
         chat_id = message.chat.id
@@ -230,9 +218,6 @@ async def setup_warn_handlers(client: Client):
             )
 
 
-    # ============================================================
-    # /warns
-    # ============================================================
     @client.on_message(filters.command("warns") & filters.group)
     async def warns_command(client: Client, message: Message):
         chat_id = message.chat.id
@@ -276,9 +261,6 @@ async def setup_warn_handlers(client: Client):
         )
 
 
-    # ============================================================
-    # /rmwarn
-    # ============================================================
     @client.on_message(filters.command("rmwarn") & filters.group)
     async def rmwarn_command(client: Client, message: Message):
         chat_id = message.chat.id
@@ -314,9 +296,6 @@ async def setup_warn_handlers(client: Client):
         )
 
 
-    # ============================================================
-    # /resetwarns
-    # ============================================================
     @client.on_message(filters.command("resetwarns") & filters.group)
     async def resetwarns_command(client: Client, message: Message):
         chat_id = message.chat.id
@@ -346,9 +325,6 @@ async def setup_warn_handlers(client: Client):
         )
 
 
-    # ============================================================
-    # /warnlimit
-    # ============================================================
     @client.on_message(filters.command("warnlimit") & filters.group)
     async def warnlimit_command(client: Client, message: Message):
         chat_id = message.chat.id
@@ -397,9 +373,6 @@ async def setup_warn_handlers(client: Client):
             await message.reply_text(f"Warn limit updated to <b>{limit}</b>.", parse_mode=ParseMode.HTML)
 
 
-    # ============================================================
-    # /warnmode
-    # ============================================================
     @client.on_message(filters.command("warnmode") & filters.group)
     async def warnmode_command(client: Client, message: Message):
         chat_id = message.chat.id
@@ -446,6 +419,8 @@ async def setup_warn_handlers(client: Client):
 
     # ============================================================
     # CALLBACK — Buttons
+    # FIX: warn_plus mein limit check + action add kiya
+    # FIX: limit exceed hone par _action_buttons show hoga
     # ============================================================
     @client.on_callback_query(filters.regex(r"^warn_"))
     async def warn_callback(client: Client, callback: CallbackQuery):
@@ -475,6 +450,7 @@ async def setup_warn_handlers(client: Client):
 
         settings = await _get_cached_warn_settings(target_chat_id)
         warn_limit = settings["warn_limit"]
+        warn_mode = settings["warn_mode"]
 
         # Unban
         if action == "warn_unban":
@@ -510,10 +486,37 @@ async def setup_warn_handlers(client: Client):
             warn_count = warn_data["warns"]
             await callback.answer(f"Warning removed: {warn_count}/{warn_limit}")
 
-        # +1
+        # +1 — FIX: limit check + action added
         elif action == "warn_plus":
             warn_data = await add_warn(target_chat_id, target_user_id)
             warn_count = warn_data["warns"]
+
+            # FIX: limit reach hone par action lo aur message update karo
+            if warn_limit > 0 and warn_count >= warn_limit:
+                await callback.answer(f"Limit reached! Applying: {warn_mode}", show_alert=True)
+                admin_mention = callback.from_user.mention
+
+                # Message update karo action text ke saath
+                try:
+                    await callback.message.edit_text(
+                        _action_text(
+                            f'<a href="tg://user?id={target_user_id}">User</a>',
+                            warn_count,
+                            warn_limit,
+                            admin_mention,
+                            warn_mode
+                        ),
+                        parse_mode=ParseMode.HTML,
+                        reply_markup=_action_buttons(target_chat_id, target_user_id, warn_mode)
+                    )
+                except Exception:
+                    pass
+
+                # Warns reset karo aur action apply karo
+                await reset_user_warns(target_chat_id, target_user_id)
+                await _apply_warn_action(client, target_chat_id, target_user_id, warn_mode)
+                return  # Yahan se return — neeche wala update nahi chahiye
+
             await callback.answer(f"Warning added: {warn_count}/{warn_limit}")
 
         # Reset All
@@ -525,7 +528,7 @@ async def setup_warn_handlers(client: Client):
         else:
             return
 
-        # Message text update karo with new count
+        # Normal message update — sirf tab jab limit reach nahi hui
         try:
             warn_data = await get_user_warns(target_chat_id, target_user_id)
             warn_count = warn_data["warns"]

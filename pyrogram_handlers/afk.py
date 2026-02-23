@@ -96,7 +96,6 @@ def format_afk_message(user_mention: str, reason: Optional[str], duration: str) 
 
 async def setup_afk_handlers(client: Client):
 
-    # ✅ CHANGE 1: group=0 → Command sabse pehle execute hoga
     @client.on_message(filters.command("afk") & filters.group, group=0)
     async def afk_command(_, message: Message):
         user = message.from_user
@@ -117,14 +116,11 @@ async def setup_afk_handlers(client: Client):
 
         await message.reply(response)
 
-    # ✅ CHANGE 2: group=1 → Monitor commands ke baad chalega
     @client.on_message(filters.all & ~filters.service & filters.group, group=1)
     async def afk_user_handler(_, message: Message):
 
         user = message.from_user
 
-        # /afk command pe sender ka AFK check mat karo
-        # kyunki wo abhi AFK set kar raha hai, remove nahi
         if message.text and message.text.lower().startswith("/afk"):
             return
 

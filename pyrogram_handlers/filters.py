@@ -58,7 +58,6 @@ async def _ensure_cache(chat_id: int):
 
 async def setup_filter_handlers(client: Client):
 
-    # ✅ group=0 → Sare filter commands sabse pehle execute honge
     @client.on_message(filters.command("filter") & filters.group, group=0)
     async def filter_command(client: Client, message: Message):
         chat_id = message.chat.id
@@ -146,8 +145,6 @@ async def setup_filter_handlers(client: Client):
         else:
             await message.reply_text("Failed to save filter. Please try again.", parse_mode=ParseMode.HTML)
 
-
-    # ✅ group=0 → Command
     @client.on_message(filters.command("filters") & filters.group, group=0)
     async def filters_list_command(client: Client, message: Message):
         chat_id = message.chat.id
@@ -168,8 +165,6 @@ async def setup_filter_handlers(client: Client):
             parse_mode=ParseMode.HTML
         )
 
-
-    # ✅ group=0 → Command
     @client.on_message(filters.command("stopfilter") & filters.group, group=0)
     async def stopfilter_command(client: Client, message: Message):
         chat_id = message.chat.id
@@ -208,8 +203,6 @@ async def setup_filter_handlers(client: Client):
         else:
             await message.reply_text("Failed to remove filter. Please try again.", parse_mode=ParseMode.HTML)
 
-
-    # ✅ group=0 → Command
     @client.on_message(filters.command("stopallfilters") & filters.group, group=0)
     async def stop_all_filters_command(client: Client, message: Message):
         chat_id = message.chat.id
@@ -236,8 +229,6 @@ async def setup_filter_handlers(client: Client):
             parse_mode=ParseMode.HTML
         )
 
-
-    # ✅ group=2 → Filter trigger AFK (group=1) ke baad chalega
     @client.on_message(filters.group & filters.text, group=2)
     async def filter_trigger(client: Client, message: Message):
         chat_id = message.chat.id

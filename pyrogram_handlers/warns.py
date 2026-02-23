@@ -144,7 +144,7 @@ def _action_text(user_mention: str, warn_count: int, warn_limit: int, admin_ment
     )
     if reason:
         text += f"\n<b>Reason:</b> {reason}"
-    text += f"\n\nWarning limit reached! Applying action: <b>{mode}</b>."
+    text += f"\n\n⚠️ Warning limit reached! Applying action: <b>{mode}</b>."
     return text
 
 

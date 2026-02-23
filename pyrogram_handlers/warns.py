@@ -456,7 +456,7 @@ async def setup_warn_handlers(client: Client):
         if action == "warn_unban":
             try:
                 await client.unban_chat_member(target_chat_id, target_user_id)
-                await callback.answer("User unbanned!", show_alert=True)
+                await callback.answer("User unbanned!")
                 await callback.message.delete()
             except Exception as e:
                 await callback.answer(f"Failed to unban: {e}", show_alert=True)
@@ -474,7 +474,7 @@ async def setup_warn_handlers(client: Client):
                         can_add_web_page_previews=True
                     )
                 )
-                await callback.answer("User unmuted!", show_alert=True)
+                await callback.answer("User unmuted!")
                 await callback.message.delete()
             except Exception as e:
                 await callback.answer(f"Failed to unmute: {e}", show_alert=True)
@@ -493,7 +493,7 @@ async def setup_warn_handlers(client: Client):
 
             # FIX: limit reach hone par action lo aur message update karo
             if warn_limit > 0 and warn_count >= warn_limit:
-                await callback.answer(f"Limit reached! Applying: {warn_mode}", show_alert=True)
+                await callback.answer(f"Limit reached! Applying: {warn_mode}")
                 admin_mention = callback.from_user.mention
 
                 # Message update karo action text ke saath

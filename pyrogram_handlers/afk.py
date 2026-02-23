@@ -6,6 +6,7 @@ from pyrogram.types import Message
 from pyrogram.enums import MessageEntityType
 
 from database import get_afk_user, set_afk_user, remove_afk_user
+from pyrogram_handlers.commands import cmd, COMMAND_PREFIXES
 
 
 class AFKCache:
@@ -96,7 +97,7 @@ def format_afk_message(user_mention: str, reason: Optional[str], duration: str) 
 
 async def setup_afk_handlers(client: Client):
 
-    @client.on_message(filters.command("afk") & filters.group, group=0)
+    @client.on_message(cmd("afk") & filters.group, group=0)
     async def afk_command(_, message: Message):
         user = message.from_user
         reason = " ".join(message.command[1:]).strip() or None
@@ -121,8 +122,11 @@ async def setup_afk_handlers(client: Client):
 
         user = message.from_user
 
-        if message.text and message.text.lower().startswith("/afk"):
-            return
+        # Check all prefixes
+        if message.text:
+            msg_lower = message.text.lower()
+            if any(msg_lower.startswith(prefix + "afk") for prefix in COMMAND_PREFIXES):
+                return
 
         if user:
             afk_data = afk_cache.get(user.id)

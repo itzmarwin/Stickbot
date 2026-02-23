@@ -1,16 +1,8 @@
-import re
 from pyrogram import filters
 
-CMD_STARTERS = r"^[!/\.@]"
+COMMAND_PREFIXES = ["/", "!", ".", "@"]
 
-def cmd(commands):
-    if isinstance(commands, str):
-        commands = [commands]
-    
-    pattern = r"^[!/\.@](" + "|".join(commands) + r")(@\w+)?(\s|$)"
-    return filters.regex(re.compile(pattern, re.IGNORECASE))
-
-def get_args(message) -> list:
-    text = message.text or message.caption or ""
-    parts = text.split()
-    return parts[1:] if parts else []
+def cmd(commands, prefixes=None):
+    if prefixes is None:
+        prefixes = COMMAND_PREFIXES
+    return filters.command(commands, prefixes=prefixes)

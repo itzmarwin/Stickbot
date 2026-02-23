@@ -113,19 +113,23 @@ async def get_user(user_id: int) -> Optional[Dict[str, Any]]:
         return None
 
 
-async def create_user(user_id: int, username: Optional[str] = None, 
+async def create_user(user_id: int, username: Optional[str] = None,
                      first_name: Optional[str] = None, language: str = "en") -> bool:
-    """Create new user with language preference"""
     try:
-        user_data = {
-            "user_id": user_id,
-            "username": username,
-            "first_name": first_name,
-            "created_at": datetime.utcnow(),
-            "has_started": True,
-            "language": language  # NEW: Default language
-        }
-        await db.users.insert_one(user_data)
+        await db.users.update_one(
+            {"user_id": user_id},
+            {
+                "$setOnInsert": {
+                    "user_id": user_id,
+                    "username": username,
+                    "first_name": first_name,
+                    "created_at": datetime.utcnow(),
+                    "has_started": True,
+                    "language": language
+                }
+            },
+            upsert=True
+        )
         return True
     except Exception as e:
         logger.error(f"Error creating user {user_id}: {e}")

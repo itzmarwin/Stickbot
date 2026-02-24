@@ -58,7 +58,8 @@ async def _ensure_cache(chat_id: int):
 
 async def setup_filter_handlers(client: Client):
 
-    @client.on_message(filters.command("filter") & filters.group, group=0)
+    # /filter aur /addfilter dono se filter add hoga
+    @client.on_message(filters.command(["filter", "addfilter"]) & filters.group, group=0)
     async def filter_command(client: Client, message: Message):
         chat_id = message.chat.id
         user_id = message.from_user.id if message.from_user else None
@@ -165,7 +166,8 @@ async def setup_filter_handlers(client: Client):
             parse_mode=ParseMode.HTML
         )
 
-    @client.on_message(filters.command("stopfilter") & filters.group, group=0)
+    # /stopfilter aur /rmfilter dono se filter remove hoga
+    @client.on_message(filters.command(["stopfilter", "rmfilter", "unfilter"]) & filters.group, group=0)
     async def stopfilter_command(client: Client, message: Message):
         chat_id = message.chat.id
         user_id = message.from_user.id if message.from_user else None
@@ -229,7 +231,8 @@ async def setup_filter_handlers(client: Client):
             parse_mode=ParseMode.HTML
         )
 
-    @client.on_message(filters.group & filters.text, group=2)
+    # FIX: ~filters.me se bot apne messages pe trigger nahi karega
+    @client.on_message(filters.group & filters.text & ~filters.me, group=2)
     async def filter_trigger(client: Client, message: Message):
         chat_id = message.chat.id
 

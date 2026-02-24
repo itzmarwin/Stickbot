@@ -1,7 +1,7 @@
 import asyncio
 import random
 from pyrogram import Client, filters
-from pyrogram.types import Message
+from pyrogram.types import Message, LinkPreviewOptions
 from pyrogram.enums import ChatMemberStatus
 from pyrogram.errors import FloodWait, ChatAdminRequired
 
@@ -13,6 +13,8 @@ BATCH_SIZE = 6
 DELAY_BETWEEN_BATCHES = 2
 MAX_RETRIES = 3
 MAX_MESSAGE_LENGTH = 3900
+
+NO_PREVIEW = LinkPreviewOptions(is_disabled=True)
 
 EMOJI_POOL = [
     "🌚", "😶‍🌫️", "🥺", "💁", "😋", "😢", "😹", "👊", "🙋", "🤦",
@@ -31,6 +33,16 @@ EMOJI_POOL = [
 active_tagall = {}
 
 
+async def is_bot_admin_in_chat(client: Client, chat_id: int) -> bool:
+    """Bot admin hai ya nahi check karo"""
+    try:
+        bot = await client.get_me()
+        member = await client.get_chat_member(chat_id, bot.id)
+        return member.status in (ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER)
+    except Exception:
+        return False
+
+
 async def get_all_members(client: Client, chat_id: int) -> list:
     members = []
     async for member in client.get_chat_members(chat_id):
@@ -41,7 +53,7 @@ async def get_all_members(client: Client, chat_id: int) -> list:
 
 async def send_mention_batch(message_target, mentions: str, retry_count: int = 0):
     try:
-        await message_target.reply_text(mentions, disable_web_page_preview=True)
+        await message_target.reply_text(mentions, link_preview_options=NO_PREVIEW)
         return True
     except FloodWait as e:
         if retry_count >= MAX_RETRIES:
@@ -52,7 +64,7 @@ async def send_mention_batch(message_target, mentions: str, retry_count: int = 0
 
 async def send_fresh_message(client: Client, chat_id: int, text: str, retry_count: int = 0):
     try:
-        await client.send_message(chat_id, text, disable_web_page_preview=True)
+        await client.send_message(chat_id, text, link_preview_options=NO_PREVIEW)
         return True
     except FloodWait as e:
         if retry_count >= MAX_RETRIES:
@@ -70,7 +82,6 @@ async def send_tagall_log(client: Client, message: Message, command: str):
         chat = message.chat
         user = message.from_user
 
-        # Invite link try karo — permission na ho to None
         try:
             invite_link = await client.export_chat_invite_link(chat.id)
         except Exception:
@@ -110,6 +121,14 @@ async def setup_tagall_handlers(client: Client):
             await message.reply_text(
                 "𝖳𝖺𝗀𝖺𝗅𝗅 𝖺𝗅𝗋𝖾𝖺𝖽𝗒 𝗋𝗎𝗇𝗇𝗂𝗇𝗀!\n\n"
                 "𝖴𝗌𝖾 /stop 𝗈𝗋 /cancel 𝗍𝗈 𝗌𝗍𝗈𝗉 𝗂𝗍."
+            )
+            return
+
+        # Bot admin check
+        if not await is_bot_admin_in_chat(client, chat_id):
+            await message.reply_text(
+                "𝖨 𝗇𝖾𝖾𝖽 𝗍𝗈 𝖻𝖾 𝖺𝗇 𝖺𝖽𝗆𝗂𝗇 𝗍𝗈 𝗎𝗌𝖾 𝗍𝖺𝗀𝖺𝗅𝗅!\n\n"
+                "𝖯𝗅𝖾𝖺𝗌𝖾 𝗉𝗋𝗈𝗆𝗈𝗍𝖾 𝗆𝖾 𝖺𝗌 𝖺𝖽𝗆𝗂𝗇 𝖺𝗇𝖽 𝗍𝗋𝗒 𝖺𝗀𝖺𝗂𝗇."
             )
             return
 
@@ -213,6 +232,14 @@ async def setup_tagall_handlers(client: Client):
             )
             return
 
+        # Bot admin check
+        if not await is_bot_admin_in_chat(client, chat_id):
+            await message.reply_text(
+                "𝖨 𝗇𝖾𝖾𝖽 𝗍𝗈 𝖻𝖾 𝖺𝗇 𝖺𝖽𝗆𝗂𝗇 𝗍𝗈 𝗎𝗌𝖾 𝗍𝖺𝗀𝖺𝗅𝗅!\n\n"
+                "𝖯𝗅𝖾𝖺𝗌𝖾 𝗉𝗋𝗈𝗆𝗈𝗍𝖾 𝗆𝖾 𝖺𝗌 𝖺𝖽𝗆𝗂𝗇 𝖺𝗇𝖽 𝗍𝗋𝗒 𝖺𝗀𝖺𝗂𝗇."
+            )
+            return
+
         is_reply = message.reply_to_message is not None
         has_text = len(message.text.split(maxsplit=1)) > 1
 
@@ -308,6 +335,14 @@ async def setup_tagall_handlers(client: Client):
             await message.reply_text(
                 "𝖳𝖺𝗀𝖺𝗅𝗅 𝖺𝗅𝗋𝖾𝖺𝖽𝗒 𝗋𝗎𝗇𝗇𝗂𝗇𝗀!\n\n"
                 "𝖴𝗌𝖾 /stop 𝗈𝗋 /cancel 𝗍𝗈 𝗌𝗍𝗈𝗉 𝗂𝗍."
+            )
+            return
+
+        # Bot admin check
+        if not await is_bot_admin_in_chat(client, chat_id):
+            await message.reply_text(
+                "𝖨 𝗇𝖾𝖾𝖽 𝗍𝗈 𝖻𝖾 𝖺𝗇 𝖺𝖽𝗆𝗂𝗇 𝗍𝗈 𝗎𝗌𝖾 𝗍𝖺𝗀𝖺𝗅𝗅!\n\n"
+                "𝖯𝗅𝖾𝖺𝗌𝖾 𝗉𝗋𝗈𝗆𝗈𝗍𝖾 𝗆𝖾 𝖺𝗌 𝖺𝖽𝗆𝗂𝗇 𝖺𝗇𝖽 𝗍𝗋𝗒 𝖺𝗀𝖺𝗂𝗇."
             )
             return
 

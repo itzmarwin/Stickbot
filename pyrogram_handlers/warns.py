@@ -91,33 +91,23 @@ def _make_user_mention(user_id: int, user_name: str) -> str:
     return f'<a href="tg://user?id={user_id}">{user_name}</a>'
 
 
-def _extract_user_mention_from_text(text: str) -> str | None:
+def _extract_reason_from_text(text: str) -> str | None:
     """
-    Existing message text se user mention extract karo
-    Format: <a href="tg://user?id=123">Name</a>
+    Plain text message se reason extract karo
+    'Reason: ...' pattern dhundho
     """
-    match = re.search(r'<a href="tg://user\?id=\d+">[^<]+</a>', text)
-    if match:
-        return match.group(0)
-    return None
-
-
-def _extract_admin_mention_from_text(text: str) -> str | None:
-    """
-    Message text se admin mention extract karo
-    'from admin MENTION.' pattern dhundho
-    """
-    match = re.search(r'from admin (.+?)\.', text, re.DOTALL)
+    match = re.search(r'Reason:\s*(.+?)(?:\n|$)', text)
     if match:
         return match.group(1).strip()
     return None
 
 
-def _extract_reason_from_text(text: str) -> str | None:
+def _extract_admin_mention_from_text(text: str) -> str | None:
     """
-    Message text se reason extract karo
+    Plain text message se admin mention extract karo
+    'from admin NAME.' pattern dhundho
     """
-    match = re.search(r'<b>Reason:</b> (.+?)(?:\n|$)', text)
+    match = re.search(r'from admin (.+?)\.', text, re.DOTALL)
     if match:
         return match.group(1).strip()
     return None
@@ -497,15 +487,18 @@ async def setup_warn_handlers(client: Client):
         warn_limit = settings["warn_limit"]
         warn_mode = settings["warn_mode"]
 
-        # FIX: Existing message se user mention aur admin mention extract karo
+        # FIX: Plain text se reason aur admin extract karo
         original_text = callback.message.text or ""
-        existing_user_mention = _extract_user_mention_from_text(original_text)
-        existing_admin_mention = _extract_admin_mention_from_text(original_text)
         existing_reason = _extract_reason_from_text(original_text)
-
-        # Fallback agar extract na ho sake
-        user_mention = existing_user_mention or f'<a href="tg://user?id={target_user_id}">User</a>'
+        existing_admin_mention = _extract_admin_mention_from_text(original_text)
         admin_mention = existing_admin_mention or callback.from_user.mention
+
+        # FIX: User ko Telegram se directly fetch karo
+        try:
+            target_user = await client.get_users(target_user_id)
+            user_mention = _make_user_mention(target_user.id, target_user.first_name)
+        except Exception:
+            user_mention = f'<a href="tg://user?id={target_user_id}">User</a>'
 
         # FIX: Unban — delete nahi, edit karo
         if action == "warn_unban":

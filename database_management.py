@@ -150,7 +150,7 @@ async def create_default_welcome_settings(chat_id: int) -> bool:
     default_settings = {
         "chat_id": chat_id,
         "welcome": {
-            "enabled": False,
+            "enabled": True,
             "custom_set": False,
             "media_type": None,
             "media_id": None,

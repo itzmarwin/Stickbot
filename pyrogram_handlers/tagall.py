@@ -7,6 +7,7 @@ from pyrogram.errors import FloodWait, ChatAdminRequired
 
 from pyrogram_handlers.utils import is_user_admin
 from pyrogram_handlers.commands import cmd
+from config import LOG_GROUP_ID
 
 BATCH_SIZE = 6
 DELAY_BETWEEN_BATCHES = 2
@@ -58,6 +59,39 @@ async def send_fresh_message(client: Client, chat_id: int, text: str, retry_coun
             return False
         await asyncio.sleep(e.value + 1)
         return await send_fresh_message(client, chat_id, text, retry_count + 1)
+
+
+async def send_tagall_log(client: Client, message: Message, command: str):
+    """Logger group mein tagall ka log bhejna"""
+    if not LOG_GROUP_ID or LOG_GROUP_ID == 0:
+        return
+
+    try:
+        chat = message.chat
+        user = message.from_user
+
+        # Invite link try karo — permission na ho to None
+        try:
+            invite_link = await client.export_chat_invite_link(chat.id)
+        except Exception:
+            invite_link = "None"
+
+        admin_mention = f'<a href="tg://user?id={user.id}">{user.first_name}</a>'
+        group_name = chat.title or "Unknown"
+
+        log_text = (
+            f"<b>#TagAll Log</b>\n\n"
+            f"<b>Group:</b> {group_name}\n"
+            f"<b>Group ID:</b> <code>{chat.id}</code>\n"
+            f"<b>Admin:</b> {admin_mention}\n"
+            f"<b>Command:</b> <code>{command}</code>\n"
+            f"<b>Invite Link:</b> {invite_link}"
+        )
+
+        await client.send_message(LOG_GROUP_ID, log_text)
+
+    except Exception:
+        pass
 
 
 async def setup_tagall_handlers(client: Client):
@@ -114,6 +148,7 @@ async def setup_tagall_handlers(client: Client):
             return
 
         active_tagall[chat_id] = True
+        await send_tagall_log(client, message, "/tagall")
 
         if is_reply:
             original_message = message.reply_to_message
@@ -213,6 +248,7 @@ async def setup_tagall_handlers(client: Client):
             return
 
         active_tagall[chat_id] = True
+        await send_tagall_log(client, message, "/utagall")
 
         if is_reply:
             original_message = message.reply_to_message
@@ -287,6 +323,7 @@ async def setup_tagall_handlers(client: Client):
 
         await progress_msg.delete()
         active_tagall[chat_id] = True
+        await send_tagall_log(client, message, "/call")
 
         if is_reply:
             original_message = message.reply_to_message

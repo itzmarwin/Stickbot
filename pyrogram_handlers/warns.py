@@ -86,17 +86,66 @@ def _extract_reason(message: Message) -> str | None:
     return None
 
 
-def _warn_buttons(chat_id: int, user_id: int) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("-1", callback_data=f"warn_minus|{chat_id}|{user_id}"),
-            InlineKeyboardButton("Reset All", callback_data=f"warn_reset|{chat_id}|{user_id}"),
-            InlineKeyboardButton("+1", callback_data=f"warn_plus|{chat_id}|{user_id}"),
-        ],
-        [
-            InlineKeyboardButton("Close", callback_data="warn_close"),
-        ]
-    ])
+def _make_user_mention(user_id: int, user_name: str) -> str:
+    """Hamesha consistent clickable mention banao"""
+    return f'<a href="tg://user?id={user_id}">{user_name}</a>'
+
+
+def _extract_user_mention_from_text(text: str) -> str | None:
+    """
+    Existing message text se user mention extract karo
+    Format: <a href="tg://user?id=123">Name</a>
+    """
+    match = re.search(r'<a href="tg://user\?id=\d+">[^<]+</a>', text)
+    if match:
+        return match.group(0)
+    return None
+
+
+def _extract_admin_mention_from_text(text: str) -> str | None:
+    """
+    Message text se admin mention extract karo
+    'from admin MENTION.' pattern dhundho
+    """
+    match = re.search(r'from admin (.+?)\.', text, re.DOTALL)
+    if match:
+        return match.group(1).strip()
+    return None
+
+
+def _extract_reason_from_text(text: str) -> str | None:
+    """
+    Message text se reason extract karo
+    """
+    match = re.search(r'<b>Reason:</b> (.+?)(?:\n|$)', text)
+    if match:
+        return match.group(1).strip()
+    return None
+
+
+# FIX: Warn buttons — 0 warns pe sirf +1 aur Close
+def _warn_buttons(chat_id: int, user_id: int, warn_count: int = 1) -> InlineKeyboardMarkup:
+    if warn_count <= 0:
+        # 0 warns — sirf +1 aur Close
+        return InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("+1", callback_data=f"warn_plus|{chat_id}|{user_id}"),
+            ],
+            [
+                InlineKeyboardButton("Close", callback_data="warn_close"),
+            ]
+        ])
+    else:
+        return InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("-1", callback_data=f"warn_minus|{chat_id}|{user_id}"),
+                InlineKeyboardButton("Reset All", callback_data=f"warn_reset|{chat_id}|{user_id}"),
+                InlineKeyboardButton("+1", callback_data=f"warn_plus|{chat_id}|{user_id}"),
+            ],
+            [
+                InlineKeyboardButton("Close", callback_data="warn_close"),
+            ]
+        ])
 
 
 def _action_buttons(chat_id: int, user_id: int, mode: str) -> InlineKeyboardMarkup:
@@ -198,7 +247,8 @@ async def setup_warn_handlers(client: Client):
         warn_mode = settings["warn_mode"]
 
         admin_mention = message.from_user.mention if message.from_user else "Admin"
-        user_mention = user.mention
+        # FIX: Hamesha consistent mention banao
+        user_mention = _make_user_mention(user.id, user.first_name)
 
         if warn_limit > 0 and warn_count >= warn_limit:
             await message.reply_text(
@@ -214,7 +264,7 @@ async def setup_warn_handlers(client: Client):
             await message.reply_text(
                 text,
                 parse_mode=ParseMode.HTML,
-                reply_markup=_warn_buttons(chat_id, user.id)
+                reply_markup=_warn_buttons(chat_id, user.id, warn_count)
             )
 
 
@@ -417,11 +467,6 @@ async def setup_warn_handlers(client: Client):
         )
 
 
-    # ============================================================
-    # CALLBACK — Buttons
-    # FIX: warn_plus mein limit check + action add kiya
-    # FIX: limit exceed hone par _action_buttons show hoga
-    # ============================================================
     @client.on_callback_query(filters.regex(r"^warn_"))
     async def warn_callback(client: Client, callback: CallbackQuery):
         admin_id = callback.from_user.id
@@ -452,17 +497,33 @@ async def setup_warn_handlers(client: Client):
         warn_limit = settings["warn_limit"]
         warn_mode = settings["warn_mode"]
 
-        # Unban
+        # FIX: Existing message se user mention aur admin mention extract karo
+        original_text = callback.message.text or ""
+        existing_user_mention = _extract_user_mention_from_text(original_text)
+        existing_admin_mention = _extract_admin_mention_from_text(original_text)
+        existing_reason = _extract_reason_from_text(original_text)
+
+        # Fallback agar extract na ho sake
+        user_mention = existing_user_mention or f'<a href="tg://user?id={target_user_id}">User</a>'
+        admin_mention = existing_admin_mention or callback.from_user.mention
+
+        # FIX: Unban — delete nahi, edit karo
         if action == "warn_unban":
             try:
                 await client.unban_chat_member(target_chat_id, target_user_id)
                 await callback.answer("User unbanned!")
-                await callback.message.delete()
+                await callback.message.edit_text(
+                    f"{user_mention} has been <b>unbanned</b>.",
+                    parse_mode=ParseMode.HTML,
+                    reply_markup=InlineKeyboardMarkup([[
+                        InlineKeyboardButton("Close", callback_data="warn_close")
+                    ]])
+                )
             except Exception as e:
                 await callback.answer(f"Failed to unban: {e}", show_alert=True)
             return
 
-        # Unmute
+        # FIX: Unmute — delete nahi, edit karo
         if action == "warn_unmute":
             try:
                 await client.restrict_chat_member(
@@ -475,7 +536,13 @@ async def setup_warn_handlers(client: Client):
                     )
                 )
                 await callback.answer("User unmuted!")
-                await callback.message.delete()
+                await callback.message.edit_text(
+                    f"{user_mention} has been <b>unmuted</b>.",
+                    parse_mode=ParseMode.HTML,
+                    reply_markup=InlineKeyboardMarkup([[
+                        InlineKeyboardButton("Close", callback_data="warn_close")
+                    ]])
+                )
             except Exception as e:
                 await callback.answer(f"Failed to unmute: {e}", show_alert=True)
             return
@@ -486,25 +553,24 @@ async def setup_warn_handlers(client: Client):
             warn_count = warn_data["warns"]
             await callback.answer(f"Warning removed: {warn_count}/{warn_limit}")
 
-        # +1 — FIX: limit check + action added
+        # +1
         elif action == "warn_plus":
             warn_data = await add_warn(target_chat_id, target_user_id)
             warn_count = warn_data["warns"]
 
-            # FIX: limit reach hone par action lo aur message update karo
+            # FIX: Limit reach hone par — consistent mention ke saath action text
             if warn_limit > 0 and warn_count >= warn_limit:
                 await callback.answer(f"Limit reached! Applying: {warn_mode}")
-                admin_mention = callback.from_user.mention
 
-                # Message update karo action text ke saath
                 try:
                     await callback.message.edit_text(
                         _action_text(
-                            f'<a href="tg://user?id={target_user_id}">User</a>',
+                            user_mention,       # FIX: existing mention use karo, User hardcoded nahi
                             warn_count,
                             warn_limit,
                             admin_mention,
-                            warn_mode
+                            warn_mode,
+                            existing_reason
                         ),
                         parse_mode=ParseMode.HTML,
                         reply_markup=_action_buttons(target_chat_id, target_user_id, warn_mode)
@@ -512,10 +578,9 @@ async def setup_warn_handlers(client: Client):
                 except Exception:
                     pass
 
-                # Warns reset karo aur action apply karo
                 await reset_user_warns(target_chat_id, target_user_id)
                 await _apply_warn_action(client, target_chat_id, target_user_id, warn_mode)
-                return  # Yahan se return — neeche wala update nahi chahiye
+                return
 
             await callback.answer(f"Warning added: {warn_count}/{warn_limit}")
 
@@ -528,22 +593,23 @@ async def setup_warn_handlers(client: Client):
         else:
             return
 
-        # Normal message update — sirf tab jab limit reach nahi hui
+        # FIX: Normal update — re.sub nahi, fresh _warn_text banao
+        # Taaki mention hamesha consistent rahe
         try:
             warn_data = await get_user_warns(target_chat_id, target_user_id)
             warn_count = warn_data["warns"]
 
-            original_text = callback.message.text or ""
-            new_text = re.sub(
-                r'\(\d+/\d+\)',
-                f'({warn_count}/{warn_limit})',
-                original_text
-            )
+            new_text = _warn_text(user_mention, warn_count, warn_limit, admin_mention, existing_reason)
+
+            # Sirf warn actions ke liye extra line add karo (reset ya minus ke baad bhi)
+            if warn_count > 0:
+                new_text += "\n\nReply to this message to manage warnings or apply additional actions."
 
             await callback.message.edit_text(
                 new_text,
                 parse_mode=ParseMode.HTML,
-                reply_markup=_warn_buttons(target_chat_id, target_user_id)
+                # FIX: warn_count pass karo taaki 0 pe buttons sahi dikhein
+                reply_markup=_warn_buttons(target_chat_id, target_user_id, warn_count)
             )
         except Exception:
             pass

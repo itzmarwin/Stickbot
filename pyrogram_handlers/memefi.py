@@ -27,11 +27,11 @@ def is_burmese(text: str) -> bool:
 
 def get_font(size: int, text: str = ""):
     if is_burmese(text):
-        font_path = "assets/NotoSansMyanmar.ttf"
+        font_path = "assets/NotoSansMyanmar-Bold.ttf"
         if os.path.exists(font_path):
             return ImageFont.truetype(font_path, size)
         else:
-            raise FileNotFoundError("Noto Sans Myanmar font not found! Make sure assets/NotoSansMyanmar.ttf exists in your repo.")
+            raise FileNotFoundError("Noto Sans Myanmar Bold font not found! Make sure assets/NotoSansMyanmar-Bold.ttf exists in your repo.")
     else:
         font_path = "assets/default.ttf"
         if os.path.exists(font_path):

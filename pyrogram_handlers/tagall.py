@@ -9,12 +9,10 @@ from pyrogram_handlers.utils import is_user_admin
 from pyrogram_handlers.commands import cmd
 from config import LOG_GROUP_ID
 
-BATCH_SIZE = 6
-DELAY_BETWEEN_BATCHES = 2
-MAX_RETRIES = 3
+BATCH_SIZE = 7
+DELAY_BETWEEN_BATCHES = 1
+MAX_RETRIES = 6
 MAX_MESSAGE_LENGTH = 3900
-
-NO_PREVIEW = LinkPreviewOptions(is_disabled=True)
 
 EMOJI_POOL = [
     "🌚", "😶‍🌫️", "🥺", "💁", "😋", "😢", "😹", "👊", "🙋", "🤦",
@@ -53,7 +51,7 @@ async def get_all_members(client: Client, chat_id: int) -> list:
 
 async def send_mention_batch(message_target, mentions: str, retry_count: int = 0):
     try:
-        await message_target.reply_text(mentions, link_preview_options=NO_PREVIEW)
+        await message_target.reply_text(mentions)
         return True
     except FloodWait as e:
         if retry_count >= MAX_RETRIES:
@@ -64,7 +62,7 @@ async def send_mention_batch(message_target, mentions: str, retry_count: int = 0
 
 async def send_fresh_message(client: Client, chat_id: int, text: str, retry_count: int = 0):
     try:
-        await client.send_message(chat_id, text, link_preview_options=NO_PREVIEW)
+        await client.send_message(chat_id, text)
         return True
     except FloodWait as e:
         if retry_count >= MAX_RETRIES:
@@ -124,7 +122,6 @@ async def setup_tagall_handlers(client: Client):
             )
             return
 
-        # Bot admin check
         if not await is_bot_admin_in_chat(client, chat_id):
             await message.reply_text(
                 "𝖨 𝗇𝖾𝖾𝖽 𝗍𝗈 𝖻𝖾 𝖺𝗇 𝖺𝖽𝗆𝗂𝗇 𝗍𝗈 𝗎𝗌𝖾 𝗍𝖺𝗀𝖺𝗅𝗅!\n\n"
@@ -232,7 +229,6 @@ async def setup_tagall_handlers(client: Client):
             )
             return
 
-        # Bot admin check
         if not await is_bot_admin_in_chat(client, chat_id):
             await message.reply_text(
                 "𝖨 𝗇𝖾𝖾𝖽 𝗍𝗈 𝖻𝖾 𝖺𝗇 𝖺𝖽𝗆𝗂𝗇 𝗍𝗈 𝗎𝗌𝖾 𝗍𝖺𝗀𝖺𝗅𝗅!\n\n"
@@ -338,7 +334,6 @@ async def setup_tagall_handlers(client: Client):
             )
             return
 
-        # Bot admin check
         if not await is_bot_admin_in_chat(client, chat_id):
             await message.reply_text(
                 "𝖨 𝗇𝖾𝖾𝖽 𝗍𝗈 𝖻𝖾 𝖺𝗇 𝖺𝖽𝗆𝗂𝗇 𝗍𝗈 𝗎𝗌𝖾 𝗍𝖺𝗀𝖺𝗅𝗅!\n\n"

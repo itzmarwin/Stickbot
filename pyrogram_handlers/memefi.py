@@ -18,12 +18,26 @@ BOTTOM_POSITION = 0.95
 SUPPORT_GROUP = "https://t.me/Samurais_Support"
 
 
-def get_font(size: int):
-    font_path = "assets/default.ttf"
-    if os.path.exists(font_path):
-        return ImageFont.truetype(font_path, size)
+def is_burmese(text: str) -> bool:
+    for char in text:
+        if '\u1000' <= char <= '\u109F':
+            return True
+    return False
+
+
+def get_font(size: int, text: str = ""):
+    if is_burmese(text):
+        font_path = "assets/noto-sans.ttf"
+        if os.path.exists(font_path):
+            return ImageFont.truetype(font_path, size)
+        else:
+            raise FileNotFoundError("Noto Sans font not found! Make sure assets/noto-sans.ttf exists in your repo.")
     else:
-        raise FileNotFoundError("Font not found! Make sure assets/default.ttf exists in your repo.")
+        font_path = "assets/default.ttf"
+        if os.path.exists(font_path):
+            return ImageFont.truetype(font_path, size)
+        else:
+            raise FileNotFoundError("Font not found! Make sure assets/default.ttf exists in your repo.")
 
 
 def wrap_text(text: str, font, max_width: int):
@@ -110,7 +124,7 @@ async def add_text_to_static_sticker(sticker_path: str, top_text: str = None,
     max_text_width = int(width * 0.85)
 
     if top_text:
-        font = get_font(FONT_SIZE_TOP)
+        font = get_font(FONT_SIZE_TOP, top_text)
         lines = wrap_text(top_text, font, max_text_width)
 
         line_height = FONT_SIZE_TOP + 15
@@ -124,7 +138,7 @@ async def add_text_to_static_sticker(sticker_path: str, top_text: str = None,
             y += line_height
 
     if center_text:
-        font = get_font(FONT_SIZE_CENTER)
+        font = get_font(FONT_SIZE_CENTER, center_text)
         lines = wrap_text(center_text, font, max_text_width)
 
         line_height = FONT_SIZE_CENTER + 15
@@ -139,7 +153,7 @@ async def add_text_to_static_sticker(sticker_path: str, top_text: str = None,
             y += line_height
 
     if bottom_text:
-        font = get_font(FONT_SIZE_BOTTOM)
+        font = get_font(FONT_SIZE_BOTTOM, bottom_text)
         lines = wrap_text(bottom_text, font, max_text_width)
 
         line_height = FONT_SIZE_BOTTOM + 15

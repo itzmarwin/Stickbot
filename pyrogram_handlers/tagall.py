@@ -166,50 +166,52 @@ async def setup_tagall_handlers(client: Client):
         active_tagall[chat_id] = True
         await send_tagall_log(client, message, "/tagall")
 
-        if is_reply:
-            original_message = message.reply_to_message
-            await progress_msg.delete()
+        try:
+            if is_reply:
+                original_message = message.reply_to_message
+                await progress_msg.delete()
 
-            for i in range(0, len(members), BATCH_SIZE):
-                if chat_id not in active_tagall or not active_tagall[chat_id]:
-                    return
+                for i in range(0, len(members), BATCH_SIZE):
+                    if chat_id not in active_tagall or not active_tagall[chat_id]:
+                        break
 
-                batch = members[i:i + BATCH_SIZE]
-                random_emojis = random.sample(EMOJI_POOL, min(len(batch), len(EMOJI_POOL)))
-                mentions = " ".join([
-                    f"[{random_emojis[idx]}](tg://user?id={user.id})"
-                    for idx, user in enumerate(batch)
-                ])
+                    batch = members[i:i + BATCH_SIZE]
+                    random_emojis = random.sample(EMOJI_POOL, min(len(batch), len(EMOJI_POOL)))
+                    mentions = " ".join([
+                        f"[{random_emojis[idx]}](tg://user?id={user.id})"
+                        for idx, user in enumerate(batch)
+                    ])
 
-                await send_mention_batch(original_message, mentions)
+                    await send_mention_batch(original_message, mentions)
 
-                if i + BATCH_SIZE < len(members):
-                    await asyncio.sleep(DELAY_BETWEEN_BATCHES)
+                    if i + BATCH_SIZE < len(members):
+                        await asyncio.sleep(DELAY_BETWEEN_BATCHES)
 
-        else:
-            command_text = message.text.split(maxsplit=1)
-            header = command_text[1]
-            await progress_msg.delete()
+            else:
+                command_text = message.text.split(maxsplit=1)
+                header = command_text[1]
+                await progress_msg.delete()
 
-            for i in range(0, len(members), BATCH_SIZE):
-                if chat_id not in active_tagall or not active_tagall[chat_id]:
-                    return
+                for i in range(0, len(members), BATCH_SIZE):
+                    if chat_id not in active_tagall or not active_tagall[chat_id]:
+                        break
 
-                batch = members[i:i + BATCH_SIZE]
-                random_emojis = random.sample(EMOJI_POOL, min(len(batch), len(EMOJI_POOL)))
-                mentions = " ".join([
-                    f"[{random_emojis[idx]}](tg://user?id={user.id})"
-                    for idx, user in enumerate(batch)
-                ])
-                text = f"{header}\n\n{mentions}"
+                    batch = members[i:i + BATCH_SIZE]
+                    random_emojis = random.sample(EMOJI_POOL, min(len(batch), len(EMOJI_POOL)))
+                    mentions = " ".join([
+                        f"[{random_emojis[idx]}](tg://user?id={user.id})"
+                        for idx, user in enumerate(batch)
+                    ])
+                    text = f"{header}\n\n{mentions}"
 
-                await send_fresh_message(client, chat_id, text)
+                    await send_fresh_message(client, chat_id, text)
 
-                if i + BATCH_SIZE < len(members):
-                    await asyncio.sleep(DELAY_BETWEEN_BATCHES)
+                    if i + BATCH_SIZE < len(members):
+                        await asyncio.sleep(DELAY_BETWEEN_BATCHES)
 
-        await client.send_message(chat_id, "𝖳𝖺𝗀𝖺𝗅𝗅 𝖤𝗇𝖽𝖾𝖽")
-        active_tagall[chat_id] = False
+        finally:
+            await client.send_message(chat_id, "𝖳𝖺𝗀𝖺𝗅𝗅 𝖤𝗇𝖽𝖾𝖽")
+            active_tagall[chat_id] = False
 
 
     @client.on_message(cmd(["uall", "utagall", "utag"]) & filters.group)
@@ -273,48 +275,50 @@ async def setup_tagall_handlers(client: Client):
         active_tagall[chat_id] = True
         await send_tagall_log(client, message, "/utagall")
 
-        if is_reply:
-            original_message = message.reply_to_message
-            await progress_msg.delete()
+        try:
+            if is_reply:
+                original_message = message.reply_to_message
+                await progress_msg.delete()
 
-            for i in range(0, len(members), BATCH_SIZE):
-                if chat_id not in active_tagall or not active_tagall[chat_id]:
-                    return
+                for i in range(0, len(members), BATCH_SIZE):
+                    if chat_id not in active_tagall or not active_tagall[chat_id]:
+                        break
 
-                batch = members[i:i + BATCH_SIZE]
-                mentions = ", ".join([
-                    f"[{user.first_name}](tg://user?id={user.id})"
-                    for user in batch
-                ])
+                    batch = members[i:i + BATCH_SIZE]
+                    mentions = ", ".join([
+                        f"[{user.first_name}](tg://user?id={user.id})"
+                        for user in batch
+                    ])
 
-                await send_mention_batch(original_message, mentions)
+                    await send_mention_batch(original_message, mentions)
 
-                if i + BATCH_SIZE < len(members):
-                    await asyncio.sleep(DELAY_BETWEEN_BATCHES)
+                    if i + BATCH_SIZE < len(members):
+                        await asyncio.sleep(DELAY_BETWEEN_BATCHES)
 
-        else:
-            command_text = message.text.split(maxsplit=1)
-            header = command_text[1]
-            await progress_msg.delete()
+            else:
+                command_text = message.text.split(maxsplit=1)
+                header = command_text[1]
+                await progress_msg.delete()
 
-            for i in range(0, len(members), BATCH_SIZE):
-                if chat_id not in active_tagall or not active_tagall[chat_id]:
-                    return
+                for i in range(0, len(members), BATCH_SIZE):
+                    if chat_id not in active_tagall or not active_tagall[chat_id]:
+                        break
 
-                batch = members[i:i + BATCH_SIZE]
-                mentions = ", ".join([
-                    f"[{user.first_name}](tg://user?id={user.id})"
-                    for user in batch
-                ])
-                text = f"{header}\n\n{mentions}"
+                    batch = members[i:i + BATCH_SIZE]
+                    mentions = ", ".join([
+                        f"[{user.first_name}](tg://user?id={user.id})"
+                        for user in batch
+                    ])
+                    text = f"{header}\n\n{mentions}"
 
-                await send_fresh_message(client, chat_id, text)
+                    await send_fresh_message(client, chat_id, text)
 
-                if i + BATCH_SIZE < len(members):
-                    await asyncio.sleep(DELAY_BETWEEN_BATCHES)
+                    if i + BATCH_SIZE < len(members):
+                        await asyncio.sleep(DELAY_BETWEEN_BATCHES)
 
-        await client.send_message(chat_id, "𝖳𝖺𝗀𝖺𝗅𝗅 𝖤𝗇𝖽𝖾𝖽")
-        active_tagall[chat_id] = False
+        finally:
+            await client.send_message(chat_id, "𝖳𝖺𝗀𝖺𝗅𝗅 𝖤𝗇𝖽𝖾𝖽")
+            active_tagall[chat_id] = False
 
 
     @client.on_message(cmd("call") & filters.group)
@@ -355,64 +359,66 @@ async def setup_tagall_handlers(client: Client):
         active_tagall[chat_id] = True
         await send_tagall_log(client, message, "/call")
 
-        if is_reply:
-            original_message = message.reply_to_message
+        try:
+            if is_reply:
+                original_message = message.reply_to_message
 
-            for i in range(0, len(members), BATCH_SIZE):
-                if chat_id not in active_tagall or not active_tagall[chat_id]:
-                    return
+                for i in range(0, len(members), BATCH_SIZE):
+                    if chat_id not in active_tagall or not active_tagall[chat_id]:
+                        break
 
-                batch = members[i:i + BATCH_SIZE]
-                random_emojis = random.sample(EMOJI_POOL, min(len(batch), len(EMOJI_POOL)))
-                mentions = " ".join([
-                    f"[{random_emojis[idx]}](tg://user?id={user.id})"
-                    for idx, user in enumerate(batch)
-                ])
+                    batch = members[i:i + BATCH_SIZE]
+                    random_emojis = random.sample(EMOJI_POOL, min(len(batch), len(EMOJI_POOL)))
+                    mentions = " ".join([
+                        f"[{random_emojis[idx]}](tg://user?id={user.id})"
+                        for idx, user in enumerate(batch)
+                    ])
 
-                await send_mention_batch(original_message, mentions)
+                    await send_mention_batch(original_message, mentions)
 
-                if i + BATCH_SIZE < len(members):
-                    await asyncio.sleep(DELAY_BETWEEN_BATCHES)
+                    if i + BATCH_SIZE < len(members):
+                        await asyncio.sleep(DELAY_BETWEEN_BATCHES)
 
-        elif has_text:
-            header = message.text.split(maxsplit=1)[1]
+            elif has_text:
+                header = message.text.split(maxsplit=1)[1]
 
-            for i in range(0, len(members), BATCH_SIZE):
-                if chat_id not in active_tagall or not active_tagall[chat_id]:
-                    return
+                for i in range(0, len(members), BATCH_SIZE):
+                    if chat_id not in active_tagall or not active_tagall[chat_id]:
+                        break
 
-                batch = members[i:i + BATCH_SIZE]
-                random_emojis = random.sample(EMOJI_POOL, min(len(batch), len(EMOJI_POOL)))
-                mentions = " ".join([
-                    f"[{random_emojis[idx]}](tg://user?id={user.id})"
-                    for idx, user in enumerate(batch)
-                ])
-                text = f"{header}\n\n{mentions}"
+                    batch = members[i:i + BATCH_SIZE]
+                    random_emojis = random.sample(EMOJI_POOL, min(len(batch), len(EMOJI_POOL)))
+                    mentions = " ".join([
+                        f"[{random_emojis[idx]}](tg://user?id={user.id})"
+                        for idx, user in enumerate(batch)
+                    ])
+                    text = f"{header}\n\n{mentions}"
 
-                await send_fresh_message(client, chat_id, text)
+                    await send_fresh_message(client, chat_id, text)
 
-                if i + BATCH_SIZE < len(members):
-                    await asyncio.sleep(DELAY_BETWEEN_BATCHES)
+                    if i + BATCH_SIZE < len(members):
+                        await asyncio.sleep(DELAY_BETWEEN_BATCHES)
 
-        else:
-            for i in range(0, len(members), BATCH_SIZE):
-                if chat_id not in active_tagall or not active_tagall[chat_id]:
-                    return
+            else:
+                for i in range(0, len(members), BATCH_SIZE):
+                    if chat_id not in active_tagall or not active_tagall[chat_id]:
+                        break
 
-                batch = members[i:i + BATCH_SIZE]
-                random_emojis = random.sample(EMOJI_POOL, min(len(batch), len(EMOJI_POOL)))
-                mentions = " ".join([
-                    f"[{random_emojis[idx]}](tg://user?id={user.id})"
-                    for idx, user in enumerate(batch)
-                ])
+                    batch = members[i:i + BATCH_SIZE]
+                    random_emojis = random.sample(EMOJI_POOL, min(len(batch), len(EMOJI_POOL)))
+                    mentions = " ".join([
+                        f"[{random_emojis[idx]}](tg://user?id={user.id})"
+                        for idx, user in enumerate(batch)
+                    ])
 
-                await send_fresh_message(client, chat_id, mentions)
+                    await send_fresh_message(client, chat_id, mentions)
 
-                if i + BATCH_SIZE < len(members):
-                    await asyncio.sleep(DELAY_BETWEEN_BATCHES)
+                    if i + BATCH_SIZE < len(members):
+                        await asyncio.sleep(DELAY_BETWEEN_BATCHES)
 
-        await client.send_message(chat_id, "𝖳𝖺𝗀𝖺𝗅𝗅 𝖤𝗇𝖽𝖾𝖽")
-        active_tagall[chat_id] = False
+        finally:
+            await client.send_message(chat_id, "𝖳𝖺𝗀𝖺𝗅𝗅 𝖤𝗇𝖽𝖾𝖽")
+            active_tagall[chat_id] = False
 
 
     @client.on_message(cmd(["stop", "cancel"]) & filters.group)

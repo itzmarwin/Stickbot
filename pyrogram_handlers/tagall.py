@@ -10,7 +10,7 @@ from pyrogram_handlers.commands import cmd
 from config import LOG_GROUP_ID
 
 BATCH_SIZE = 7
-DELAY_BETWEEN_BATCHES = 1
+DELAY_BETWEEN_BATCHES = 2
 MAX_RETRIES = 6
 MAX_MESSAGE_LENGTH = 3900
 

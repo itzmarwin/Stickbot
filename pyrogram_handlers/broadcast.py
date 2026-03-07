@@ -7,9 +7,9 @@ from pyrogram.types import Message
 from pyrogram.errors import (
     FloodWait, RPCError, UserIsBlocked, ChatWriteForbidden,
     PeerIdInvalid, InputUserDeactivated, UserDeactivatedBan,
-    ChannelPrivate, ChatAdminRequired, BotBlocked,
-    UserBannedInChannel, ChatNotModified, Forbidden,
-    UserNotParticipant, NotAcceptable
+    ChannelPrivate, ChatAdminRequired,
+    UserBannedInChannel, Forbidden,
+    UserNotParticipant
 )
 
 from config import is_admin, LOG_GROUP_ID
@@ -86,7 +86,7 @@ class BroadcastSystem:
                 logger.error(f"Retry failed for {chat_id}: {retry_err}")
                 return False, "retry_failed"
 
-        except (UserIsBlocked, BotBlocked):
+        except UserIsBlocked:
             return False, "user_blocked"
 
         except (ChatWriteForbidden, ChatAdminRequired, Forbidden):

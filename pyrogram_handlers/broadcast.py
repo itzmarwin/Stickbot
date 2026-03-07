@@ -62,7 +62,11 @@ class BroadcastSystem:
                                 content: Union[Message, str], broadcast_id: str) -> tuple:
         try:
             if isinstance(content, Message):
-                await content.copy(chat_id=chat_id)
+                await client.forward_messages(
+                    chat_id=chat_id,
+                    from_chat_id=content.chat.id,
+                    message_ids=content.id
+                )
             else:
                 await client.send_message(chat_id=chat_id, text=content)
             return True, None
@@ -229,7 +233,11 @@ class BroadcastSystem:
             try:
                 test_chat = message.from_user.id
                 if isinstance(content, Message):
-                    await content.copy(chat_id=test_chat)
+                    await client.forward_messages(
+                        chat_id=test_chat,
+                        from_chat_id=content.chat.id,
+                        message_ids=content.id
+                    )
                 else:
                     await client.send_message(chat_id=test_chat, text=f"[Broadcast Test]\n\n{content}")
             except Exception as test_err:

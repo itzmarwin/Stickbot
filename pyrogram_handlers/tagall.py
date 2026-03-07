@@ -9,7 +9,6 @@ from pyrogram_handlers.utils import is_user_admin
 from pyrogram_handlers.commands import cmd
 from config import LOG_GROUP_ID
 
-BATCH_SIZE = 7
 DELAY_BETWEEN_BATCHES = 2
 MAX_RETRIES = 6
 MAX_MESSAGE_LENGTH = 3900
@@ -31,8 +30,25 @@ EMOJI_POOL = [
 active_tagall = {}
 
 
+def get_batch_size(member_count: int) -> int:
+    """
+    Group size ke hisab se batch size return karo:
+    1    - 1000  -> 7
+    1001 - 2000  -> 10
+    2001 - 5000  -> 20
+    5001+        -> 30
+    """
+    if member_count <= 1000:
+        return 7
+    elif member_count <= 2000:
+        return 10
+    elif member_count <= 5000:
+        return 20
+    else:
+        return 30
+
+
 async def is_bot_admin_in_chat(client: Client, chat_id: int) -> bool:
-    """Bot admin hai ya nahi check karo"""
     try:
         bot = await client.get_me()
         member = await client.get_chat_member(chat_id, bot.id)
@@ -72,7 +88,6 @@ async def send_fresh_message(client: Client, chat_id: int, text: str, retry_coun
 
 
 async def send_tagall_log(client: Client, message: Message, command: str):
-    """Logger group mein tagall ka log bhejna"""
     if not LOG_GROUP_ID or LOG_GROUP_ID == 0:
         return
 
@@ -144,10 +159,7 @@ async def setup_tagall_handlers(client: Client):
         if not is_reply:
             command_parts = message.text.split(maxsplit=1)
             user_message = command_parts[1]
-            estimated_mentions = BATCH_SIZE * 50
-            total_length = len(user_message) + estimated_mentions
-
-            if total_length > 4000:
+            if len(user_message) > MAX_MESSAGE_LENGTH:
                 await message.reply_text(
                     f"𝖬𝖾𝗌𝗌𝖺𝗀𝖾 𝗍𝗈𝗈 𝗅𝗈𝗇𝗀!\n\n"
                     f"𝖸𝗈𝗎𝗋 𝗆𝖾𝗌𝗌𝖺𝗀𝖾: {len(user_message)} 𝖼𝗁𝖺𝗋𝖺𝖼𝗍𝖾𝗋𝗌\n"
@@ -163,6 +175,9 @@ async def setup_tagall_handlers(client: Client):
             await progress_msg.edit_text("𝖭𝗈 𝗆𝖾𝗆𝖻𝖾𝗋𝗌 𝖿𝗈𝗎𝗇𝖽!")
             return
 
+        # ✅ Dynamic batch size based on member count
+        batch_size = get_batch_size(len(members))
+
         active_tagall[chat_id] = True
         await send_tagall_log(client, message, "/tagall")
 
@@ -171,11 +186,11 @@ async def setup_tagall_handlers(client: Client):
                 original_message = message.reply_to_message
                 await progress_msg.delete()
 
-                for i in range(0, len(members), BATCH_SIZE):
+                for i in range(0, len(members), batch_size):
                     if chat_id not in active_tagall or not active_tagall[chat_id]:
                         break
 
-                    batch = members[i:i + BATCH_SIZE]
+                    batch = members[i:i + batch_size]
                     random_emojis = random.sample(EMOJI_POOL, min(len(batch), len(EMOJI_POOL)))
                     mentions = " ".join([
                         f"[{random_emojis[idx]}](tg://user?id={user.id})"
@@ -184,7 +199,7 @@ async def setup_tagall_handlers(client: Client):
 
                     await send_mention_batch(original_message, mentions)
 
-                    if i + BATCH_SIZE < len(members):
+                    if i + batch_size < len(members):
                         await asyncio.sleep(DELAY_BETWEEN_BATCHES)
 
             else:
@@ -192,11 +207,11 @@ async def setup_tagall_handlers(client: Client):
                 header = command_text[1]
                 await progress_msg.delete()
 
-                for i in range(0, len(members), BATCH_SIZE):
+                for i in range(0, len(members), batch_size):
                     if chat_id not in active_tagall or not active_tagall[chat_id]:
                         break
 
-                    batch = members[i:i + BATCH_SIZE]
+                    batch = members[i:i + batch_size]
                     random_emojis = random.sample(EMOJI_POOL, min(len(batch), len(EMOJI_POOL)))
                     mentions = " ".join([
                         f"[{random_emojis[idx]}](tg://user?id={user.id})"
@@ -206,7 +221,7 @@ async def setup_tagall_handlers(client: Client):
 
                     await send_fresh_message(client, chat_id, text)
 
-                    if i + BATCH_SIZE < len(members):
+                    if i + batch_size < len(members):
                         await asyncio.sleep(DELAY_BETWEEN_BATCHES)
 
         finally:
@@ -253,10 +268,7 @@ async def setup_tagall_handlers(client: Client):
         if not is_reply:
             command_parts = message.text.split(maxsplit=1)
             user_message = command_parts[1]
-            estimated_mentions = BATCH_SIZE * 50
-            total_length = len(user_message) + estimated_mentions
-
-            if total_length > 4000:
+            if len(user_message) > MAX_MESSAGE_LENGTH:
                 await message.reply_text(
                     f"𝖬𝖾𝗌𝗌𝖺𝗀𝖾 𝗍𝗈𝗈 𝗅𝗈𝗇𝗀!\n\n"
                     f"𝖸𝗈𝗎𝗋 𝗆𝖾𝗌𝗌𝖺𝗀𝖾: {len(user_message)} 𝖼𝗁𝖺𝗋𝖺𝖼𝗍𝖾𝗋𝗌\n"
@@ -272,6 +284,9 @@ async def setup_tagall_handlers(client: Client):
             await progress_msg.edit_text("𝖭𝗈 𝗆𝖾𝗆𝖻𝖾𝗋𝗌 𝖿𝗈𝗎𝗇𝖽!")
             return
 
+        # ✅ Dynamic batch size based on member count
+        batch_size = get_batch_size(len(members))
+
         active_tagall[chat_id] = True
         await send_tagall_log(client, message, "/utagall")
 
@@ -280,11 +295,11 @@ async def setup_tagall_handlers(client: Client):
                 original_message = message.reply_to_message
                 await progress_msg.delete()
 
-                for i in range(0, len(members), BATCH_SIZE):
+                for i in range(0, len(members), batch_size):
                     if chat_id not in active_tagall or not active_tagall[chat_id]:
                         break
 
-                    batch = members[i:i + BATCH_SIZE]
+                    batch = members[i:i + batch_size]
                     mentions = ", ".join([
                         f"[{user.first_name}](tg://user?id={user.id})"
                         for user in batch
@@ -292,7 +307,7 @@ async def setup_tagall_handlers(client: Client):
 
                     await send_mention_batch(original_message, mentions)
 
-                    if i + BATCH_SIZE < len(members):
+                    if i + batch_size < len(members):
                         await asyncio.sleep(DELAY_BETWEEN_BATCHES)
 
             else:
@@ -300,11 +315,11 @@ async def setup_tagall_handlers(client: Client):
                 header = command_text[1]
                 await progress_msg.delete()
 
-                for i in range(0, len(members), BATCH_SIZE):
+                for i in range(0, len(members), batch_size):
                     if chat_id not in active_tagall or not active_tagall[chat_id]:
                         break
 
-                    batch = members[i:i + BATCH_SIZE]
+                    batch = members[i:i + batch_size]
                     mentions = ", ".join([
                         f"[{user.first_name}](tg://user?id={user.id})"
                         for user in batch
@@ -313,7 +328,7 @@ async def setup_tagall_handlers(client: Client):
 
                     await send_fresh_message(client, chat_id, text)
 
-                    if i + BATCH_SIZE < len(members):
+                    if i + batch_size < len(members):
                         await asyncio.sleep(DELAY_BETWEEN_BATCHES)
 
         finally:
@@ -355,6 +370,9 @@ async def setup_tagall_handlers(client: Client):
             await progress_msg.edit_text("𝖭𝗈 𝗆𝖾𝗆𝖻𝖾𝗋𝗌 𝖿𝗈𝗎𝗇𝖽!")
             return
 
+        # ✅ Dynamic batch size based on member count
+        batch_size = get_batch_size(len(members))
+
         await progress_msg.delete()
         active_tagall[chat_id] = True
         await send_tagall_log(client, message, "/call")
@@ -363,11 +381,11 @@ async def setup_tagall_handlers(client: Client):
             if is_reply:
                 original_message = message.reply_to_message
 
-                for i in range(0, len(members), BATCH_SIZE):
+                for i in range(0, len(members), batch_size):
                     if chat_id not in active_tagall or not active_tagall[chat_id]:
                         break
 
-                    batch = members[i:i + BATCH_SIZE]
+                    batch = members[i:i + batch_size]
                     random_emojis = random.sample(EMOJI_POOL, min(len(batch), len(EMOJI_POOL)))
                     mentions = " ".join([
                         f"[{random_emojis[idx]}](tg://user?id={user.id})"
@@ -376,17 +394,17 @@ async def setup_tagall_handlers(client: Client):
 
                     await send_mention_batch(original_message, mentions)
 
-                    if i + BATCH_SIZE < len(members):
+                    if i + batch_size < len(members):
                         await asyncio.sleep(DELAY_BETWEEN_BATCHES)
 
             elif has_text:
                 header = message.text.split(maxsplit=1)[1]
 
-                for i in range(0, len(members), BATCH_SIZE):
+                for i in range(0, len(members), batch_size):
                     if chat_id not in active_tagall or not active_tagall[chat_id]:
                         break
 
-                    batch = members[i:i + BATCH_SIZE]
+                    batch = members[i:i + batch_size]
                     random_emojis = random.sample(EMOJI_POOL, min(len(batch), len(EMOJI_POOL)))
                     mentions = " ".join([
                         f"[{random_emojis[idx]}](tg://user?id={user.id})"
@@ -396,15 +414,15 @@ async def setup_tagall_handlers(client: Client):
 
                     await send_fresh_message(client, chat_id, text)
 
-                    if i + BATCH_SIZE < len(members):
+                    if i + batch_size < len(members):
                         await asyncio.sleep(DELAY_BETWEEN_BATCHES)
 
             else:
-                for i in range(0, len(members), BATCH_SIZE):
+                for i in range(0, len(members), batch_size):
                     if chat_id not in active_tagall or not active_tagall[chat_id]:
                         break
 
-                    batch = members[i:i + BATCH_SIZE]
+                    batch = members[i:i + batch_size]
                     random_emojis = random.sample(EMOJI_POOL, min(len(batch), len(EMOJI_POOL)))
                     mentions = " ".join([
                         f"[{random_emojis[idx]}](tg://user?id={user.id})"
@@ -413,7 +431,7 @@ async def setup_tagall_handlers(client: Client):
 
                     await send_fresh_message(client, chat_id, mentions)
 
-                    if i + BATCH_SIZE < len(members):
+                    if i + batch_size < len(members):
                         await asyncio.sleep(DELAY_BETWEEN_BATCHES)
 
         finally:

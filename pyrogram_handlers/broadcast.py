@@ -1,20 +1,29 @@
 import asyncio
+import logging
 from typing import List, Dict, Union
 from datetime import datetime, timedelta
 from pyrogram import Client, filters
 from pyrogram.types import Message
-from pyrogram.errors import FloodWait, RPCError, UserIsBlocked, ChatWriteForbidden
+from pyrogram.errors import (
+    FloodWait, RPCError, UserIsBlocked, ChatWriteForbidden,
+    PeerIdInvalid, InputUserDeactivated, UserDeactivatedBan,
+    ChannelPrivate, ChatAdminRequired, BotBlocked,
+    UserBannedInChannel, ChatNotModified, Forbidden,
+    UserNotParticipant, NotAcceptable
+)
 
 from config import is_admin, LOG_GROUP_ID
 from database import get_all_users, get_served_chats
+
+logger = logging.getLogger(__name__)
 
 
 class BroadcastSystem:
     def __init__(self):
         self.active_broadcasts = set()
         self.flood_wait_threshold = 300
-        self.base_delay_users = 0.2
-        self.base_delay_groups = 0.3
+        self.base_delay_users = 0.05
+        self.base_delay_groups = 0.1
 
     async def parse_broadcast_command(self, message: Message) -> Dict:
         command_text = message.text or message.caption or ""
@@ -45,7 +54,6 @@ class BroadcastSystem:
                 if part in ["/broadcast", "-user", "-group"]:
                     continue
                 message_parts.append(part)
-
             flags["message"] = " ".join(message_parts) if message_parts else None
 
         return flags
@@ -60,10 +68,13 @@ class BroadcastSystem:
             return True, None
 
         except FloodWait as e:
-            if e.value > 60:
+            wait_time = e.value
+            logger.warning(f"FloodWait {wait_time}s for chat {chat_id}")
+
+            if wait_time > 60:
                 return False, "flood_wait_excessive"
 
-            await asyncio.sleep(e.value + 1)
+            await asyncio.sleep(wait_time + 1)
 
             try:
                 if isinstance(content, Message):
@@ -71,20 +82,33 @@ class BroadcastSystem:
                 else:
                     await client.send_message(chat_id=chat_id, text=content)
                 return True, None
-            except Exception:
+            except Exception as retry_err:
+                logger.error(f"Retry failed for {chat_id}: {retry_err}")
                 return False, "retry_failed"
 
-        except UserIsBlocked:
+        except (UserIsBlocked, BotBlocked):
             return False, "user_blocked"
 
-        except ChatWriteForbidden:
+        except (ChatWriteForbidden, ChatAdminRequired, Forbidden):
             return False, "no_permission"
 
-        except RPCError:
+        except (InputUserDeactivated, UserDeactivatedBan):
+            return False, "user_deactivated"
+
+        except (PeerIdInvalid, UserNotParticipant):
+            return False, "invalid_peer"
+
+        except ChannelPrivate:
+            return False, "channel_private"
+
+        except RPCError as e:
+            logger.error(f"RPCError for chat {chat_id}: {e}")
             return False, "rpc_error"
 
-        except Exception:
-            return False, "unknown_error"
+        except Exception as e:
+            # ✅ NOW WE LOG THE ACTUAL ERROR so you can see what's wrong
+            logger.error(f"Unexpected error sending to {chat_id}: {type(e).__name__}: {e}")
+            return False, f"unknown:{type(e).__name__}"
 
     async def broadcast_to_users(self, client: Client, content: Union[Message, str],
                                  broadcast_id: str) -> Dict:
@@ -98,15 +122,18 @@ class BroadcastSystem:
         current_delay = self.base_delay_users
         consecutive_flood_waits = 0
 
+        logger.info(f"Starting user broadcast to {total} users")
+
         for i, user in enumerate(users):
             if broadcast_id not in self.active_broadcasts:
+                logger.info("Broadcast cancelled, stopping.")
                 break
 
             if flood_wait_total > self.flood_wait_threshold:
+                logger.warning("Flood wait threshold exceeded, stopping broadcast.")
                 break
 
             user_id = user["user_id"]
-
             send_success, error_type = await self.send_message_safe(client, user_id, content, broadcast_id)
 
             if send_success:
@@ -119,14 +146,12 @@ class BroadcastSystem:
                 if error_type == "flood_wait_excessive":
                     consecutive_flood_waits += 1
                     flood_wait_total += 60
-
                     if consecutive_flood_waits >= 3:
-                        current_delay *= 1.5
-
-            if (i + 1) % 100 == 0:
-                current_delay = min(current_delay + 0.1, 1.0)
+                        current_delay = min(current_delay * 1.5, 2.0)
 
             await asyncio.sleep(current_delay)
+
+        logger.info(f"User broadcast done: {success}/{total} success, {failed} failed")
 
         return {
             "success": success,
@@ -148,15 +173,18 @@ class BroadcastSystem:
         current_delay = self.base_delay_groups
         consecutive_flood_waits = 0
 
+        logger.info(f"Starting group broadcast to {total} groups")
+
         for i, group in enumerate(groups):
             if broadcast_id not in self.active_broadcasts:
+                logger.info("Broadcast cancelled, stopping.")
                 break
 
             if flood_wait_total > self.flood_wait_threshold:
+                logger.warning("Flood wait threshold exceeded, stopping broadcast.")
                 break
 
             chat_id = group["chat_id"]
-
             send_success, error_type = await self.send_message_safe(client, chat_id, content, broadcast_id)
 
             if send_success:
@@ -169,14 +197,12 @@ class BroadcastSystem:
                 if error_type == "flood_wait_excessive":
                     consecutive_flood_waits += 1
                     flood_wait_total += 60
-
                     if consecutive_flood_waits >= 3:
-                        current_delay *= 1.5
-
-            if (i + 1) % 50 == 0:
-                current_delay = min(current_delay + 0.1, 2.0)
+                        current_delay = min(current_delay * 1.5, 3.0)
 
             await asyncio.sleep(current_delay)
+
+        logger.info(f"Group broadcast done: {success}/{total} success, {failed} failed")
 
         return {
             "success": success,
@@ -199,6 +225,22 @@ class BroadcastSystem:
                 await message.reply("❌ **Error:** No message content found!")
                 return
 
+            # ✅ Test send to yourself first to catch config issues early
+            try:
+                test_chat = message.from_user.id
+                if isinstance(content, Message):
+                    await content.copy(chat_id=test_chat)
+                else:
+                    await client.send_message(chat_id=test_chat, text=f"[Broadcast Test]\n\n{content}")
+            except Exception as test_err:
+                logger.error(f"Broadcast test send failed: {type(test_err).__name__}: {test_err}")
+                await message.reply(
+                    f"❌ **Broadcast aborted!**\n\n"
+                    f"Test message failed: `{type(test_err).__name__}: {test_err}`\n\n"
+                    f"Fix this error before broadcasting."
+                )
+                return
+
             status_msg = await message.reply("🔄 **Starting broadcast...**")
 
             results = {}
@@ -212,14 +254,14 @@ class BroadcastSystem:
                 results["groups"] = await self.broadcast_to_groups(client, content, broadcast_id)
 
             duration = datetime.now() - start_time
-
             summary = await self.generate_summary(results, flags, duration)
             await status_msg.edit_text(summary)
 
             await self.log_broadcast(client, message, results, flags, duration)
 
         except Exception as e:
-            await message.reply(f"❌ **Broadcast failed:** {str(e)}")
+            logger.error(f"Broadcast execution error: {type(e).__name__}: {e}", exc_info=True)
+            await message.reply(f"❌ **Broadcast failed:** `{type(e).__name__}: {e}`")
         finally:
             self.active_broadcasts.discard(broadcast_id)
 
@@ -251,7 +293,6 @@ class BroadcastSystem:
         total_targets = sum(stats["total"] for stats in results.values())
 
         summary_parts.append(f"\n**Total:** {total_success}/{total_targets} successful")
-
         if total_failed > 0:
             summary_parts.append(f"**Failed:** {total_failed}")
 
@@ -269,13 +310,21 @@ class BroadcastSystem:
             "flood_wait_excessive": "FloodWait",
             "retry_failed": "Retry Failed",
             "rpc_error": "RPC Error",
+            "user_deactivated": "Deactivated",
+            "invalid_peer": "Invalid Peer",
+            "channel_private": "Private Channel",
             "unknown_error": "Unknown"
         }
 
         parts = []
         for error_type, count in error_stats.items():
-            error_name = error_names.get(error_type, error_type)
-            parts.append(f"{error_name}({count})")
+            # Handle dynamic unknown:ClassName errors
+            if error_type.startswith("unknown:"):
+                class_name = error_type.split(":", 1)[1]
+                parts.append(f"{class_name}({count})")
+            else:
+                error_name = error_names.get(error_type, error_type)
+                parts.append(f"{error_name}({count})")
 
         return ", ".join(parts)
 
@@ -288,7 +337,6 @@ class BroadcastSystem:
             admin = message.from_user
             content_type = "Replied Message" if flags["is_reply"] else "Text Message"
             targets = []
-
             if flags["user"]:
                 targets.append("Users")
             if flags["group"]:
@@ -296,32 +344,31 @@ class BroadcastSystem:
 
             duration_str = str(duration).split('.')[0]
 
-            log_message = f"""
-📢 **Broadcast Log**
+            log_message = (
+                f"📢 **Broadcast Log**\n\n"
+                f"**Admin:** {admin.mention} ({admin.id})\n"
+                f"**Content Type:** {content_type}\n"
+                f"**Targets:** {', '.join(targets)}\n"
+                f"**Time:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+                f"**Duration:** {duration_str}\n\n"
+                f"**Results:**\n"
+            )
 
-**Admin:** {admin.mention} ({admin.id})
-**Content Type:** {content_type}
-**Targets:** {', '.join(targets)}
-**Time:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-**Duration:** {duration_str}
-
-**Results:**
-"""
             if "users" in results:
-                user_stats = results["users"]
-                log_message += f"👤 Users: {user_stats['success']}/{user_stats['total']} successful\n"
-                if user_stats.get('flood_wait_total'):
-                    log_message += f"   FloodWait Total: {user_stats['flood_wait_total']}s\n"
+                u = results["users"]
+                log_message += f"👤 Users: {u['success']}/{u['total']} successful\n"
+                if u.get('error_stats'):
+                    log_message += f"   Errors: {self._format_error_stats(u['error_stats'])}\n"
 
             if "groups" in results:
-                group_stats = results["groups"]
-                log_message += f"👥 Groups: {group_stats['success']}/{group_stats['total']} successful\n"
-                if group_stats.get('flood_wait_total'):
-                    log_message += f"   FloodWait Total: {group_stats['flood_wait_total']}s\n"
+                g = results["groups"]
+                log_message += f"👥 Groups: {g['success']}/{g['total']} successful\n"
+                if g.get('error_stats'):
+                    log_message += f"   Errors: {self._format_error_stats(g['error_stats'])}\n"
 
             await client.send_message(LOG_GROUP_ID, log_message)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error(f"Failed to log broadcast: {e}")
 
 
 broadcast_system = BroadcastSystem()
@@ -337,12 +384,15 @@ async def setup_broadcast_handlers(client: Client):
 
         flags = await broadcast_system.parse_broadcast_command(message)
 
-        if not flags["user"] and not flags["group"]:
-            await message.reply("❌ **Usage:** `/broadcast -user <message>` or `/broadcast -group <message>` or reply to a message with `/broadcast -user -group`")
-            return
-
         if not flags["is_reply"] and not flags["message"]:
-            await message.reply("❌ **Error:** No message content provided! Either reply to a message or provide text after the command.")
+            await message.reply(
+                "❌ **Error:** No message content provided!\n"
+                "Reply to a message or provide text after the command.\n\n"
+                "**Usage:**\n"
+                "`/broadcast Hello everyone!`\n"
+                "`/broadcast -user -group Hello!`\n"
+                "Or reply to a message with `/broadcast`"
+            )
             return
 
         asyncio.create_task(
@@ -355,7 +405,11 @@ async def setup_broadcast_handlers(client: Client):
         if flags["group"]:
             targets.append("groups")
 
-        await message.reply(f"🔄 **Broadcast started!**\nTargets: {', '.join(targets)}\n\nI'll notify you when it's complete.")
+        await message.reply(
+            f"🔄 **Broadcast started!**\n"
+            f"Targets: {', '.join(targets)}\n\n"
+            f"I'll notify you when it's complete."
+        )
 
     @client.on_message(filters.command("broadcast_status"))
     async def broadcast_status(client: Client, message: Message):
@@ -366,7 +420,9 @@ async def setup_broadcast_handlers(client: Client):
         if active_count == 0:
             await message.reply("✅ No active broadcasts running.")
         else:
-            broadcast_list = "\n".join(f"• {bid}" for bid in list(broadcast_system.active_broadcasts)[:5])
+            broadcast_list = "\n".join(
+                f"• {bid}" for bid in list(broadcast_system.active_broadcasts)[:5]
+            )
             await message.reply(f"🔄 **Active broadcasts:** {active_count}\n\n{broadcast_list}")
 
     @client.on_message(filters.command("broadcast_cancel"))
@@ -376,5 +432,4 @@ async def setup_broadcast_handlers(client: Client):
 
         cancelled_count = len(broadcast_system.active_broadcasts)
         broadcast_system.active_broadcasts.clear()
-
         await message.reply(f"✅ Cancelled {cancelled_count} active broadcast(s).")

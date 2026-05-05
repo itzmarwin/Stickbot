@@ -31,13 +31,6 @@ active_tagall = {}
 
 
 def get_batch_size(member_count: int) -> int:
-    """
-    Group size ke hisab se batch size return karo:
-    1    - 1000  -> 7
-    1001 - 2000  -> 10
-    2001 - 5000  -> 20
-    5001+        -> 30
-    """
     if member_count <= 1000:
         return 7
     elif member_count <= 2000:
@@ -64,8 +57,9 @@ async def get_all_members(client: Client, chat_id: int) -> list:
             members.append(member.user)
     return members
 
-
-async def send_mention_batch(message_target, mentions: str, retry_count: int = 0):
+async def send_mention_batch(message_target, mentions: str, chat_id: int, retry_count: int = 0):
+    if not active_tagall.get(chat_id, False):
+        return False
     try:
         await message_target.reply_text(mentions)
         return True
@@ -73,10 +67,14 @@ async def send_mention_batch(message_target, mentions: str, retry_count: int = 0
         if retry_count >= MAX_RETRIES:
             return False
         await asyncio.sleep(e.value + 1)
-        return await send_mention_batch(message_target, mentions, retry_count + 1)
+        if not active_tagall.get(chat_id, False):
+            return False
+        return await send_mention_batch(message_target, mentions, chat_id, retry_count + 1)
 
 
 async def send_fresh_message(client: Client, chat_id: int, text: str, retry_count: int = 0):
+    if not active_tagall.get(chat_id, False):
+        return False
     try:
         await client.send_message(chat_id, text)
         return True
@@ -84,6 +82,8 @@ async def send_fresh_message(client: Client, chat_id: int, text: str, retry_coun
         if retry_count >= MAX_RETRIES:
             return False
         await asyncio.sleep(e.value + 1)
+        if not active_tagall.get(chat_id, False):
+            return False
         return await send_fresh_message(client, chat_id, text, retry_count + 1)
 
 
@@ -175,11 +175,11 @@ async def setup_tagall_handlers(client: Client):
             await progress_msg.edit_text("𝖭𝗈 𝗆𝖾𝗆𝖻𝖾𝗋𝗌 𝖿𝗈𝗎𝗇𝖽!")
             return
 
-        # ✅ Dynamic batch size based on member count
         batch_size = get_batch_size(len(members))
-
         active_tagall[chat_id] = True
         await send_tagall_log(client, message, "/tagall")
+
+        stopped_manually = False
 
         try:
             if is_reply:
@@ -187,7 +187,8 @@ async def setup_tagall_handlers(client: Client):
                 await progress_msg.delete()
 
                 for i in range(0, len(members), batch_size):
-                    if chat_id not in active_tagall or not active_tagall[chat_id]:
+                    if not active_tagall.get(chat_id, False):
+                        stopped_manually = True
                         break
 
                     batch = members[i:i + batch_size]
@@ -197,7 +198,11 @@ async def setup_tagall_handlers(client: Client):
                         for idx, user in enumerate(batch)
                     ])
 
-                    await send_mention_batch(original_message, mentions)
+                    result = await send_mention_batch(original_message, mentions, chat_id)
+                    if not result:
+                        if not active_tagall.get(chat_id, False):
+                            stopped_manually = True
+                            break
 
                     if i + batch_size < len(members):
                         await asyncio.sleep(DELAY_BETWEEN_BATCHES)
@@ -208,7 +213,8 @@ async def setup_tagall_handlers(client: Client):
                 await progress_msg.delete()
 
                 for i in range(0, len(members), batch_size):
-                    if chat_id not in active_tagall or not active_tagall[chat_id]:
+                    if not active_tagall.get(chat_id, False):
+                        stopped_manually = True
                         break
 
                     batch = members[i:i + batch_size]
@@ -219,14 +225,19 @@ async def setup_tagall_handlers(client: Client):
                     ])
                     text = f"{header}\n\n{mentions}"
 
-                    await send_fresh_message(client, chat_id, text)
+                    result = await send_fresh_message(client, chat_id, text)
+                    if not result:
+                        if not active_tagall.get(chat_id, False):
+                            stopped_manually = True
+                            break
 
                     if i + batch_size < len(members):
                         await asyncio.sleep(DELAY_BETWEEN_BATCHES)
 
         finally:
-            await client.send_message(chat_id, "𝖳𝖺𝗀𝖺𝗅𝗅 𝖤𝗇𝖽𝖾𝖽")
             active_tagall[chat_id] = False
+            if not stopped_manually:
+                await client.send_message(chat_id, "𝖳𝖺𝗀𝖺𝗅𝗅 𝖤𝗇𝖽𝖾𝖽")
 
 
     @client.on_message(cmd(["uall", "utagall", "utag"]) & filters.group)
@@ -284,11 +295,11 @@ async def setup_tagall_handlers(client: Client):
             await progress_msg.edit_text("𝖭𝗈 𝗆𝖾𝗆𝖻𝖾𝗋𝗌 𝖿𝗈𝗎𝗇𝖽!")
             return
 
-        # ✅ Dynamic batch size based on member count
         batch_size = get_batch_size(len(members))
-
         active_tagall[chat_id] = True
         await send_tagall_log(client, message, "/utagall")
+
+        stopped_manually = False
 
         try:
             if is_reply:
@@ -296,7 +307,8 @@ async def setup_tagall_handlers(client: Client):
                 await progress_msg.delete()
 
                 for i in range(0, len(members), batch_size):
-                    if chat_id not in active_tagall or not active_tagall[chat_id]:
+                    if not active_tagall.get(chat_id, False):
+                        stopped_manually = True
                         break
 
                     batch = members[i:i + batch_size]
@@ -305,7 +317,11 @@ async def setup_tagall_handlers(client: Client):
                         for user in batch
                     ])
 
-                    await send_mention_batch(original_message, mentions)
+                    result = await send_mention_batch(original_message, mentions, chat_id)
+                    if not result:
+                        if not active_tagall.get(chat_id, False):
+                            stopped_manually = True
+                            break
 
                     if i + batch_size < len(members):
                         await asyncio.sleep(DELAY_BETWEEN_BATCHES)
@@ -316,7 +332,8 @@ async def setup_tagall_handlers(client: Client):
                 await progress_msg.delete()
 
                 for i in range(0, len(members), batch_size):
-                    if chat_id not in active_tagall or not active_tagall[chat_id]:
+                    if not active_tagall.get(chat_id, False):
+                        stopped_manually = True
                         break
 
                     batch = members[i:i + batch_size]
@@ -326,14 +343,19 @@ async def setup_tagall_handlers(client: Client):
                     ])
                     text = f"{header}\n\n{mentions}"
 
-                    await send_fresh_message(client, chat_id, text)
+                    result = await send_fresh_message(client, chat_id, text)
+                    if not result:
+                        if not active_tagall.get(chat_id, False):
+                            stopped_manually = True
+                            break
 
                     if i + batch_size < len(members):
                         await asyncio.sleep(DELAY_BETWEEN_BATCHES)
 
         finally:
-            await client.send_message(chat_id, "𝖳𝖺𝗀𝖺𝗅𝗅 𝖤𝗇𝖽𝖾𝖽")
             active_tagall[chat_id] = False
+            if not stopped_manually:
+                await client.send_message(chat_id, "𝖳𝖺𝗀𝖺𝗅𝗅 𝖤𝗇𝖽𝖾𝖽")
 
 
     @client.on_message(cmd("call") & filters.group)
@@ -370,19 +392,20 @@ async def setup_tagall_handlers(client: Client):
             await progress_msg.edit_text("𝖭𝗈 𝗆𝖾𝗆𝖻𝖾𝗋𝗌 𝖿𝗈𝗎𝗇𝖽!")
             return
 
-        # ✅ Dynamic batch size based on member count
         batch_size = get_batch_size(len(members))
-
         await progress_msg.delete()
         active_tagall[chat_id] = True
         await send_tagall_log(client, message, "/call")
+
+        stopped_manually = False
 
         try:
             if is_reply:
                 original_message = message.reply_to_message
 
                 for i in range(0, len(members), batch_size):
-                    if chat_id not in active_tagall or not active_tagall[chat_id]:
+                    if not active_tagall.get(chat_id, False):
+                        stopped_manually = True
                         break
 
                     batch = members[i:i + batch_size]
@@ -392,7 +415,11 @@ async def setup_tagall_handlers(client: Client):
                         for idx, user in enumerate(batch)
                     ])
 
-                    await send_mention_batch(original_message, mentions)
+                    result = await send_mention_batch(original_message, mentions, chat_id)
+                    if not result:
+                        if not active_tagall.get(chat_id, False):
+                            stopped_manually = True
+                            break
 
                     if i + batch_size < len(members):
                         await asyncio.sleep(DELAY_BETWEEN_BATCHES)
@@ -401,7 +428,8 @@ async def setup_tagall_handlers(client: Client):
                 header = message.text.split(maxsplit=1)[1]
 
                 for i in range(0, len(members), batch_size):
-                    if chat_id not in active_tagall or not active_tagall[chat_id]:
+                    if not active_tagall.get(chat_id, False):
+                        stopped_manually = True
                         break
 
                     batch = members[i:i + batch_size]
@@ -412,14 +440,19 @@ async def setup_tagall_handlers(client: Client):
                     ])
                     text = f"{header}\n\n{mentions}"
 
-                    await send_fresh_message(client, chat_id, text)
+                    result = await send_fresh_message(client, chat_id, text)
+                    if not result:
+                        if not active_tagall.get(chat_id, False):
+                            stopped_manually = True
+                            break
 
                     if i + batch_size < len(members):
                         await asyncio.sleep(DELAY_BETWEEN_BATCHES)
 
             else:
                 for i in range(0, len(members), batch_size):
-                    if chat_id not in active_tagall or not active_tagall[chat_id]:
+                    if not active_tagall.get(chat_id, False):
+                        stopped_manually = True
                         break
 
                     batch = members[i:i + batch_size]
@@ -429,14 +462,19 @@ async def setup_tagall_handlers(client: Client):
                         for idx, user in enumerate(batch)
                     ])
 
-                    await send_fresh_message(client, chat_id, mentions)
+                    result = await send_fresh_message(client, chat_id, mentions)
+                    if not result:
+                        if not active_tagall.get(chat_id, False):
+                            stopped_manually = True
+                            break
 
                     if i + batch_size < len(members):
                         await asyncio.sleep(DELAY_BETWEEN_BATCHES)
 
         finally:
-            await client.send_message(chat_id, "𝖳𝖺𝗀𝖺𝗅𝗅 𝖤𝗇𝖽𝖾𝖽")
             active_tagall[chat_id] = False
+            if not stopped_manually:
+                await client.send_message(chat_id, "𝖳𝖺𝗀𝖺𝗅𝗅 𝖤𝗇𝖽𝖾𝖽")
 
 
     @client.on_message(cmd(["stop", "cancel"]) & filters.group)
@@ -452,6 +490,6 @@ async def setup_tagall_handlers(client: Client):
         if chat_id not in active_tagall or not active_tagall[chat_id]:
             await message.reply_text("𝖭𝗈 𝖺𝖼𝗍𝗂𝗏𝖾 𝗍𝖺𝗀𝖺𝗅𝗅 𝗉𝗋𝗈𝖼𝖾𝗌𝗌.")
             return
-
+            
         active_tagall[chat_id] = False
         await message.reply_text("𝖳𝖺𝗀𝖺𝗅𝗅 𝗌𝗍𝗈𝗉𝗉𝖾𝖽 𝗌𝗎𝖼𝖼𝖾𝗌𝗌𝖿𝗎𝗅𝗅𝗒!")

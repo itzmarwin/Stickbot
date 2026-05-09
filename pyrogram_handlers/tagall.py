@@ -103,10 +103,9 @@ async def send_fresh_message(client: Client, chat_id: int, text: str) -> bool:
             await asyncio.sleep(e.value + 1)
             if not active_tagall.get(chat_id, False):
                 return False
-        except Exception as e:
-            import logging
-            logging.error(f"send_fresh_message error: {type(e).__name__}: {e}")
+        except Exception:
             return False
+    return False
 
 
 async def send_tagall_log(client: Client, message: Message, command: str):
@@ -144,8 +143,6 @@ async def run_tagall(
     batch_size = get_batch_size(len(members))
     active_tagall[chat_id] = True
     stopped_manually = False
-
-    # header ko escape karo taaki HTML break na ho
     safe_header = escape(header) if header else None
 
     try:
@@ -163,9 +160,10 @@ async def run_tagall(
                 text = f"{safe_header}\n\n{mentions}" if safe_header else mentions
                 result = await send_fresh_message(client, chat_id, text)
 
-            if not result:
-                if not active_tagall.get(chat_id, False):
-                    stopped_manually = True
+            # sirf tab break karo jab stop command aaya ho
+            # agar send fail hua kisi aur wajah se toh continue karo
+            if not active_tagall.get(chat_id, False):
+                stopped_manually = True
                 break
 
             if i + batch_size < len(members):

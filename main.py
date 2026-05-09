@@ -141,7 +141,6 @@ async def main():
         dp.include_router(getsticker.router)
         dp.include_router(logger.router)
         dp.include_router(pack_management.router)
-        dp.include_router(publish.router)
         dp.include_router(copypack.router)
         dp.include_router(misc.router)
 

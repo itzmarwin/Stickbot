@@ -15,7 +15,7 @@ from handlers import start, kang, misc, logger
 from handlers import sticker_id
 from handlers import getsticker, getvidsticker
 from handlers import copypack
-from handlers import pack_management, publish
+from handlers import pack_management
 from handlers import language
 
 from telethon_quotly import setup_telethon_handlers

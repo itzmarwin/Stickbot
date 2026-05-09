@@ -381,31 +381,41 @@ async def process_rename_pack_name(message: Message, state: FSMContext, bot: Bot
         except:
             pass
 
-        escaped_old_name = escape_html(old_name.replace(f" ~ @{BOT_USERNAME}", ""))
-        escaped_new_name = escape_html(formatted_name.replace(f" ~ @{BOT_USERNAME}", ""))
+        # Telegram se real count fetch karo
+        try:
+            telegram_pack = await bot.get_sticker_set(short_name)
+            real_count = len(telegram_pack.stickers)
+            await update_pack_sticker_count(short_name, real_count)
+        except:
+            pack_db = await get_pack_by_short_name(short_name)
+            real_count = pack_db.get("sticker_count", 0) if pack_db else 0
 
-        success_text = await get_text(
+        pack_link = f"https://t.me/addstickers/{short_name}"
+        escaped_new_name = escape_html(formatted_name)
+
+        pack_options_msg = await get_text(
             user_id,
-            "PACK_RENAMED_SUCCESS",
-            old_name=escaped_old_name,
-            new_name=escaped_new_name
+            "PACK_OPTIONS_MESSAGE",
+            pack_link=pack_link,
+            pack_name=escaped_new_name,
+            sticker_count=real_count
         )
 
-        if success_text is None:
-            success_text = f"✅ <b>𝖯𝖺𝖼𝗄 𝗋𝖾𝗇𝖺𝗆𝖾𝖽!</b>\n\n<b>𝖮𝗅𝖽:</b> {escaped_old_name}\n<b>𝖭𝖾𝗐:</b> {escaped_new_name}"
+        if pack_options_msg is None:
+            pack_options_msg = f"🛠️ <b>𝖯𝖺𝖼𝗄 𝖮𝗉𝗍𝗂𝗈𝗇𝗌</b>\n\n<a href=\"{pack_link}\">{escaped_new_name}</a>\n<b>𝖲𝗍𝗂𝖼𝗄𝖾𝗋𝗌:</b> {real_count}/120"
 
         if bot_message_id and chat_id:
             try:
                 await bot.edit_message_text(
                     chat_id=chat_id,
                     message_id=bot_message_id,
-                    text=success_text,
+                    text=pack_options_msg,
                     reply_markup=await get_pack_options_keyboard(user_id, short_name)
                 )
             except:
-                await message.answer(success_text, reply_markup=await get_pack_options_keyboard(user_id, short_name))
+                await message.answer(pack_options_msg, reply_markup=await get_pack_options_keyboard(user_id, short_name))
         else:
-            await message.answer(success_text, reply_markup=await get_pack_options_keyboard(user_id, short_name))
+            await message.answer(pack_options_msg, reply_markup=await get_pack_options_keyboard(user_id, short_name))
 
     except Exception as e:
         logger.error(f"Error renaming pack: {e}")

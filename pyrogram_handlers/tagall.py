@@ -144,6 +144,9 @@ async def run_tagall(
     active_tagall[chat_id] = True
     stopped_manually = False
 
+    # header ko escape karo taaki HTML break na ho
+    safe_header = escape(header) if header else None
+
     try:
         for i in range(0, len(members), batch_size):
             if not active_tagall.get(chat_id, False):
@@ -156,11 +159,12 @@ async def run_tagall(
             if reply_target:
                 result = await send_mention_batch(reply_target, mentions, chat_id)
             else:
-                text = f"{header}\n\n{mentions}" if header else mentions
+                text = f"{safe_header}\n\n{mentions}" if safe_header else mentions
                 result = await send_fresh_message(client, chat_id, text)
 
-            if not result and not active_tagall.get(chat_id, False):
-                stopped_manually = True
+            if not result:
+                if not active_tagall.get(chat_id, False):
+                    stopped_manually = True
                 break
 
             if i + batch_size < len(members):

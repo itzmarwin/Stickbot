@@ -5,7 +5,7 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from datetime import datetime
 
-from database import get_user, create_user, update_user_started, get_user_language
+from database import get_user, create_user, get_user_language
 from utils.language import get_text
 from utils.html_utils import escape_html
 from config import BOT_USERNAME, LOG_GROUP_ID
@@ -25,9 +25,8 @@ router = Router()
 
 
 def get_language_selection_keyboard():
-    """Build language selection keyboard with 3 languages"""
     from aiogram.utils.keyboard import InlineKeyboardBuilder
-    
+
     builder = InlineKeyboardBuilder()
     builder.button(text="🇬🇧 English", callback_data="set_lang:en")
     builder.button(text="🇷🇺 Русский", callback_data="set_lang:rus")
@@ -38,28 +37,27 @@ def get_language_selection_keyboard():
 
 @router.message(Command("start"))
 async def cmd_start(message: Message, state: FSMContext):
-    """Handle /start command"""
     user = message.from_user
     await state.clear()
-    
+
     if message.chat.type in ["group", "supergroup"]:
         group_start_msg = await get_text(user.id, "GROUP_START_MESSAGE", bot_username=BOT_USERNAME)
         await message.reply(group_start_msg, reply_markup=get_group_start_keyboard())
         logger.info(f"Group start command from {user.id} in chat {message.chat.id}")
         return
-    
+
     user_data = await get_user(user.id)
-    
+
     if not user_data:
         logger.info(f"New user {user.id} started bot")
-        
+
         await create_user(
             user_id=user.id,
             username=user.username,
             first_name=user.first_name,
             language="en"
         )
-        
+
         if LOG_GROUP_ID:
             try:
                 log_msg = (
@@ -72,36 +70,33 @@ async def cmd_start(message: Message, state: FSMContext):
                 await message.bot.send_message(LOG_GROUP_ID, log_msg)
             except Exception as e:
                 logger.error(f"Error sending new user log: {e}")
-        
+
         lang_select_msg = await get_text(user.id, "LANG_SELECT_MESSAGE")
         await message.answer(lang_select_msg, reply_markup=get_language_selection_keyboard())
         logger.info(f"Showed language selection to new user {user.id}")
         return
-    
+
     else:
         logger.info(f"Existing user {user.id} used /start command")
-        
+
         try:
-            await update_user_started(user.id)
-            
             start_text = await get_text(
-                user.id, 
+                user.id,
                 "START_MESSAGE_WITH_IMAGE",
                 uid=user.id,
                 first_name=escape_html(user.first_name)
             )
-            
+
             keyboard = await get_main_menu_keyboard(user.id)
             await message.answer(start_text, reply_markup=keyboard)
             logger.info(f"Sent start message to existing user {user.id}")
-            
+
         except Exception as e:
             logger.error(f"Error in existing user /start flow: {e}", exc_info=True)
 
 
 @router.message(Command("help"))
 async def cmd_help(message: Message):
-    """Handle /help command"""
     try:
         user_id = message.from_user.id
         help_text = await get_text(user_id, "HELP_MESSAGE")
@@ -113,7 +108,6 @@ async def cmd_help(message: Message):
 
 @router.callback_query(F.data == SharedCallbacks.EXTRA_COMMANDS)
 async def extra_commands_callback(callback: CallbackQuery):
-    """Show extra commands menu"""
     await callback.answer()
     try:
         user_id = callback.from_user.id
@@ -125,7 +119,6 @@ async def extra_commands_callback(callback: CallbackQuery):
 
 @router.callback_query(F.data == SharedCallbacks.EXTRA_CMD_AFK)
 async def extra_afk_callback(callback: CallbackQuery):
-    """Show AFK feature information"""
     await callback.answer()
     try:
         user_id = callback.from_user.id
@@ -137,7 +130,6 @@ async def extra_afk_callback(callback: CallbackQuery):
 
 @router.callback_query(F.data == SharedCallbacks.EXTRA_CMD_QUOTLY)
 async def extra_quotly_callback(callback: CallbackQuery):
-    """Show Quotly feature information"""
     await callback.answer()
     try:
         user_id = callback.from_user.id
@@ -149,7 +141,6 @@ async def extra_quotly_callback(callback: CallbackQuery):
 
 @router.callback_query(F.data == SharedCallbacks.EXTRA_CMD_STICKERS)
 async def extra_stickers_callback(callback: CallbackQuery):
-    """Show Stickers feature information"""
     await callback.answer()
     try:
         user_id = callback.from_user.id
@@ -161,7 +152,6 @@ async def extra_stickers_callback(callback: CallbackQuery):
 
 @router.callback_query(F.data == SharedCallbacks.EXTRA_CMD_MEMEFI)
 async def extra_memefi_callback(callback: CallbackQuery):
-    """Show MemeFi feature information"""
     await callback.answer()
     try:
         user_id = callback.from_user.id
@@ -173,7 +163,6 @@ async def extra_memefi_callback(callback: CallbackQuery):
 
 @router.callback_query(F.data == SharedCallbacks.EXTRA_CMD_WELCOME)
 async def extra_welcome_callback(callback: CallbackQuery):
-    """Show Welcome feature information"""
     await callback.answer()
     try:
         user_id = callback.from_user.id
@@ -182,9 +171,9 @@ async def extra_welcome_callback(callback: CallbackQuery):
     except Exception as e:
         logger.error(f"Error in extra_welcome_callback: {e}")
 
+
 @router.callback_query(F.data == SharedCallbacks.EXTRA_CMD_TAGALL)
 async def extra_tagall_callback(callback: CallbackQuery):
-    """Show TagAll feature information"""
     await callback.answer()
     try:
         user_id = callback.from_user.id
@@ -196,19 +185,18 @@ async def extra_tagall_callback(callback: CallbackQuery):
 
 @router.callback_query(F.data == SharedCallbacks.BACK_TO_MAIN)
 async def back_to_main_callback(callback: CallbackQuery):
-    """Navigate back to main menu"""
     await callback.answer()
-    
+
     try:
         user = callback.from_user
-        
+
         start_text = await get_text(
             user.id,
             "START_MESSAGE_WITH_IMAGE",
             uid=user.id,
             first_name=escape_html(user.first_name)
         )
-        
+
         await safe_edit_message(callback, start_text, await get_main_menu_keyboard(user.id))
     except Exception as e:
         logger.error(f"Error in back_to_main_callback: {e}")

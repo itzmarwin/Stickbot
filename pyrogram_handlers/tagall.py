@@ -103,9 +103,10 @@ async def send_fresh_message(client: Client, chat_id: int, text: str) -> bool:
             await asyncio.sleep(e.value + 1)
             if not active_tagall.get(chat_id, False):
                 return False
-        except Exception:
+        except Exception as e:
+            import logging
+            logging.error(f"send_fresh_message error: {type(e).__name__}: {e}")
             return False
-    return False
 
 
 async def send_tagall_log(client: Client, message: Message, command: str):

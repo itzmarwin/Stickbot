@@ -36,7 +36,10 @@ class PackManagementCallback:
     CREATE_NEW_PACK = "create_new_pack"
     PACK_SELECTED = "ps:"
     RENAME_PACK = "rp:"
+    DELETE_PACK = "dp:"
     ADD_STICKER = "as:"
+    CONFIRM_DELETE = "cd:"
+    CANCEL_DELETE = "xd:"
     PACK_INFO = "pack_info:"
     NEXT_PAGE = "np:"
     PREV_PAGE = "pp:"
@@ -45,11 +48,9 @@ class PackManagementCallback:
 
 async def get_back_to_manage_keyboard(user_id: int):
     language = await get_user_language(user_id)
-
     back_text = get_text_sync(language, "B_BACK")
     if back_text is None:
         back_text = "⬅️ 𝖡𝖺𝖼𝗄"
-
     builder = InlineKeyboardBuilder()
     builder.button(text=back_text, callback_data=PackManagementCallback.BACK_TO_MANAGE)
     return builder.as_markup()
@@ -57,15 +58,12 @@ async def get_back_to_manage_keyboard(user_id: int):
 
 async def get_no_packs_keyboard(user_id: int):
     language = await get_user_language(user_id)
-
     create_pack_text = get_text_sync(language, "B_CREATE_NEW_PACK")
     if create_pack_text is None:
         create_pack_text = "𝖢𝗋𝖾𝖺𝗍𝖾 𝖭𝖾𝗐 𝖯𝖺𝖼𝗄"
-
     back_text = get_text_sync(language, "B_BACK")
     if back_text is None:
         back_text = "⬅️ 𝖡𝖺𝖼𝗄"
-
     builder = InlineKeyboardBuilder()
     builder.button(text=create_pack_text, callback_data=PackManagementCallback.CREATE_NEW_PACK)
     builder.button(text=back_text, callback_data=SharedCallbacks.BACK_TO_MAIN)
@@ -75,11 +73,9 @@ async def get_no_packs_keyboard(user_id: int):
 
 async def get_pack_link_keyboard(user_id: int, pack_link: str):
     language = await get_user_language(user_id)
-
     pack_link_text = get_text_sync(language, "B_PACK_LINK")
     if pack_link_text is None:
         pack_link_text = "🔗 𝖯𝖺𝖼𝗄 𝖫𝗂𝗇𝗄"
-
     builder = InlineKeyboardBuilder()
     builder.button(text=pack_link_text, url=pack_link)
     builder.adjust(1)
@@ -88,7 +84,6 @@ async def get_pack_link_keyboard(user_id: int, pack_link: str):
 
 async def get_manage_packs_keyboard(user_id: int, page: int = 0):
     language = await get_user_language(user_id)
-
     builder = InlineKeyboardBuilder()
     packs, total = await get_user_packs_paginated(user_id, page)
 
@@ -106,8 +101,7 @@ async def get_manage_packs_keyboard(user_id: int, page: int = 0):
         prev_text = get_text_sync(language, "B_PREVIOUS")
         if prev_text is None:
             prev_text = "⬅️ 𝖯𝗋𝖾𝗏𝗂𝗈𝗎𝗌"
-        callback_data = create_callback("prev_page", str(page - 1))
-        action_builder.button(text=prev_text, callback_data=callback_data)
+        action_builder.button(text=prev_text, callback_data=create_callback("prev_page", str(page - 1)))
 
     create_pack_text = get_text_sync(language, "B_CREATE_NEW_PACK")
     if create_pack_text is None:
@@ -118,8 +112,7 @@ async def get_manage_packs_keyboard(user_id: int, page: int = 0):
         next_text = get_text_sync(language, "B_NEXT")
         if next_text is None:
             next_text = "𝖭𝖾𝗑𝗍 ➡️"
-        callback_data = create_callback("next_page", str(page + 1))
-        action_builder.button(text=next_text, callback_data=callback_data)
+        action_builder.button(text=next_text, callback_data=create_callback("next_page", str(page + 1)))
 
     back_text = get_text_sync(language, "B_BACK")
     if back_text is None:
@@ -132,46 +125,60 @@ async def get_manage_packs_keyboard(user_id: int, page: int = 0):
 
 async def get_pack_options_keyboard(user_id: int, short_name: str):
     language = await get_user_language(user_id)
-
     builder = InlineKeyboardBuilder()
 
+    # Rename Pack + ℹ️
     rename_text = get_text_sync(language, "B_RENAME_PACK")
     if rename_text is None:
         rename_text = "𝖱𝖾𝗇𝖺𝗆𝖾 𝖯𝖺𝖼𝗄"
-    builder.button(
-        text=rename_text,
-        callback_data=create_callback("rename_pack", short_name)
-    )
-    builder.button(
-        text="ℹ️",
-        callback_data=f"{PackManagementCallback.PACK_INFO}rename"
-    )
+    builder.button(text=rename_text, callback_data=create_callback("rename_pack", short_name))
+    builder.button(text="ℹ️", callback_data=f"{PackManagementCallback.PACK_INFO}rename")
 
+    # Add Sticker + ℹ️
     add_sticker_text = get_text_sync(language, "B_ADD_STICKER")
     if add_sticker_text is None:
         add_sticker_text = "𝖠𝖽𝖽 𝖲𝗍𝗂𝖼𝗄𝖾𝗋"
-    builder.button(
-        text=add_sticker_text,
-        callback_data=create_callback("add_sticker", short_name)
-    )
-    builder.button(
-        text="ℹ️",
-        callback_data=f"{PackManagementCallback.PACK_INFO}add"
-    )
+    builder.button(text=add_sticker_text, callback_data=create_callback("add_sticker", short_name))
+    builder.button(text="ℹ️", callback_data=f"{PackManagementCallback.PACK_INFO}add")
 
+    # Delete Pack + ℹ️
+    delete_text = get_text_sync(language, "B_DELETE_PACK")
+    if delete_text is None:
+        delete_text = "🗑️ 𝖣𝖾𝗅𝖾𝗍𝖾 𝖯𝖺𝖼𝗄"
+    builder.button(text=delete_text, callback_data=create_callback("delete_pack", short_name))
+    builder.button(text="ℹ️", callback_data=f"{PackManagementCallback.PACK_INFO}delete")
+
+    # Back
     back_text = get_text_sync(language, "B_BACK")
     if back_text is None:
         back_text = "⬅️ 𝖡𝖺𝖼𝗄"
     builder.button(text=back_text, callback_data=PackManagementCallback.BACK_TO_MANAGE)
 
-    builder.adjust(2, 2, 1)
+    builder.adjust(2, 2, 2, 1)
+    return builder.as_markup()
+
+
+async def get_delete_confirmation_keyboard(user_id: int, short_name: str):
+    language = await get_user_language(user_id)
+
+    confirm_text = get_text_sync(language, "B_CONFIRM")
+    if confirm_text is None:
+        confirm_text = "✅ 𝖸𝖾𝗌, 𝖣𝖾𝗅𝖾𝗍𝖾"
+
+    cancel_text = get_text_sync(language, "B_CANCEL")
+    if cancel_text is None:
+        cancel_text = "❌ 𝖢𝖺𝗇𝖼𝖾𝗅"
+
+    builder = InlineKeyboardBuilder()
+    builder.button(text=confirm_text, callback_data=create_callback("confirm_delete", short_name))
+    builder.button(text=cancel_text, callback_data=create_callback("cancel_delete", short_name))
+    builder.adjust(2)
     return builder.as_markup()
 
 
 @router.callback_query(F.data == SharedCallbacks.MANAGE_PACKS)
 async def manage_packs_callback(callback: CallbackQuery):
     await callback.answer()
-
     try:
         user_id = callback.from_user.id
         packs, total = await get_user_packs_paginated(user_id)
@@ -193,7 +200,6 @@ async def manage_packs_callback(callback: CallbackQuery):
 @router.callback_query(F.data.startswith(PackManagementCallback.PACK_SELECTED))
 async def pack_selected_callback(callback: CallbackQuery, bot: Bot):
     await callback.answer()
-
     try:
         short_name = parse_callback(callback.data)
         user_id = callback.from_user.id
@@ -217,11 +223,9 @@ async def pack_selected_callback(callback: CallbackQuery, bot: Bot):
 
         except TelegramBadRequest:
             await delete_pack_by_short_name(short_name)
-
             ghost_msg = await get_text(user_id, "PACK_DELETED_FROM_TELEGRAM")
             if ghost_msg is None:
                 ghost_msg = "❌ <b>Pack Not Found</b>\n\nThis pack was deleted from Telegram and has been removed from your list."
-
             await callback.answer(ghost_msg, show_alert=True)
             await manage_packs_callback(callback)
             return
@@ -252,17 +256,21 @@ async def pack_info_callback(callback: CallbackQuery):
         info_type = callback.data.split(":")[1]
 
         if info_type == "rename":
-            message = await get_text(user_id, "RENAME_PACK_INFO")
-            if message is None:
-                message = "✏️ 𝖢𝗁𝖺𝗇𝗀𝖾 𝗒𝗈𝗎𝗋 𝗉𝖺𝖼𝗄'𝗌 𝗇𝖺𝗆𝖾."
+            msg = await get_text(user_id, "RENAME_PACK_INFO")
+            if msg is None:
+                msg = "✏️ 𝖢𝗁𝖺𝗇𝗀𝖾 𝗒𝗈𝗎𝗋 𝗉𝖺𝖼𝗄'𝗌 𝗇𝖺𝗆𝖾."
         elif info_type == "add":
-            message = await get_text(user_id, "ADD_STICKER_INFO")
-            if message is None:
-                message = "🎨 𝖠𝖽𝖽 𝗎𝗉 𝗍𝗈 120 𝗌𝗍𝗂𝖼𝗄𝖾𝗋𝗌 (𝗂𝗆𝖺𝗀𝖾𝗌, 𝗏𝗂𝖽𝖾𝗈𝗌, 𝗀𝗂𝖿𝗌)."
+            msg = await get_text(user_id, "ADD_STICKER_INFO")
+            if msg is None:
+                msg = "🎨 𝖠𝖽𝖽 𝗎𝗉 𝗍𝗈 120 𝗌𝗍𝗂𝖼𝗄𝖾𝗋𝗌 (𝗂𝗆𝖺𝗀𝖾𝗌, 𝗏𝗂𝖽𝖾𝗈𝗌, 𝗀𝗂𝖿𝗌)."
+        elif info_type == "delete":
+            msg = await get_text(user_id, "DELETE_PACK_INFO")
+            if msg is None:
+                msg = "🗑️ 𝖯𝖾𝗋𝗆𝖺𝗇𝖾𝗇𝗍𝗅𝗒 𝖽𝖾𝗅𝖾𝗍𝖾 𝗍𝗁𝗂𝗌 𝗉𝖺𝖼𝗄. 𝖳𝗁𝗂𝗌 𝖼𝖺𝗇𝗇𝗈𝗍 𝖻𝖾 𝗎𝗇𝖽𝗈𝗇𝖾."
         else:
-            message = "Information about this action."
+            msg = "Information about this action."
 
-        await callback.answer(message, show_alert=True)
+        await callback.answer(msg, show_alert=True)
     except Exception as e:
         logger.error(f"Error in pack_info_callback: {e}")
         await callback.answer("Error showing info.", show_alert=True)
@@ -271,7 +279,6 @@ async def pack_info_callback(callback: CallbackQuery):
 @router.callback_query(F.data.startswith(PackManagementCallback.RENAME_PACK))
 async def rename_pack_callback(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
-
     try:
         short_name = parse_callback(callback.data)
         user_id = callback.from_user.id
@@ -392,10 +399,162 @@ async def process_rename_pack_name(message: Message, state: FSMContext, bot: Bot
     await state.clear()
 
 
+@router.callback_query(F.data.startswith(PackManagementCallback.DELETE_PACK))
+async def delete_pack_callback(callback: CallbackQuery):
+    await callback.answer()
+    try:
+        short_name = parse_callback(callback.data)
+        user_id = callback.from_user.id
+
+        if not short_name:
+            expired_msg = await get_text(user_id, "SESSION_EXPIRED")
+            if expired_msg is None:
+                expired_msg = "❌ Session expired. Please try again."
+            await callback.answer(expired_msg, show_alert=True)
+            return
+
+        pack = await get_pack_by_short_name(short_name)
+
+        if pack:
+            pack_name = pack["pack_name"].replace(f" ~ @{BOT_USERNAME}", "")
+            escaped_pack_name = escape_html(pack_name)
+            sticker_count = pack.get("sticker_count", 0)
+            created_date = pack["created_at"].strftime("%Y-%m-%d") if pack.get("created_at") else "Unknown"
+
+            delete_confirm_msg = await get_text(
+                user_id,
+                "DELETE_PACK_CONFIRMATION",
+                pack_name=escaped_pack_name,
+                sticker_count=sticker_count,
+                created_date=created_date
+            )
+
+            if delete_confirm_msg is None:
+                delete_confirm_msg = (
+                    f"🗑️ <b>𝖣𝖾𝗅𝖾𝗍𝖾 𝖯𝖺𝖼𝗄</b>\n\n"
+                    f"<b>{escaped_pack_name}</b>\n"
+                    f"<b>𝖲𝗍𝗂𝖼𝗄𝖾𝗋𝗌:</b> {sticker_count}\n"
+                    f"<b>𝖢𝗋𝖾𝖺𝗍𝖾𝖽:</b> {created_date}\n\n"
+                    f"𝖠𝗋𝖾 𝗒𝗈𝗎 𝗌𝗎𝗋𝖾? 𝖳𝗁𝗂𝗌 𝖼𝖺𝗇𝗇𝗈𝗍 𝖻𝖾 𝗎𝗇𝖽𝗈𝗇𝖾."
+                )
+
+            await safe_edit_message(
+                callback,
+                delete_confirm_msg,
+                await get_delete_confirmation_keyboard(user_id, short_name)
+            )
+    except Exception as e:
+        logger.error(f"Error in delete_pack_callback: {e}")
+
+
+@router.callback_query(F.data.startswith(PackManagementCallback.CONFIRM_DELETE))
+async def confirm_delete_callback(callback: CallbackQuery, bot: Bot):
+    await callback.answer()
+    try:
+        short_name = parse_callback(callback.data)
+        user_id = callback.from_user.id
+
+        if not short_name:
+            expired_msg = await get_text(user_id, "SESSION_EXPIRED")
+            if expired_msg is None:
+                expired_msg = "❌ Session expired. Please try again."
+            await callback.answer(expired_msg, show_alert=True)
+            return
+
+        pack = await get_pack_by_short_name(short_name)
+
+        if pack:
+            pack_name = pack["pack_name"].replace(f" ~ @{BOT_USERNAME}", "")
+            escaped_pack_name = escape_html(pack_name)
+
+            try:
+                await bot.delete_sticker_set(short_name)
+            except TelegramBadRequest:
+                # Pack already deleted from Telegram, still remove from DB
+                pass
+            except Exception as e:
+                logger.error(f"Error deleting sticker set from Telegram: {e}")
+
+            await delete_pack_by_short_name(short_name)
+
+            deleted_msg = await get_text(user_id, "PACK_DELETED_SUCCESS", pack_name=escaped_pack_name)
+            if deleted_msg is None:
+                deleted_msg = f"✅ <b>𝖯𝖺𝖼𝗄 𝖽𝖾𝗅𝖾𝗍𝖾𝖽!</b>\n\n<b>\"{escaped_pack_name}\"</b> 𝗁𝖺𝗌 𝖻𝖾𝖾𝗇 𝗋𝖾𝗆𝗈𝗏𝖾𝖽."
+
+            await safe_edit_message(
+                callback,
+                deleted_msg,
+                await get_back_to_manage_keyboard(user_id)
+            )
+        else:
+            # Pack not in DB already
+            await manage_packs_callback(callback)
+
+    except Exception as e:
+        logger.error(f"Error in confirm_delete_callback: {e}")
+        error_msg = await get_text(callback.from_user.id, "ERROR_OCCURRED")
+        if error_msg is None:
+            error_msg = " <b>𝖮𝗈𝗉𝗌 — 𝗌𝗈𝗆𝖾𝗍𝗁𝗂𝗇𝗀 𝗐𝖾𝗇𝗍 𝗐𝗋𝗈𝗇𝗀.</b>"
+        await safe_edit_message(callback, error_msg)
+
+
+@router.callback_query(F.data.startswith(PackManagementCallback.CANCEL_DELETE))
+async def cancel_delete_callback(callback: CallbackQuery, bot: Bot):
+    await callback.answer()
+    try:
+        short_name = parse_callback(callback.data)
+        user_id = callback.from_user.id
+
+        if not short_name:
+            expired_msg = await get_text(user_id, "SESSION_EXPIRED")
+            if expired_msg is None:
+                expired_msg = "❌ Session expired. Please try again."
+            await callback.answer(expired_msg, show_alert=True)
+            return
+
+        pack = await get_pack_by_short_name(short_name)
+        if not pack:
+            await manage_packs_callback(callback)
+            return
+
+        # Telegram se real count fetch karo
+        try:
+            telegram_pack = await bot.get_sticker_set(short_name)
+            real_count = len(telegram_pack.stickers)
+            await update_pack_sticker_count(short_name, real_count)
+        except TelegramBadRequest:
+            await delete_pack_by_short_name(short_name)
+            ghost_msg = await get_text(user_id, "PACK_DELETED_FROM_TELEGRAM")
+            if ghost_msg is None:
+                ghost_msg = "❌ <b>Pack Not Found</b>\n\nThis pack was deleted from Telegram and has been removed from your list."
+            await callback.answer(ghost_msg, show_alert=True)
+            await manage_packs_callback(callback)
+            return
+        except:
+            real_count = pack.get("sticker_count", 0)
+
+        full_pack_name = pack["pack_name"]
+        pack_link = f"https://t.me/addstickers/{short_name}"
+
+        pack_options_msg = await get_text(
+            user_id,
+            "PACK_OPTIONS_MESSAGE",
+            pack_link=pack_link,
+            pack_name=escape_html(full_pack_name),
+            sticker_count=real_count
+        )
+
+        if pack_options_msg is None:
+            pack_options_msg = f"🛠️ <b>𝖯𝖺𝖼𝗄 𝖮𝗉𝗍𝗂𝗈𝗇𝗌</b>\n\n<a href=\"{pack_link}\">{escape_html(full_pack_name)}</a>\n<b>𝖲𝗍𝗂𝖼𝗄𝖾𝗋𝗌:</b> {real_count}/120"
+
+        await safe_edit_message(callback, pack_options_msg, await get_pack_options_keyboard(user_id, short_name))
+    except Exception as e:
+        logger.error(f"Error in cancel_delete_callback: {e}")
+
+
 @router.callback_query(F.data.startswith(PackManagementCallback.ADD_STICKER))
 async def add_sticker_callback(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
-
     try:
         short_name = parse_callback(callback.data)
         user_id = callback.from_user.id
@@ -526,15 +685,11 @@ async def process_sticker_addition(message: Message, state: FSMContext, bot: Bot
                 await update_pack_sticker_count(short_name, new_count)
 
             pack_link = f"https://t.me/addstickers/{short_name}"
-
             success_msg = await get_text(user_id, "STICKER_ADDED_SUCCESS")
             if success_msg is None:
                 success_msg = "✅ <b>Sticker added successfully!</b>"
+            await processing_msg.edit_text(success_msg, reply_markup=await get_pack_link_keyboard(user_id, pack_link))
 
-            await processing_msg.edit_text(
-                success_msg,
-                reply_markup=await get_pack_link_keyboard(user_id, pack_link)
-            )
         elif pack_full:
             pack_full_msg = await get_text(user_id, "PACK_FULL_120_LIMIT")
             if pack_full_msg is None:
@@ -553,14 +708,11 @@ async def process_sticker_addition(message: Message, state: FSMContext, bot: Bot
 @router.callback_query(F.data == PackManagementCallback.CREATE_NEW_PACK)
 async def create_new_pack_callback(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
-
     try:
         user_id = callback.from_user.id
-
         create_pack_msg = await get_text(user_id, "CREATE_NEW_PACK_PROMPT")
         if create_pack_msg is None:
             create_pack_msg = "<b>Let's create a new sticker pack!</b>\n\n<b>First, send me the sticker you want to start your pack with.</b>\nIt can be GIF, video, image or sticker"
-
         await state.set_state(PackManagementStates.waiting_for_first_sticker)
         await safe_edit_message(callback, create_pack_msg, await get_back_to_manage_keyboard(user_id))
     except Exception as e:
@@ -626,7 +778,6 @@ async def process_new_pack_name(message: Message, state: FSMContext, bot: Bot):
         return
 
     pack_name = message.text.strip()
-
     data = await state.get_data()
     first_sticker = data.get("first_sticker")
     first_sticker_type = data.get("first_sticker_type")
@@ -677,9 +828,7 @@ async def process_new_pack_name(message: Message, state: FSMContext, bot: Bot):
             input_path = os.path.join(temp_dir, f"{user_id}_first_input.jpg")
             output_path = os.path.join(temp_dir, f"{user_id}_first_output.webp")
             temp_files.extend([input_path, output_path])
-
             await bot.download_file(file.file_path, input_path)
-
             if await convert_image_to_webp(input_path, output_path):
                 with open(output_path, 'rb') as f:
                     sticker_file = BufferedInputFile(f.read(), filename="sticker.webp")
@@ -693,11 +842,8 @@ async def process_new_pack_name(message: Message, state: FSMContext, bot: Bot):
             input_path = os.path.join(temp_dir, f"{user_id}_first_input.mp4")
             output_path = os.path.join(temp_dir, f"{user_id}_first_output.webm")
             temp_files.extend([input_path, output_path])
-
             await bot.download_file(file.file_path, input_path)
-
             conversion_success = await convert_video_to_webm(input_path, output_path)
-
             if conversion_success and os.path.exists(output_path):
                 with open(output_path, 'rb') as f:
                     sticker_file = BufferedInputFile(f.read(), filename="sticker.webm")
@@ -714,11 +860,9 @@ async def process_new_pack_name(message: Message, state: FSMContext, bot: Bot):
         if not sticker_file:
             raise Exception("Failed to prepare sticker file")
 
-        random_emoji = get_random_emoji()
-
         sticker = InputSticker(
             sticker=sticker_file,
-            emoji_list=[random_emoji],
+            emoji_list=[get_random_emoji()],
             format=sticker_format
         )
 
@@ -732,20 +876,17 @@ async def process_new_pack_name(message: Message, state: FSMContext, bot: Bot):
         pack_link = f"https://t.me/addstickers/{short_name}"
         await create_sticker_pack(user_id=user_id, pack_name=formatted_name, short_name=short_name)
         await update_pack_sticker_count(short_name, 1)
-
         cleanup_temp_files(*temp_files)
-
-        escaped_pack_name = escape_html(formatted_name)
 
         success_message = await get_text(
             user_id,
             "PACK_CREATED_SUCCESS",
             pack_link=pack_link,
-            pack_name=escaped_pack_name
+            pack_name=escape_html(formatted_name)
         )
 
         if success_message is None:
-            success_message = f"✅ <b>Your sticker pack has been created successfully!</b>\n\n<a href=\"{pack_link}\">{escaped_pack_name}</a>"
+            success_message = f"✅ <b>Your sticker pack has been created successfully!</b>\n\n<a href=\"{pack_link}\">{escape_html(formatted_name)}</a>"
 
         await processing_msg.edit_text(
             success_message,
@@ -755,7 +896,6 @@ async def process_new_pack_name(message: Message, state: FSMContext, bot: Bot):
     except Exception as e:
         logger.error(f"Error creating new pack: {e}")
         cleanup_temp_files(*temp_files)
-
         error_msg_str = str(e)
         if "STICKERSET_INVALID" in error_msg_str or "invalid" in error_msg_str.lower():
             fail_msg = await get_text(user_id, "PACK_CREATE_FAILED_TEMP")
@@ -774,24 +914,19 @@ async def process_new_pack_name(message: Message, state: FSMContext, bot: Bot):
 @router.callback_query(F.data.startswith(PackManagementCallback.NEXT_PAGE))
 async def next_page_callback(callback: CallbackQuery):
     await callback.answer()
-
     try:
         page_str = parse_callback(callback.data)
         user_id = callback.from_user.id
-
         if not page_str:
             expired_msg = await get_text(user_id, "SESSION_EXPIRED")
             if expired_msg is None:
                 expired_msg = "❌ Session expired. Please try again."
             await callback.answer(expired_msg, show_alert=True)
             return
-
         page = int(page_str)
-
         manage_msg = await get_text(user_id, "MANAGE_PACKS_MESSAGE")
         if manage_msg is None:
             manage_msg = "<b>𝖸𝗈𝗎𝗋 𝖲𝗍𝗂𝖼𝗄𝖾𝗋 𝖯𝖺𝖼𝗄𝗌</b>"
-
         await safe_edit_message(callback, manage_msg, await get_manage_packs_keyboard(user_id, page))
     except Exception as e:
         logger.error(f"Error in next_page_callback: {e}")
@@ -800,24 +935,19 @@ async def next_page_callback(callback: CallbackQuery):
 @router.callback_query(F.data.startswith(PackManagementCallback.PREV_PAGE))
 async def prev_page_callback(callback: CallbackQuery):
     await callback.answer()
-
     try:
         page_str = parse_callback(callback.data)
         user_id = callback.from_user.id
-
         if not page_str:
             expired_msg = await get_text(user_id, "SESSION_EXPIRED")
             if expired_msg is None:
                 expired_msg = "❌ Session expired. Please try again."
             await callback.answer(expired_msg, show_alert=True)
             return
-
         page = int(page_str)
-
         manage_msg = await get_text(user_id, "MANAGE_PACKS_MESSAGE")
         if manage_msg is None:
             manage_msg = "<b>𝖸𝗈𝗎𝗋 𝖲𝗍𝗂𝖼𝗄𝖾𝗋 𝖯𝖺𝖼𝗄𝗌</b>"
-
         await safe_edit_message(callback, manage_msg, await get_manage_packs_keyboard(user_id, page))
     except Exception as e:
         logger.error(f"Error in prev_page_callback: {e}")
@@ -826,11 +956,9 @@ async def prev_page_callback(callback: CallbackQuery):
 @router.callback_query(F.data == PackManagementCallback.BACK_TO_MANAGE)
 async def back_to_manage_callback(callback: CallbackQuery):
     await callback.answer()
-
     try:
         user_id = callback.from_user.id
         packs, total = await get_user_packs_paginated(user_id)
-
         if total == 0:
             no_packs_msg = await get_text(user_id, "NO_PACKS_MESSAGE")
             if no_packs_msg is None:
@@ -849,9 +977,7 @@ async def back_to_manage_callback(callback: CallbackQuery):
 async def cancel_pack_management(message: Message, state: FSMContext):
     user_id = message.from_user.id
     await state.clear()
-
     cancel_msg = await get_text(user_id, "OPERATION_CANCELLED")
     if cancel_msg is None:
         cancel_msg = "Operation cancelled."
-
     await message.reply(cancel_msg, reply_markup=await get_back_to_main_keyboard(user_id))

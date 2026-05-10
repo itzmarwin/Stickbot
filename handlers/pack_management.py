@@ -163,11 +163,11 @@ async def get_delete_confirmation_keyboard(user_id: int, short_name: str):
 
     confirm_text = get_text_sync(language, "B_CONFIRM")
     if confirm_text is None:
-        confirm_text = "✅ 𝖸𝖾𝗌, 𝖣𝖾𝗅𝖾𝗍𝖾"
+        confirm_text = "𝖸𝖾𝗌, 𝖣𝖾𝗅𝖾𝗍𝖾"
 
     cancel_text = get_text_sync(language, "B_CANCEL")
     if cancel_text is None:
-        cancel_text = "❌ 𝖢𝖺𝗇𝖼𝖾𝗅"
+        cancel_text = "𝖢𝖺𝗇𝖼𝖾𝗅"
 
     builder = InlineKeyboardBuilder()
     builder.button(text=confirm_text, callback_data=create_callback("confirm_delete", short_name))
@@ -207,7 +207,7 @@ async def pack_selected_callback(callback: CallbackQuery, bot: Bot):
         if not short_name:
             expired_msg = await get_text(user_id, "SESSION_EXPIRED")
             if expired_msg is None:
-                expired_msg = "❌ Session expired. Please try again."
+                expired_msg = "Please send /start again to continue."
             await callback.answer(expired_msg, show_alert=True)
             return
 

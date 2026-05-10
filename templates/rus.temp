@@ -42,7 +42,7 @@ B_PREVIOUS=Предыдущий
 B_NEXT=Следующий
 B_RENAME_PACK=Переименовать пак
 B_ADD_STICKER=Добавить стикер
-B_LAUNCH_PACK=Запустить пак
+B_DELETE_PACK=Удалить набор
 B_CONFIRM=Подтвердить
 B_CANCEL=Отмена
 

@@ -13,7 +13,7 @@ from pyrogram.errors import (
 )
 
 from config import is_admin, LOG_GROUP_ID
-from database import get_all_users, get_served_chats
+from mongo.userdb import get_all_users, get_served_chats
 
 logger = logging.getLogger(__name__)
 

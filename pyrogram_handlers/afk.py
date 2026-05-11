@@ -5,7 +5,7 @@ from pyrogram import Client, filters
 from pyrogram.types import Message
 from pyrogram.enums import MessageEntityType
 
-from database import get_afk_user, set_afk_user, remove_afk_user
+from mongo.stickerdb import get_afk_user, set_afk_user, remove_afk_user
 from pyrogram_handlers.commands import cmd, COMMAND_PREFIXES
 
 

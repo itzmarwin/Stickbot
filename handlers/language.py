@@ -4,7 +4,7 @@ from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from database import get_user_language, set_user_language
+from mongo.userdb import get_user_language, set_user_language
 from utils.language import get_text
 
 logger = logging.getLogger(__name__)

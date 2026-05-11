@@ -11,13 +11,8 @@ BOT_USERNAME = os.getenv("BOT_USERNAME")
 TELEGRAM_API_ID = os.getenv("TELEGRAM_API_ID")
 TELEGRAM_API_HASH = os.getenv("TELEGRAM_API_HASH")
 
-# Single owner ID
+# Owner ID
 OWNER_ID = int(os.getenv("OWNER_ID", "0"))
-
-#publish info
-PUBLISH_OWNER_ID = int(os.getenv("PUBLISH_OWNER_ID", 0)) if os.getenv("PUBLISH_OWNER_ID") else None
-PUBLISH_CHANNEL_ID = int(os.getenv("PUBLISH_CHANNEL_ID", 0)) if os.getenv("PUBLISH_CHANNEL_ID") else None
-
 
 # Multiple admin IDs (comma-separated in .env, includes owner automatically)
 ADMIN_IDS = [int(x) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip().isdigit()]
@@ -25,9 +20,10 @@ ADMIN_IDS = [int(x) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip().
 if OWNER_ID and OWNER_ID not in ADMIN_IDS:
     ADMIN_IDS.append(OWNER_ID)
 
-LOG_GROUP_ID = int(os.getenv("LOG_GROUP_ID", "0"))  # Logger group ID
+# Logger group
+LOG_GROUP_ID = int(os.getenv("LOG_GROUP_ID", "0"))
 
-# Database configuration
+# Database configuration - ek hi URI
 MONGO_URI = os.getenv("MONGO_URI")
 DATABASE_NAME = os.getenv("DATABASE_NAME", "sticker_kang_bot")
 
@@ -36,16 +32,13 @@ MAX_PACK_NAME_LENGTH = 64
 MAX_STICKERS_PER_PACK = 120
 MAX_VIDEO_SIZE_MB = 4
 
-# GBan system configuration
-BANNED_USERS = set()  # In-memory cache for banned users
+# GBan system - in-memory cache
+BANNED_USERS = set()
+
 
 def is_owner(user_id: int) -> bool:
     return user_id == OWNER_ID
 
+
 def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_IDS
-
-# New management 
-MONGO_URI_MANAGEMENT = os.getenv("MONGO_URI_MANAGEMENT")
-DATABASE_NAME_MANAGEMENT = os.getenv("DATABASE_NAME_MANAGEMENT", "sticker_kang_management")
-

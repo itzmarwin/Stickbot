@@ -5,11 +5,13 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from telethon import TelegramClient
 from pyrogram import Client
+from motor.motor_asyncio import AsyncIOMotorClient
 
-from config import BOT_TOKEN, TELEGRAM_API_ID, TELEGRAM_API_HASH, LOG_GROUP_ID
+from config import BOT_TOKEN, TELEGRAM_API_ID, TELEGRAM_API_HASH, LOG_GROUP_ID, MONGO_URI, DATABASE_NAME
 
-from database import init_db, close_db
-from database_management import init_management_db, close_management_db
+from mongo.userdb import init_userdb, create_indexes as create_user_indexes
+from mongo.stickerdb import init_stickerdb, create_indexes as create_sticker_indexes
+from mongo.managementdb import init_managementdb, create_indexes as create_management_indexes
 
 from handlers import start, kang, misc, logger
 from handlers import sticker_id
@@ -42,9 +44,55 @@ logging.getLogger("aiogram").setLevel(logging.WARNING)
 logging.getLogger("aiogram.event").disabled = True
 logging.getLogger("aiogram.dispatcher").setLevel(logging.WARNING)
 
+# Global clients
 pyro_client = None
 telethon_client = None
 aiogram_bot = None
+mongo_client = None
+
+
+async def init_databases():
+    """Single MongoDB connection, teeno modules ko share karo"""
+    global mongo_client
+
+    mongo_client = AsyncIOMotorClient(
+        MONGO_URI,
+        serverSelectionTimeoutMS=5000,
+        connectTimeoutMS=10000,
+        socketTimeoutMS=30000,
+        maxPoolSize=100,
+        minPoolSize=10,
+        waitQueueTimeoutMS=10000,
+        retryWrites=True,
+        retryReads=True,
+        maxIdleTimeMS=45000
+    )
+
+    # Connection test
+    await mongo_client.admin.command('ping')
+    db = mongo_client[DATABASE_NAME]
+
+    # Teeno modules ko same client aur db do
+    init_userdb(mongo_client, db)
+    init_stickerdb(mongo_client, db)
+    init_managementdb(mongo_client, db)
+
+    # Indexes banao
+    await create_user_indexes()
+    await create_sticker_indexes()
+    await create_management_indexes()
+
+    logging.info("✅ Database initialized successfully")
+    logging.info(f"✅ Connected to: {DATABASE_NAME}")
+
+
+async def close_databases():
+    """Ek hi connection close karna hai"""
+    global mongo_client
+    if mongo_client:
+        logging.info("Closing MongoDB connection...")
+        mongo_client.close()
+        logging.info("✅ MongoDB connection closed")
 
 
 async def setup_pyrogram():
@@ -90,41 +138,34 @@ async def send_startup_notification(bot: Bot):
     if not LOG_GROUP_ID or LOG_GROUP_ID == 0:
         logging.warning("⚠️ LOG_GROUP_ID not configured, skipping startup notification")
         return
-    
+
     try:
         from datetime import datetime
-        
+
         bot_info = await bot.get_me()
-        now = datetime.now()
-        timestamp = now.strftime("%d-%m-%Y %H:%M:%S")
-        
+
         startup_msg = (
             "<b>Bot Restarted Successfully!</b>\n\n"
             f"<b>Bot:</b> @{bot_info.username}\n"
             f"<b>ID:</b> <code>{bot_info.id}</code>\n"
         )
-        
+
         await bot.send_message(
             chat_id=LOG_GROUP_ID,
             text=startup_msg,
             parse_mode=ParseMode.HTML
         )
-        
+
         logging.info(f"✅ Startup notification sent to LOG_GROUP_ID: {LOG_GROUP_ID}")
-        
+
     except Exception as e:
         logging.error(f"❌ Failed to send startup notification: {e}")
 
 
 async def main():
     try:
-        logging.info("Initializing databases...")
-        
-        await init_db()
-        logging.info("✅ Sticker database initialized")
-        
-        await init_management_db()
-        logging.info("✅ Management database initialized")
+        logging.info("Initializing database...")
+        await init_databases()
 
         global aiogram_bot
         aiogram_bot = Bot(
@@ -176,24 +217,20 @@ async def main():
         logging.info("=" * 60)
         logging.info("Shutting down gracefully...")
         logging.info("=" * 60)
-        
+
         if telethon_client:
             logging.info("Disconnecting Telethon...")
             await telethon_client.disconnect()
-        
+
         logging.info("Stopping Pyrogram...")
         await stop_pyrogram()
-        
+
         if aiogram_bot:
             logging.info("Closing Aiogram session...")
             await aiogram_bot.session.close()
-        
-        logging.info("Closing sticker database connection...")
-        await close_db()
-        
-        logging.info("Closing management database connection...")
-        await close_management_db()
-        
+
+        await close_databases()
+
         logging.info("=" * 60)
         logging.info("✅ SHUTDOWN COMPLETE!")
         logging.info("=" * 60)

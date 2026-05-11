@@ -8,10 +8,11 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.exceptions import TelegramBadRequest
 
 from callback_manager import create_callback, parse_callback
-from database import (
+from mongo.userdb import get_user_language
+from mongo.stickerdb import (
     get_user_packs_paginated, update_pack_name, delete_pack_by_short_name,
     get_pack_by_short_name, create_sticker_pack,
-    update_pack_sticker_count, get_user_language
+    update_pack_sticker_count
 )
 from utils.language import get_text, get_text_sync
 from utils.fsm_states import PackManagementStates
@@ -127,28 +128,24 @@ async def get_pack_options_keyboard(user_id: int, short_name: str):
     language = await get_user_language(user_id)
     builder = InlineKeyboardBuilder()
 
-    # Rename Pack + ℹ️
     rename_text = get_text_sync(language, "B_RENAME_PACK")
     if rename_text is None:
         rename_text = "𝖱𝖾𝗇𝖺𝗆𝖾 𝖯𝖺𝖼𝗄"
     builder.button(text=rename_text, callback_data=create_callback("rename_pack", short_name))
     builder.button(text="ℹ️", callback_data=f"{PackManagementCallback.PACK_INFO}rename")
 
-    # Add Sticker + ℹ️
     add_sticker_text = get_text_sync(language, "B_ADD_STICKER")
     if add_sticker_text is None:
         add_sticker_text = "𝖠𝖽𝖽 𝖲𝗍𝗂𝖼𝗄𝖾𝗋"
     builder.button(text=add_sticker_text, callback_data=create_callback("add_sticker", short_name))
     builder.button(text="ℹ️", callback_data=f"{PackManagementCallback.PACK_INFO}add")
 
-    # Delete Pack + ℹ️
     delete_text = get_text_sync(language, "B_DELETE_PACK")
     if delete_text is None:
         delete_text = "🗑️ 𝖣𝖾𝗅𝖾𝗍𝖾 𝖯𝖺𝖼𝗄"
     builder.button(text=delete_text, callback_data=create_callback("delete_pack", short_name))
     builder.button(text="ℹ️", callback_data=f"{PackManagementCallback.PACK_INFO}delete")
 
-    # Back
     back_text = get_text_sync(language, "B_BACK")
     if back_text is None:
         back_text = "⬅️ 𝖡𝖺𝖼𝗄"
@@ -470,7 +467,6 @@ async def confirm_delete_callback(callback: CallbackQuery, bot: Bot):
             try:
                 await bot.delete_sticker_set(short_name)
             except TelegramBadRequest:
-                # Pack already deleted from Telegram, still remove from DB
                 pass
             except Exception as e:
                 logger.error(f"Error deleting sticker set from Telegram: {e}")
@@ -487,7 +483,6 @@ async def confirm_delete_callback(callback: CallbackQuery, bot: Bot):
                 await get_back_to_manage_keyboard(user_id)
             )
         else:
-            # Pack not in DB already
             await manage_packs_callback(callback)
 
     except Exception as e:
@@ -517,7 +512,6 @@ async def cancel_delete_callback(callback: CallbackQuery, bot: Bot):
             await manage_packs_callback(callback)
             return
 
-        # Telegram se real count fetch karo
         try:
             telegram_pack = await bot.get_sticker_set(short_name)
             real_count = len(telegram_pack.stickers)

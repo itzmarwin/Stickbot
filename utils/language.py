@@ -3,7 +3,7 @@ import os
 from typing import Optional, Dict
 from pathlib import Path
 
-from database import get_user_language
+from mongo.userdb import get_user_language
 
 logger = logging.getLogger(__name__)
 

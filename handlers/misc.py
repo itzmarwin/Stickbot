@@ -4,7 +4,8 @@ from datetime import datetime, timedelta
 from aiogram import Router, F
 from aiogram.types import Message
 from aiogram.filters import Command
-from database import get_total_users_count, get_total_packs_count, get_served_chats_count
+from mongo.userdb import get_total_users_count, get_served_chats_count
+from mongo.stickerdb import get_total_packs_count
 from config import is_admin
 router = Router()
 # Store bot start time

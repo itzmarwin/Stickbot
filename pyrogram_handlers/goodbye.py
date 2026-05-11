@@ -21,13 +21,10 @@ from pyrogram_handlers.utils import (
     DEFAULT_AUTO_DELETE_SECONDS,
 )
 
-from database_management import (
-    get_welcome_settings,
-    create_default_welcome_settings,
-    update_goodbye_status,
-    set_custom_goodbye,
-    delete_custom_goodbye,
-    update_goodbye_auto_delete
+from mongo.managementdb import (
+    get_welcome_settings, create_default_welcome_settings,
+    update_goodbye_status, set_custom_goodbye,
+    delete_custom_goodbye, update_goodbye_auto_delete
 )
 
 DEFAULT_GOODBYE_TEXT = (

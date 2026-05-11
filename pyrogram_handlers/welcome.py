@@ -22,13 +22,10 @@ from pyrogram_handlers.utils import (
     DEFAULT_AUTO_DELETE_SECONDS,
 )
 
-from database_management import (
-    get_welcome_settings,
-    create_default_welcome_settings,
-    update_welcome_status,
-    set_custom_welcome,
-    delete_custom_welcome,
-    update_welcome_auto_delete
+from mongo.managementdb import (
+    get_welcome_settings, create_default_welcome_settings,
+    update_welcome_status, set_custom_welcome,
+    delete_custom_welcome, update_welcome_auto_delete
 )
 
 DEFAULT_WELCOME_TEXT = (

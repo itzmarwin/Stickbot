@@ -5,7 +5,7 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from datetime import datetime
 
-from database import get_user, create_user, get_user_language
+from mongo.userdb import get_user, create_user, get_user_language
 from utils.language import get_text
 from utils.html_utils import escape_html
 from config import BOT_USERNAME, LOG_GROUP_ID

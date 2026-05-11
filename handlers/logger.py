@@ -6,7 +6,7 @@ import logging
 
 from config import LOG_GROUP_ID
 from templates import BOT_ADDED_TO_GROUP, BOT_REMOVED_FROM_GROUP
-from database import add_served_chat, remove_served_chat  # NEW IMPORT
+from mongo.userdb import add_served_chat, remove_served_chat
 
 logger = logging.getLogger(__name__)
 router = Router()

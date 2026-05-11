@@ -6,12 +6,9 @@ import asyncio
 
 from pyrogram_handlers.utils import is_user_admin
 
-from database_management import (
-    add_filter,
-    get_filter,
-    get_all_filters,
-    delete_filter,
-    delete_all_filters
+from mongo.managementdb import (
+    add_filter, get_all_filters,
+    delete_filter, delete_all_filters
 )
 
 _filters_cache: dict = {}

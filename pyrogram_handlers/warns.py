@@ -6,14 +6,10 @@ from pyrogram.enums import ParseMode
 from pyrogram.errors import PeerIdInvalid
 
 from pyrogram_handlers.utils import is_user_admin
-from database_management import (
-    get_user_warns,
-    add_warn,
-    remove_one_warn,
-    reset_user_warns,
-    get_warn_settings,
-    set_warn_limit,
-    set_warn_mode
+from mongo.managementdb import (
+    get_user_warns, add_warn, remove_one_warn,
+    reset_user_warns, get_warn_settings,
+    set_warn_limit, set_warn_mode
 )
 
 logger = logging.getLogger(__name__)

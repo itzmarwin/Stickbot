@@ -3,7 +3,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import CallbackQuery
 from aiogram.exceptions import TelegramBadRequest
 
-from database import get_user_language
+from mongo.userdb import get_user_language
 from utils.language import get_text_sync
 
 logger = logging.getLogger(__name__)

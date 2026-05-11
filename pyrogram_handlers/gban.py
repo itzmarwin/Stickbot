@@ -6,10 +6,11 @@ from pyrogram.errors import FloodWait
 from pyrogram.enums import ChatMemberStatus
 
 from config import is_admin, LOG_GROUP_ID
-from database import (
+from mongo.userdb import (
     add_banned_user, remove_banned_user, get_banned_count, get_banned_users,
-    get_served_chats, is_banned_user, delete_user_packs
+    get_served_chats, is_banned_user
 )
+from mongo.stickerdb import delete_user_packs
 
 BANNED_USERS = set()
 

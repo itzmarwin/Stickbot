@@ -7,10 +7,8 @@ from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, I
 from aiogram.fsm.context import FSMContext
 from aiogram.exceptions import TelegramRetryAfter
 
-from database import (
-    get_user, create_sticker_pack, get_pack_by_short_name,
-    update_pack_sticker_count
-)
+from mongo.userdb import get_user
+from mongo.stickerdb import create_sticker_pack, get_pack_by_short_name, update_pack_sticker_count
 from utils.fsm_states import CopyPackStates
 from utils.helpers import validate_pack_name, format_pack_name, generate_short_name
 from utils.html_utils import escape_html

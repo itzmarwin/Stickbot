@@ -175,9 +175,12 @@ async def setup_afk_handlers(client: Client):
                     mentioned_users.append(entity.user)
                 elif entity.type == MessageEntityType.MENTION:
                     username = message.text[entity.offset: entity.offset + entity.length]
-                    mentioned_user = await client.get_users(username)
-                    if mentioned_user:
-                        mentioned_users.append(mentioned_user)
+                    try:
+                        mentioned_user = await client.get_users(username)
+                        if mentioned_user:
+                            mentioned_users.append(mentioned_user)
+                    except Exception:
+                        pass
 
         for u in mentioned_users:
             afk_data = afk_cache.get(u.id)

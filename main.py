@@ -119,11 +119,11 @@ async def setup_pyrogram():
         await setup_ban_handlers(pyro_client)
         await setup_warn_handlers(pyro_client)
         await setup_mute_handlers(pyro_client)
-        await setup_locks_handlers(pyro_client)
+        #await setup_locks_handlers(pyro_client)
         await setup_filter_handlers(pyro_client)
         await setup_afk_handlers(pyro_client)
         await setup_restart_handlers(pyro_client)
-       # await setup_extra_handlers(pyro_client)
+        await setup_extra_handlers(pyro_client)
 
         return pyro_client
 

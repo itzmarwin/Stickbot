@@ -34,6 +34,7 @@ from pyrogram_handlers.extra import setup_extra_handlers
 from pyrogram_handlers.ban import setup_ban_handlers
 from pyrogram_handlers.filters import setup_filter_handlers
 from pyrogram_handlers.warns import setup_warn_handlers
+from pyrogram_handlers.mute import setup_mute_handlers
 
 logging.basicConfig(
     level=logging.INFO,
@@ -116,6 +117,7 @@ async def setup_pyrogram():
         await setup_goodbye_handlers(pyro_client)
         await setup_ban_handlers(pyro_client)
         await setup_warn_handlers(pyro_client)
+        await setup_mute_handlers(pyro_client)
         await setup_filter_handlers(pyro_client)
         await setup_afk_handlers(pyro_client)
         await setup_restart_handlers(pyro_client)

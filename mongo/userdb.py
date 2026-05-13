@@ -9,6 +9,8 @@ _client: Optional[AsyncIOMotorClient] = None
 _db = None
 
 _lang_cache: Dict[int, str] = {}
+_user_cache: Dict[int, Dict[str, Any]] = {}
+_started_users: set = set()
 
 
 def init_userdb(client: AsyncIOMotorClient, db):
@@ -24,8 +26,17 @@ async def create_indexes():
 
 
 async def get_user(user_id: int) -> Optional[Dict[str, Any]]:
+    if user_id in _user_cache:
+        return _user_cache[user_id]
     try:
-        return await _db.users.find_one({"user_id": user_id})
+        user = await _db.users.find_one({"user_id": user_id})
+        if user:
+            _user_cache[user_id] = user
+            if user.get("has_started"):
+                _started_users.add(user_id)
+            if "language" in user:
+                _lang_cache[user_id] = user["language"]
+        return user
     except Exception as e:
         logger.error(f"Error getting user {user_id}: {e}")
         return None
@@ -52,7 +63,16 @@ async def create_user(
             },
             upsert=True
         )
+        user_data = {
+            "user_id": user_id,
+            "username": username,
+            "first_name": first_name,
+            "has_started": True,
+            "language": language
+        }
+        _user_cache[user_id] = user_data
         _lang_cache[user_id] = language
+        _started_users.add(user_id)
         return True
     except Exception as e:
         logger.error(f"Error creating user {user_id}: {e}")
@@ -99,6 +119,8 @@ async def set_user_language(user_id: int, language: str) -> bool:
             upsert=True
         )
         _lang_cache[user_id] = language
+        if user_id in _user_cache:
+            _user_cache[user_id]["language"] = language
         return True
     except Exception as e:
         logger.error(f"Error setting language for user {user_id}: {e}")

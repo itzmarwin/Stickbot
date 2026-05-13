@@ -31,7 +31,6 @@ def load_template(language: str) -> Dict[str, str]:
         with open(template_path, "r", encoding="utf-8") as f:
             template = json.load(f)
         _template_cache[language] = template
-        logger.info(f"Loaded template '{language}': {len(template)} keys")
         return template
     except Exception as e:
         logger.error(f"Error loading template {template_path}: {e}")
@@ -46,7 +45,6 @@ async def get_text(user_id: int, key: str, **kwargs) -> Optional[str]:
         template = _template_cache.get(language) or _template_cache.get(DEFAULT_LANGUAGE, {})
 
         if key not in template:
-            logger.warning(f"Key '{key}' not found for language '{language}'")
             return None
 
         message = template[key]
@@ -67,7 +65,6 @@ def get_text_sync(language: str, key: str, **kwargs) -> Optional[str]:
         template = _template_cache.get(language) or _template_cache.get(DEFAULT_LANGUAGE, {})
 
         if key not in template:
-            logger.warning(f"Key '{key}' not found for language '{language}'")
             return None
 
         message = template[key]
@@ -88,7 +85,6 @@ def reload_templates():
     _template_cache.clear()
     for lang in SUPPORTED_LANGUAGES:
         load_template(lang)
-    logger.info("All templates reloaded")
 
 
 def get_available_languages() -> list:
@@ -98,10 +94,8 @@ def get_available_languages() -> list:
     ]
 
 
-# Startup pe sabhi languages RAM mein load
 try:
     for lang in SUPPORTED_LANGUAGES:
         load_template(lang)
-    logger.info(f"Templates preloaded: {', '.join(SUPPORTED_LANGUAGES)}")
 except Exception as e:
     logger.error(f"Failed to preload templates: {e}")

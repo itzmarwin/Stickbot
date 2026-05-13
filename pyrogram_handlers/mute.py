@@ -158,42 +158,31 @@ def make_mention(user_id: int, first_name: str) -> str:
 async def mute_with_retry(client: Client, chat_id: int, user_id: int, until_date=None):
     """
     User ko mute karo — FloodWait handle karta hai.
-    until_date None hone par permanent mute.
+    until_date None hone par permanent mute — until_date pass hi nahi karte.
     """
+    permissions = ChatPermissions(
+        can_send_messages=False,
+        can_send_media_messages=False,
+        can_send_other_messages=False,
+        can_add_web_page_previews=False,
+        can_send_polls=False,
+        can_change_info=False,
+        can_invite_users=False,
+        can_pin_messages=False,
+    )
+
+    async def _do_restrict():
+        if until_date is not None:
+            await client.restrict_chat_member(chat_id, user_id, permissions, until_date=until_date)
+        else:
+            await client.restrict_chat_member(chat_id, user_id, permissions)
+
     try:
-        await client.restrict_chat_member(
-            chat_id,
-            user_id,
-            ChatPermissions(
-                can_send_messages=False,
-                can_send_media_messages=False,
-                can_send_other_messages=False,
-                can_add_web_page_previews=False,
-                can_send_polls=False,
-                can_change_info=False,
-                can_invite_users=False,
-                can_pin_messages=False,
-            ),
-            until_date=until_date
-        )
+        await _do_restrict()
     except FloodWait as e:
         if e.value <= 10:
             await asyncio.sleep(e.value)
-            await client.restrict_chat_member(
-                chat_id,
-                user_id,
-                ChatPermissions(
-                    can_send_messages=False,
-                    can_send_media_messages=False,
-                    can_send_other_messages=False,
-                    can_add_web_page_previews=False,
-                    can_send_polls=False,
-                    can_change_info=False,
-                    can_invite_users=False,
-                    can_pin_messages=False,
-                ),
-                until_date=until_date
-            )
+            await _do_restrict()
         else:
             raise
 
@@ -331,9 +320,10 @@ async def setup_mute_handlers(client: Client):
 
         is_admin, can_restrict = await check_admin_with_permission(client, chat_id, admin_id)
         if not is_admin or not can_restrict:
+            # Silent command hai — koi message nahi, bas return
             return
 
-        target_identifier, reason = extract_user_and_reason(message)
+        target_identifier, _ = extract_user_and_reason(message)
         if not target_identifier:
             return
 
@@ -353,23 +343,24 @@ async def setup_mute_handlers(client: Client):
 
         try:
             await mute_with_retry(client, chat_id, target_user_id)
+            logger.info(f"Smute: user {target_user_id} muted in chat {chat_id} by admin {admin_id}")
 
             if message.reply_to_message:
                 try:
                     await message.reply_to_message.delete()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning(f"Smute: couldn't delete replied message: {e}")
             try:
                 await message.delete()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Smute: couldn't delete command message: {e}")
 
         except ChatAdminRequired:
-            pass
+            logger.warning(f"Smute: bot lacks admin rights in chat {chat_id}")
         except UserAdminInvalid:
-            pass
+            logger.warning(f"Smute: target {target_user_id} is admin, can't mute")
         except Exception as e:
-            logger.error(f"Smute error: {e}")
+            logger.error(f"Smute error: {e}", exc_info=True)
 
 
     # ══════════════════════════════════════════════════════
@@ -649,23 +640,24 @@ async def setup_mute_handlers(client: Client):
         try:
             mute_until = datetime.now() + timedelta(seconds=mute_seconds)
             await mute_with_retry(client, chat_id, target_user_id, mute_until)
+            logger.info(f"Stmute: user {target_user_id} muted for {mute_seconds}s in chat {chat_id} by admin {admin_id}")
 
             if message.reply_to_message:
                 try:
                     await message.reply_to_message.delete()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning(f"Stmute: couldn't delete replied message: {e}")
             try:
                 await message.delete()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Stmute: couldn't delete command message: {e}")
 
         except ChatAdminRequired:
-            pass
+            logger.warning(f"Stmute: bot lacks admin rights in chat {chat_id}")
         except UserAdminInvalid:
-            pass
+            logger.warning(f"Stmute: target {target_user_id} is admin, can't mute")
         except Exception as e:
-            logger.error(f"Stmute error: {e}")
+            logger.error(f"Stmute error: {e}", exc_info=True)
 
 
     # ══════════════════════════════════════════════════════

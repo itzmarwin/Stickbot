@@ -1,10 +1,10 @@
 import asyncio
 import logging
 import unicodedata
-from typing import Optional, List, Tuple
+from typing import Optional, List, Dict
 
 from pyrogram import Client, filters
-from pyrogram.types import Message
+from pyrogram.types import Message, ChatPermissions
 from pyrogram.enums import (
     ParseMode,
     ChatMemberStatus,
@@ -31,46 +31,44 @@ from mongo.locksdb import (
 logger = logging.getLogger(__name__)
 
 # ============================================================
-# LOCK TYPE DESCRIPTIONS
+# LOCK DESCRIPTIONS
 # ============================================================
 
 LOCK_DESCRIPTIONS = {
-    # DB locks
-    "links":         "URLs and hyperlinks",
-    "allforward":    "Forwarded messages from users and channels",
-    "userforward":   "Forwarded messages from users",
-    "channelforward":"Forwarded messages from channels",
-    "anonchannel":   "Messages sent as a channel (Send as Chat)",
-    "bot":           "Adding new bots to the group",
-    "audio":         "Audio files and music",
-    "voice":         "Voice messages",
-    "video":         "Video messages",
-    "gif":           "GIF animations",
-    "document":      "Documents and uncompressed files",
-    "album":         "Photo or document albums",
-    "contact":       "Contact cards",
-    "emoji":         "Messages containing any emoji",
-    "emojicustom":   "Messages containing custom Telegram emoji",
-    "command":       "Telegram bot commands (e.g. /start)",
-    "email":         "Messages containing email addresses",
-    "phone":         "Messages containing phone numbers",
-    "poll":          "Poll messages",
-    "checklist":     "Native Telegram checklist messages",
-    "forwardstory":  "Forwarded user stories",
-    "externalreply": "Replies to messages from other chats",
-    "comment":       "Messages from non-member channel commenters",
-    "inline":        "Messages sent via inline bots (e.g. @gif)",
-    # Native locks
-    "msg":           "All text messages",
-    "media":         "Photos, videos and other media",
-    "stickers":      "Sticker messages",
-    "animations":    "Animations (GIFs via Telegram native)",
-    "games":         "Game bot messages",
-    "webprev":       "Web page link previews",
-    "polls":         "Poll creation (native permission)",
-    "info":          "Changing group info",
-    "invite":        "Inviting users to the group",
-    "pin":           "Pinning messages",
+    "links":          "URLs and hyperlinks",
+    "allforward":     "Forwarded messages from users and channels",
+    "userforward":    "Forwarded messages from users only",
+    "channelforward": "Forwarded messages from channels only",
+    "anonchannel":    "Messages sent as a channel (Send as Chat)",
+    "bot":            "Adding new bots to the group",
+    "audio":          "Audio files and music",
+    "voice":          "Voice messages",
+    "video":          "Video messages",
+    "gif":            "GIF animations",
+    "document":       "Documents and uncompressed files",
+    "album":          "Photo or document albums",
+    "contact":        "Contact cards",
+    "emoji":          "Messages containing any emoji",
+    "emojicustom":    "Messages containing custom Telegram emoji",
+    "command":        "Telegram bot commands (e.g. /start)",
+    "email":          "Messages containing email addresses",
+    "phone":          "Messages containing phone numbers",
+    "poll":           "Poll messages",
+    "checklist":      "Native Telegram checklist messages",
+    "forwardstory":   "Forwarded user stories",
+    "externalreply":  "Replies to messages from other chats",
+    "comment":        "Messages from non-member channel commenters",
+    "inline":         "Messages sent via inline bots (e.g. @gif)",
+    "msg":            "All text messages",
+    "media":          "Photos, videos and other media",
+    "stickers":       "Sticker messages",
+    "animations":     "Animations (native Telegram permission)",
+    "games":          "Game bot messages",
+    "webprev":        "Web page link previews",
+    "polls":          "Poll creation (native permission)",
+    "info":           "Changing group info",
+    "invite":         "Inviting users to the group",
+    "pin":            "Pinning messages",
 }
 
 LOCK_TYPES_TEXT = """<b>🔒 Available Lock Types:</b>
@@ -85,9 +83,9 @@ LOCK_TYPES_TEXT = """<b>🔒 Available Lock Types:</b>
 • <code>document</code>    — Documents and uncompressed files
 • <code>album</code>       — Photo or document albums
 • <code>contact</code>     — Contact cards
-• <code>stickers</code>    — Sticker messages
+• <code>stickers</code>    — Sticker messages (native)
 • <code>animations</code>  — Animations (native)
-• <code>games</code>       — Game bot messages
+• <code>games</code>       — Game bot messages (native)
 • <code>poll</code>        — Poll messages
 • <code>polls</code>       — Poll creation (native permission)
 • <code>checklist</code>   — Native Telegram checklists
@@ -100,7 +98,7 @@ LOCK_TYPES_TEXT = """<b>🔒 Available Lock Types:</b>
 • <code>command</code>     — Bot commands (e.g. /start)
 • <code>emoji</code>       — Messages containing any emoji
 • <code>emojicustom</code> — Custom Telegram emoji
-• <code>webprev</code>     — Web page link previews
+• <code>webprev</code>     — Web page link previews (native)
 
 <b>── Forwards ──</b>
 • <code>allforward</code>     — All forwarded messages
@@ -110,9 +108,9 @@ LOCK_TYPES_TEXT = """<b>🔒 Available Lock Types:</b>
 
 <b>── User Actions ──</b>
 • <code>bot</code>         — Adding bots to the group
-• <code>invite</code>      — Inviting users
-• <code>pin</code>         — Pinning messages
-• <code>info</code>        — Changing group info
+• <code>invite</code>      — Inviting users (native)
+• <code>pin</code>         — Pinning messages (native)
+• <code>info</code>        — Changing group info (native)
 • <code>anonchannel</code> — Sending as a channel
 
 <b>── Other ──</b>
@@ -120,35 +118,48 @@ LOCK_TYPES_TEXT = """<b>🔒 Available Lock Types:</b>
 • <code>comment</code>       — Non-member channel commenters
 
 <b>Usage:</b>
-• <code>/lock &lt;type&gt;</code>
-• <code>/lock type1, type2, type3</code>
-• <code>/lock all</code> or <code>/lock everything</code>
-• <code>/unlock &lt;type&gt;</code>
-• <code>/unlock type1, type2</code>
-• <code>/unlock all</code> or <code>/unlock everything</code>"""
+<code>/lock &lt;type&gt;</code>
+<code>/lock type1, type2, type3</code>
+<code>/lock all</code> or <code>/lock everything</code>
+<code>/unlock &lt;type&gt;</code>
+<code>/unlock type1, type2</code>
+<code>/unlock all</code> or <code>/unlock everything</code>"""
 
 
 # ============================================================
 # NATIVE PERMISSION HELPERS
 # ============================================================
 
-def _build_native_permissions(current_perms, lock_type: str, locking: bool):
+async def _get_current_permissions(client: Client, chat_id: int) -> Optional[ChatPermissions]:
     """
-    Return a dict of ChatPermissions kwargs with the target permission set.
-    We read current values so we don't accidentally reset everything else.
+    Fetch fresh chat permissions from Telegram.
+    message.chat.permissions is sometimes None or stale — always fetch fresh.
     """
-    from pyrogram.types import ChatPermissions
+    try:
+        chat = await client.get_chat(chat_id)
+        return chat.permissions
+    except Exception as e:
+        logger.error(f"Error fetching chat permissions for {chat_id}: {e}")
+        return None
 
-    msg       = current_perms.can_send_messages
-    media     = current_perms.can_send_media_messages
-    other     = current_perms.can_send_other_messages
-    webprev   = current_perms.can_add_web_page_previews
-    polls     = current_perms.can_send_polls
-    info      = current_perms.can_change_info
-    invite    = current_perms.can_invite_users
-    pin       = current_perms.can_pin_messages
 
-    val = not locking  # locking=True → False (disable), locking=False → True (enable)
+def _apply_native_lock(perms: ChatPermissions, lock_type: str, locking: bool) -> ChatPermissions:
+    """
+    Return new ChatPermissions with the target field changed.
+    locking=True  → set to False (disable)
+    locking=False → set to True  (enable)
+    """
+    val = not locking
+
+    # Read all current values safely (default True for unlock safety)
+    msg     = perms.can_send_messages      if perms else True
+    media   = perms.can_send_media_messages if perms else True
+    other   = perms.can_send_other_messages if perms else True
+    webprev = perms.can_add_web_page_previews if perms else True
+    polls   = perms.can_send_polls         if perms else True
+    info    = perms.can_change_info        if perms else True
+    invite  = perms.can_invite_users       if perms else True
+    pin     = perms.can_pin_messages       if perms else True
 
     if lock_type == "msg":
         msg = val
@@ -179,8 +190,7 @@ def _build_native_permissions(current_perms, lock_type: str, locking: bool):
     )
 
 
-def _all_native_locked():
-    from pyrogram.types import ChatPermissions
+def _all_permissions_locked() -> ChatPermissions:
     return ChatPermissions(
         can_send_messages=False,
         can_send_media_messages=False,
@@ -193,8 +203,7 @@ def _all_native_locked():
     )
 
 
-def _all_native_unlocked():
-    from pyrogram.types import ChatPermissions
+def _all_permissions_unlocked() -> ChatPermissions:
     return ChatPermissions(
         can_send_messages=True,
         can_send_media_messages=True,
@@ -215,9 +224,7 @@ def _has_emoji(text: str) -> bool:
     if not text:
         return False
     for char in text:
-        cat = unicodedata.category(char)
-        # So = Symbol, other (most emoji) | Cs = surrogate (some emoji sequences)
-        if cat in ("So", "Cs"):
+        if unicodedata.category(char) in ("So", "Cs"):
             return True
     return False
 
@@ -264,7 +271,6 @@ def _is_any_forward(message: Message) -> bool:
 
 
 def _is_anon_channel(message: Message) -> bool:
-    """Sent as a channel (not a forwarded channel message)."""
     return bool(message.sender_chat and not message.forward_from_chat)
 
 
@@ -272,7 +278,7 @@ def _is_album(message: Message) -> bool:
     return bool(message.media_group_id)
 
 
-# pyrotgfork-specific — safe fallbacks for standard pyrogram
+# pyrotgfork-specific — safe fallbacks
 def _is_forward_story(message: Message) -> bool:
     return bool(getattr(message, "forward_story", None) or getattr(message, "story", None))
 
@@ -291,16 +297,12 @@ def _is_checklist(message: Message) -> bool:
 
 async def setup_locks_handlers(client: Client):
 
-    # ──────────────────────────────────────────────────────────
-    # /locktypes
-    # ──────────────────────────────────────────────────────────
+    # ── /locktypes ────────────────────────────────────────────
     @client.on_message(filters.command("locktypes") & filters.group)
     async def locktypes_command(_, message: Message):
         await message.reply_text(LOCK_TYPES_TEXT, parse_mode=ParseMode.HTML)
 
-    # ──────────────────────────────────────────────────────────
-    # /lock
-    # ──────────────────────────────────────────────────────────
+    # ── /lock ─────────────────────────────────────────────────
     @client.on_message(filters.command("lock") & filters.group)
     async def lock_command(client: Client, message: Message):
         chat_id = message.chat.id
@@ -322,17 +324,13 @@ async def setup_locks_handlers(client: Client):
 
         raw_args = parts[1].strip()
 
-        # /lock all or /lock everything
+        # /lock all OR /lock everything
         if raw_args.lower() in ("all", "everything"):
-            # Native: disable all
             try:
-                await client.set_chat_permissions(chat_id, _all_native_locked())
+                await client.set_chat_permissions(chat_id, _all_permissions_locked())
             except (ChatAdminRequired, ChatNotModified):
                 pass
-
-            # DB: enable all
             await enable_all_db_locks(chat_id)
-
             await message.reply_text(
                 "🔒 <b>All permissions locked</b> for this chat.",
                 parse_mode=ParseMode.HTML
@@ -343,6 +341,12 @@ async def setup_locks_handlers(client: Client):
         requested = [t.strip().lower() for t in raw_args.split(",") if t.strip()]
         invalid, native_done, db_done = [], [], []
 
+        # Fetch fresh permissions once (only if there are native types to set)
+        has_native = any(t in NATIVE_LOCK_TYPES for t in requested)
+        current_perms = None
+        if has_native:
+            current_perms = await _get_current_permissions(client, chat_id)
+
         for lock_type in requested:
             if lock_type not in ALL_LOCK_TYPES:
                 invalid.append(lock_type)
@@ -350,10 +354,10 @@ async def setup_locks_handlers(client: Client):
 
             if lock_type in NATIVE_LOCK_TYPES:
                 try:
-                    new_perms = _build_native_permissions(
-                        message.chat.permissions, lock_type, locking=True
-                    )
+                    new_perms = _apply_native_lock(current_perms, lock_type, locking=True)
                     await client.set_chat_permissions(chat_id, new_perms)
+                    # Update current_perms so next iteration has latest state
+                    current_perms = new_perms
                     native_done.append(lock_type)
                 except ChatAdminRequired:
                     await message.reply_text(
@@ -366,27 +370,20 @@ async def setup_locks_handlers(client: Client):
             else:
                 db_done.append(lock_type)
 
-        # Bulk DB write
         if db_done:
             await enable_multiple_locks(chat_id, db_done)
 
-        # Build response
         all_done = native_done + db_done
         lines = []
         if all_done:
-            locked_list = ", ".join(f"<code>{t}</code>" for t in all_done)
-            lines.append(f"🔒 Locked: {locked_list}")
+            lines.append("🔒 Locked: " + ", ".join(f"<code>{t}</code>" for t in all_done))
         if invalid:
-            inv_list = ", ".join(f"<code>{t}</code>" for t in invalid)
-            lines.append(f"⚠️ Unknown types: {inv_list}")
+            lines.append("⚠️ Unknown: " + ", ".join(f"<code>{t}</code>" for t in invalid))
             lines.append("Use <code>/locktypes</code> to see valid types.")
-
         if lines:
             await message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
 
-    # ──────────────────────────────────────────────────────────
-    # /unlock
-    # ──────────────────────────────────────────────────────────
+    # ── /unlock ───────────────────────────────────────────────
     @client.on_message(filters.command("unlock") & filters.group)
     async def unlock_command(client: Client, message: Message):
         chat_id = message.chat.id
@@ -408,17 +405,13 @@ async def setup_locks_handlers(client: Client):
 
         raw_args = parts[1].strip()
 
-        # /unlock all or /unlock everything
+        # /unlock all OR /unlock everything
         if raw_args.lower() in ("all", "everything"):
-            # Native: enable all
             try:
-                await client.set_chat_permissions(chat_id, _all_native_unlocked())
+                await client.set_chat_permissions(chat_id, _all_permissions_unlocked())
             except (ChatAdminRequired, ChatNotModified):
                 pass
-
-            # DB: delete document entirely
             await disable_all_locks(chat_id)
-
             await message.reply_text(
                 "🔓 <b>All permissions unlocked</b> for this chat.",
                 parse_mode=ParseMode.HTML
@@ -429,6 +422,11 @@ async def setup_locks_handlers(client: Client):
         requested = [t.strip().lower() for t in raw_args.split(",") if t.strip()]
         invalid, native_done, db_done = [], [], []
 
+        has_native = any(t in NATIVE_LOCK_TYPES for t in requested)
+        current_perms = None
+        if has_native:
+            current_perms = await _get_current_permissions(client, chat_id)
+
         for lock_type in requested:
             if lock_type not in ALL_LOCK_TYPES:
                 invalid.append(lock_type)
@@ -436,10 +434,9 @@ async def setup_locks_handlers(client: Client):
 
             if lock_type in NATIVE_LOCK_TYPES:
                 try:
-                    new_perms = _build_native_permissions(
-                        message.chat.permissions, lock_type, locking=False
-                    )
+                    new_perms = _apply_native_lock(current_perms, lock_type, locking=False)
                     await client.set_chat_permissions(chat_id, new_perms)
+                    current_perms = new_perms
                     native_done.append(lock_type)
                 except ChatAdminRequired:
                     await message.reply_text(
@@ -452,36 +449,29 @@ async def setup_locks_handlers(client: Client):
             else:
                 db_done.append(lock_type)
 
-        # Bulk DB write
         if db_done:
             await disable_multiple_locks(chat_id, db_done)
 
-        # Build response
         all_done = native_done + db_done
         lines = []
         if all_done:
-            unlocked_list = ", ".join(f"<code>{t}</code>" for t in all_done)
-            lines.append(f"🔓 Unlocked: {unlocked_list}")
+            lines.append("🔓 Unlocked: " + ", ".join(f"<code>{t}</code>" for t in all_done))
         if invalid:
-            inv_list = ", ".join(f"<code>{t}</code>" for t in invalid)
-            lines.append(f"⚠️ Unknown types: {inv_list}")
+            lines.append("⚠️ Unknown: " + ", ".join(f"<code>{t}</code>" for t in invalid))
             lines.append("Use <code>/locktypes</code> to see valid types.")
-
         if lines:
             await message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
 
-    # ──────────────────────────────────────────────────────────
-    # /locks  — show active locks
-    # ──────────────────────────────────────────────────────────
+    # ── /locks — show active locks ────────────────────────────
     @client.on_message(filters.command("locks") & filters.group)
     async def locks_command(client: Client, message: Message):
         chat_id = message.chat.id
 
-        # DB locks (from cache/DB)
+        # DB locks (cache-first)
         db_locks = await get_chat_locks(chat_id)
 
-        # Native locks (from Telegram chat permissions)
-        perms = message.chat.permissions
+        # Native locks — fetch fresh from Telegram
+        perms = await _get_current_permissions(client, chat_id)
         native_active = []
         if perms:
             if not perms.can_send_messages:
@@ -511,22 +501,23 @@ async def setup_locks_handlers(client: Client):
         lines = ["<b>🔒 Active Locks:</b>\n"]
 
         if native_active:
-            lines.append("<b>Telegram Permissions:</b>")
+            lines.append("<b>Telegram Permissions (disabled):</b>")
             for n in native_active:
                 lines.append(f"  • <code>{n}</code>")
             lines.append("")
 
         if db_locks:
-            lines.append("<b>Content Locks:</b>")
+            lines.append("<b>Content Locks (bot enforced):</b>")
             for lock_type in sorted(db_locks.keys()):
                 desc = LOCK_DESCRIPTIONS.get(lock_type, "")
-                lines.append(f"  • <code>{lock_type}</code> — {desc}" if desc else f"  • <code>{lock_type}</code>")
+                entry = f"  • <code>{lock_type}</code>"
+                if desc:
+                    entry += f" — {desc}"
+                lines.append(entry)
 
         await message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
 
-    # ──────────────────────────────────────────────────────────
-    # SERVICE: bot added → ban it if bot lock is on
-    # ──────────────────────────────────────────────────────────
+    # ── Service: bot added → ban if bot lock on ───────────────
     @client.on_message(filters.service & filters.group, group=5)
     async def service_bot_lock(client: Client, message: Message):
         if message.service != MessageServiceType.NEW_CHAT_MEMBERS:
@@ -534,7 +525,6 @@ async def setup_locks_handlers(client: Client):
 
         chat_id = message.chat.id
         locks = await get_chat_locks(chat_id)
-
         if not locks.get("bot"):
             return
 
@@ -551,20 +541,18 @@ async def setup_locks_handlers(client: Client):
             except Exception as e:
                 logger.error(f"Bot lock ban error in {chat_id}: {e}")
 
-    # ──────────────────────────────────────────────────────────
-    # MESSAGE WATCHER — enforce DB locks
-    # group=6 → low priority, runs after all other handlers
-    # ──────────────────────────────────────────────────────────
+    # ── Message watcher — enforce DB locks ────────────────────
+    # group=6 → runs after all other handlers (low priority)
     @client.on_message(filters.group & ~filters.me, group=6)
     async def lock_message_watcher(client: Client, message: Message):
         chat_id = message.chat.id
 
-        # Fast path: fetch from cache (RAM only after first load)
+        # Fast path: cache hit → no DB call
         locks = await get_chat_locks(chat_id)
         if not locks:
             return
 
-        # Skip admins / bots
+        # Skip admins
         user = message.from_user
         if user:
             try:
@@ -573,8 +561,7 @@ async def setup_locks_handlers(client: Client):
                     return
             except Exception:
                 pass
-        
-        # Helper: delete silently
+
         async def _delete():
             try:
                 await message.delete()
@@ -583,82 +570,58 @@ async def setup_locks_handlers(client: Client):
 
         # ── Anon channel ──────────────────────────────────────
         if locks.get("anonchannel") and _is_anon_channel(message):
-            await _delete()
-            return
+            await _delete(); return
 
         # ── Forwards ─────────────────────────────────────────
         if locks.get("allforward") and _is_any_forward(message):
-            await _delete()
-            return
+            await _delete(); return
         if locks.get("userforward") and _is_forward_from_user(message):
-            await _delete()
-            return
+            await _delete(); return
         if locks.get("channelforward") and _is_forward_from_channel(message):
-            await _delete()
-            return
+            await _delete(); return
         if locks.get("forwardstory") and _is_forward_story(message):
-            await _delete()
-            return
+            await _delete(); return
 
         # ── External reply ────────────────────────────────────
         if locks.get("externalreply") and _is_external_reply(message):
-            await _delete()
-            return
+            await _delete(); return
 
         # ── Inline bot ────────────────────────────────────────
         if locks.get("inline") and _has_inline(message):
-            await _delete()
-            return
+            await _delete(); return
 
         # ── Media types ───────────────────────────────────────
         media = message.media
         if media:
-            if locks.get("audio") and media == MessageMediaType.AUDIO:
-                await _delete(); return
-            if locks.get("voice") and media == MessageMediaType.VOICE:
-                await _delete(); return
-            if locks.get("video") and media == MessageMediaType.VIDEO:
-                await _delete(); return
-            if locks.get("gif") and media == MessageMediaType.ANIMATION:
-                await _delete(); return
-            if locks.get("document") and media == MessageMediaType.DOCUMENT:
-                await _delete(); return
-            if locks.get("contact") and media == MessageMediaType.CONTACT:
-                await _delete(); return
-            if locks.get("poll") and media == MessageMediaType.POLL:
-                await _delete(); return
+            if locks.get("audio")    and media == MessageMediaType.AUDIO:      await _delete(); return
+            if locks.get("voice")    and media == MessageMediaType.VOICE:      await _delete(); return
+            if locks.get("video")    and media == MessageMediaType.VIDEO:      await _delete(); return
+            if locks.get("gif")      and media == MessageMediaType.ANIMATION:  await _delete(); return
+            if locks.get("document") and media == MessageMediaType.DOCUMENT:   await _delete(); return
+            if locks.get("contact")  and media == MessageMediaType.CONTACT:    await _delete(); return
+            if locks.get("poll")     and media == MessageMediaType.POLL:       await _delete(); return
 
         # ── Checklist (pyrotgfork) ────────────────────────────
         if locks.get("checklist") and _is_checklist(message):
-            await _delete()
-            return
+            await _delete(); return
 
         # ── Album ─────────────────────────────────────────────
         if locks.get("album") and _is_album(message):
-            await _delete()
-            return
+            await _delete(); return
 
         # ── Text / entity-based ───────────────────────────────
-        text = message.text or message.caption or ""
-
-        if locks.get("links") and _has_links(message):
-            await _delete(); return
-        if locks.get("email") and _has_email(message):
-            await _delete(); return
-        if locks.get("phone") and _has_phone(message):
-            await _delete(); return
-        if locks.get("command") and _has_command(message):
-            await _delete(); return
-        if locks.get("emojicustom") and _has_custom_emoji(message):
-            await _delete(); return
-        if locks.get("emoji") and _has_emoji(text):
-            await _delete(); return
+        if locks.get("links")       and _has_links(message):        await _delete(); return
+        if locks.get("email")       and _has_email(message):        await _delete(); return
+        if locks.get("phone")       and _has_phone(message):        await _delete(); return
+        if locks.get("command")     and _has_command(message):      await _delete(); return
+        if locks.get("emojicustom") and _has_custom_emoji(message): await _delete(); return
+        if locks.get("emoji"):
+            text = message.text or message.caption or ""
+            if _has_emoji(text):
+                await _delete(); return
 
         # ── Comment (non-member channel commenter) ────────────
-        if locks.get("comment"):
-            # sender_chat means sent from a linked channel discussion
-            if message.sender_chat:
-                await _delete()
-                return
+        if locks.get("comment") and message.sender_chat:
+            await _delete(); return
 
     logger.info("✅ Locks handlers setup complete")

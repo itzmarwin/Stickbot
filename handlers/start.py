@@ -176,6 +176,55 @@ async def extra_tagall_callback(callback: CallbackQuery):
     except Exception as e:
         logger.error(f"Error in extra_tagall_callback: {e}")
 
+@router.callback_query(F.data == SharedCallbacks.EXTRA_CMD_LOCKS)
+async def extra_locks_callback(callback: CallbackQuery):
+    await callback.answer()
+    try:
+        message_text = await get_text(callback.from_user.id, "LOCKS_INFO_MESSAGE")
+        await safe_edit_message(callback, message_text, await get_back_to_extra_keyboard(callback.from_user.id))
+    except Exception as e:
+        logger.error(f"Error in extra_locks_callback: {e}")
+
+
+@router.callback_query(F.data == SharedCallbacks.EXTRA_CMD_WARNS)
+async def extra_warns_callback(callback: CallbackQuery):
+    await callback.answer()
+    try:
+        message_text = await get_text(callback.from_user.id, "WARNS_INFO_MESSAGE")
+        await safe_edit_message(callback, message_text, await get_back_to_extra_keyboard(callback.from_user.id))
+    except Exception as e:
+        logger.error(f"Error in extra_warns_callback: {e}")
+
+
+@router.callback_query(F.data == SharedCallbacks.EXTRA_CMD_BAN)
+async def extra_ban_callback(callback: CallbackQuery):
+    await callback.answer()
+    try:
+        message_text = await get_text(callback.from_user.id, "BAN_INFO_MESSAGE")
+        await safe_edit_message(callback, message_text, await get_back_to_extra_keyboard(callback.from_user.id))
+    except Exception as e:
+        logger.error(f"Error in extra_ban_callback: {e}")
+
+
+@router.callback_query(F.data == SharedCallbacks.EXTRA_CMD_MUTE)
+async def extra_mute_callback(callback: CallbackQuery):
+    await callback.answer()
+    try:
+        message_text = await get_text(callback.from_user.id, "MUTE_INFO_MESSAGE")
+        await safe_edit_message(callback, message_text, await get_back_to_extra_keyboard(callback.from_user.id))
+    except Exception as e:
+        logger.error(f"Error in extra_mute_callback: {e}")
+
+
+@router.callback_query(F.data == SharedCallbacks.EXTRA_CMD_FILTERS)
+async def extra_filters_callback(callback: CallbackQuery):
+    await callback.answer()
+    try:
+        message_text = await get_text(callback.from_user.id, "FILTERS_INFO_MESSAGE")
+        await safe_edit_message(callback, message_text, await get_back_to_extra_keyboard(callback.from_user.id))
+    except Exception as e:
+        logger.error(f"Error in extra_filters_callback: {e}")
+
 
 @router.callback_query(F.data == SharedCallbacks.BACK_TO_MAIN)
 async def back_to_main_callback(callback: CallbackQuery):

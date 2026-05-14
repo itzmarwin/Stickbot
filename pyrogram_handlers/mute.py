@@ -133,7 +133,8 @@ def make_mention(user_id: int, first_name: str) -> str:
 
 def unmute_button(user_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([[
-        InlineKeyboardButton("Unmute 🔊", callback_data=f"unmute_user={user_id}")
+        InlineKeyboardButton("Unmute", callback_data=f"unmute_user={user_id}"),
+        InlineKeyboardButton("Close", callback_data="mute_close")
     ]])
 
 
@@ -189,12 +190,10 @@ async def setup_mute_handlers(client: Client):
             target_user_id = target_user.id
             parts = message.text.split(maxsplit=1)
             reason = parts[1] if len(parts) > 1 else None
-
             bot = await get_bot_cached(client)
             if target_user_id == bot.id:
                 await message.reply_text("I can't mute myself.", parse_mode=ParseMode.HTML)
                 return
-
             target_is_admin, _ = await get_admin_status(client, chat_id, target_user_id)
             if target_is_admin:
                 await message.reply_text("I can't mute an admin.", parse_mode=ParseMode.HTML)
@@ -207,12 +206,10 @@ async def setup_mute_handlers(client: Client):
                     parse_mode=ParseMode.HTML
                 )
                 return
-
             bot = await get_bot_cached(client)
             if isinstance(identifier, int) and identifier == bot.id:
                 await message.reply_text("I can't mute myself.", parse_mode=ParseMode.HTML)
                 return
-
             target_user_id, target_user, error = await resolve_user(client, identifier)
             if error:
                 await message.reply_text(error, parse_mode=ParseMode.HTML)
@@ -220,7 +217,6 @@ async def setup_mute_handlers(client: Client):
             if target_user_id == bot.id:
                 await message.reply_text("I can't mute myself.", parse_mode=ParseMode.HTML)
                 return
-
             target_is_admin, _ = await get_admin_status(client, chat_id, target_user_id)
             if target_is_admin:
                 await message.reply_text("I can't mute an admin.", parse_mode=ParseMode.HTML)
@@ -256,31 +252,45 @@ async def setup_mute_handlers(client: Client):
             return
 
         is_admin, can_restrict = await get_admin_status(client, chat_id, admin_id)
-        if not is_admin or not can_restrict:
+        if not is_admin:
+            await message.reply_text("Only admins can use this command.", parse_mode=ParseMode.HTML)
+            return
+        if not can_restrict:
+            await message.reply_text("You need restrict permission to mute users.", parse_mode=ParseMode.HTML)
             return
 
         if message.reply_to_message and message.reply_to_message.from_user:
             target_user_id = message.reply_to_message.from_user.id
             bot = await get_bot_cached(client)
             if target_user_id == bot.id:
+                await message.reply_text("I can't mute myself.", parse_mode=ParseMode.HTML)
                 return
             target_is_admin, _ = await get_admin_status(client, chat_id, target_user_id)
             if target_is_admin:
+                await message.reply_text("I can't mute an admin.", parse_mode=ParseMode.HTML)
                 return
         else:
             identifier, _ = extract_user_and_reason(message)
             if not identifier:
+                await message.reply_text(
+                    "Mention a user or reply to their message.\n<code>/smute @username</code>",
+                    parse_mode=ParseMode.HTML
+                )
                 return
             bot = await get_bot_cached(client)
             if isinstance(identifier, int) and identifier == bot.id:
+                await message.reply_text("I can't mute myself.", parse_mode=ParseMode.HTML)
                 return
             target_user_id, _, error = await resolve_user(client, identifier)
             if error or not target_user_id:
+                await message.reply_text(error, parse_mode=ParseMode.HTML)
                 return
             if target_user_id == bot.id:
+                await message.reply_text("I can't mute myself.", parse_mode=ParseMode.HTML)
                 return
             target_is_admin, _ = await get_admin_status(client, chat_id, target_user_id)
             if target_is_admin:
+                await message.reply_text("I can't mute an admin.", parse_mode=ParseMode.HTML)
                 return
 
         try:
@@ -295,11 +305,12 @@ async def setup_mute_handlers(client: Client):
             except Exception:
                 pass
         except ChatAdminRequired:
-            pass
+            await message.reply_text("I need admin rights to mute users.", parse_mode=ParseMode.HTML)
         except UserAdminInvalid:
-            pass
+            await message.reply_text("I can't mute this user.", parse_mode=ParseMode.HTML)
         except Exception as e:
             logger.error(f"smute_command: {e}", exc_info=True)
+            await message.reply_text(f"Failed to mute user.\n<code>{e}</code>", parse_mode=ParseMode.HTML)
 
 
     @client.on_message(filters.command("dmute") & filters.group)
@@ -488,7 +499,11 @@ async def setup_mute_handlers(client: Client):
             return
 
         is_admin, can_restrict = await get_admin_status(client, chat_id, admin_id)
-        if not is_admin or not can_restrict:
+        if not is_admin:
+            await message.reply_text("Only admins can use this command.", parse_mode=ParseMode.HTML)
+            return
+        if not can_restrict:
+            await message.reply_text("You need restrict permission to mute users.", parse_mode=ParseMode.HTML)
             return
 
         target_user_id = None
@@ -498,6 +513,10 @@ async def setup_mute_handlers(client: Client):
             target_user_id = message.reply_to_message.from_user.id
             parts = message.text.split()
             if len(parts) < 2:
+                await message.reply_text(
+                    "Please specify mute duration.\n<code>/stmute 1h</code> [reply]",
+                    parse_mode=ParseMode.HTML
+                )
                 return
             time_val = parts[1]
         else:
@@ -513,6 +532,10 @@ async def setup_mute_handlers(client: Client):
             if not target_user_id:
                 parts = message.text.split()
                 if len(parts) < 3:
+                    await message.reply_text(
+                        "Please specify user and duration.\n<code>/stmute @username 1h</code>",
+                        parse_mode=ParseMode.HTML
+                    )
                     return
                 user_arg = parts[1]
                 time_val = parts[2]
@@ -521,21 +544,29 @@ async def setup_mute_handlers(client: Client):
                 elif user_arg.isdigit():
                     identifier = int(user_arg)
                 else:
+                    await message.reply_text("Couldn't identify the user.", parse_mode=ParseMode.HTML)
                     return
                 target_user_id, _, error = await resolve_user(client, identifier)
                 if error or not target_user_id:
+                    await message.reply_text(error, parse_mode=ParseMode.HTML)
                     return
 
         mute_seconds, _ = extract_time(time_val)
         if not mute_seconds:
+            await message.reply_text(
+                "<b>Invalid time format.</b>\nUse: <code>30m</code>, <code>2h</code>, <code>1d</code>",
+                parse_mode=ParseMode.HTML
+            )
             return
 
         bot = await get_bot_cached(client)
         if target_user_id == bot.id:
+            await message.reply_text("I can't mute myself.", parse_mode=ParseMode.HTML)
             return
 
         target_is_admin, _ = await get_admin_status(client, chat_id, target_user_id)
         if target_is_admin:
+            await message.reply_text("I can't mute an admin.", parse_mode=ParseMode.HTML)
             return
 
         try:
@@ -551,11 +582,12 @@ async def setup_mute_handlers(client: Client):
             except Exception:
                 pass
         except ChatAdminRequired:
-            pass
+            await message.reply_text("I need admin rights to mute users.", parse_mode=ParseMode.HTML)
         except UserAdminInvalid:
-            pass
+            await message.reply_text("I can't mute this user.", parse_mode=ParseMode.HTML)
         except Exception as e:
             logger.error(f"stmute_command: {e}", exc_info=True)
+            await message.reply_text(f"Failed to mute user.\n<code>{e}</code>", parse_mode=ParseMode.HTML)
 
 
     @client.on_message(filters.command("dtmute") & filters.group)
@@ -729,3 +761,12 @@ async def setup_mute_handlers(client: Client):
             parse_mode=ParseMode.HTML
         )
         await callback.answer("User unmuted!")
+
+
+    @client.on_callback_query(filters.regex(r"^mute_close$"))
+    async def mute_close_callback(client: Client, callback: CallbackQuery):
+        try:
+            await callback.message.delete()
+        except Exception:
+            pass
+        await callback.answer()

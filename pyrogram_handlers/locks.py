@@ -17,10 +17,8 @@ from pyrogram.errors import ChatAdminRequired, ChatNotModified, UserAdminInvalid
 from pyrogram_handlers.utils import is_user_admin
 from mongo.locksdb import (
     get_chat_locks,
-    enable_lock,
     enable_multiple_locks,
     enable_all_db_locks,
-    disable_lock,
     disable_multiple_locks,
     disable_all_locks,
     DB_LOCK_TYPES,
@@ -60,7 +58,7 @@ LOCK_DESCRIPTIONS = {
     "comment":        "Messages from non-member channel commenters",
     "inline":         "Messages sent via inline bots (e.g. @gif)",
     "msg":            "All text messages",
-    "media":          "Photos, videos and other media",
+    "media":          "Photos, videos, audio, documents and other media",
     "stickers":       "Sticker messages",
     "animations":     "Animations (native Telegram permission)",
     "games":          "Game bot messages",
@@ -75,7 +73,7 @@ LOCK_TYPES_TEXT = """<b>🔒 Available Lock Types:</b>
 
 <b>── Content ──</b>
 • <code>msg</code>         — All text messages
-• <code>media</code>       — Photos, videos and other media
+• <code>media</code>       — Photos, videos, audio, documents and other media
 • <code>audio</code>       — Audio files and music
 • <code>voice</code>       — Voice messages
 • <code>video</code>       — Video messages
@@ -131,10 +129,7 @@ LOCK_TYPES_TEXT = """<b>🔒 Available Lock Types:</b>
 # ============================================================
 
 async def _get_current_permissions(client: Client, chat_id: int) -> Optional[ChatPermissions]:
-    """
-    Fetch fresh chat permissions from Telegram.
-    message.chat.permissions is sometimes None or stale — always fetch fresh.
-    """
+    """Fetch fresh chat permissions from Telegram API."""
     try:
         chat = await client.get_chat(chat_id)
         return chat.permissions
@@ -143,28 +138,73 @@ async def _get_current_permissions(client: Client, chat_id: int) -> Optional[Cha
         return None
 
 
-def _apply_native_lock(perms: ChatPermissions, lock_type: str, locking: bool) -> ChatPermissions:
+def _is_media_locked(perms: ChatPermissions) -> bool:
+    """
+    Telegram deprecated can_send_media_messages.
+    Now media is split into granular fields in pyrotgfork.
+    Media is considered locked ONLY if ALL granular fields are False/None.
+    If pyrotgfork has can_send_media_messages, use it as fallback only if
+    the granular fields are not present.
+    """
+    if perms is None:
+        return False
+
+    # Check granular fields first (new Telegram API)
+    granular_fields = [
+        getattr(perms, "can_send_audios", None),
+        getattr(perms, "can_send_documents", None),
+        getattr(perms, "can_send_photos", None),
+        getattr(perms, "can_send_videos", None),
+        getattr(perms, "can_send_video_notes", None),
+        getattr(perms, "can_send_voice_notes", None),
+    ]
+
+    # Filter out None values (fields not present)
+    available = [f for f in granular_fields if f is not None]
+
+    if available:
+        # Granular fields available → media locked only if ALL are False
+        return not any(available)
+
+    # Fallback: old can_send_media_messages
+    # IMPORTANT: if it's None (deprecated, not sent by Telegram), treat as NOT locked
+    old_field = getattr(perms, "can_send_media_messages", None)
+    if old_field is None:
+        return False  # ← FIX: None means field not set = not locked
+    return not old_field
+
+
+def _apply_native_lock(perms: Optional[ChatPermissions], lock_type: str, locking: bool) -> ChatPermissions:
     """
     Return new ChatPermissions with the target field changed.
-    locking=True  → set to False (disable)
-    locking=False → set to True  (enable)
+    locking=True  → disable (False)
+    locking=False → enable (True)
     """
     val = not locking
 
-    # Read all current values safely (default True for unlock safety)
-    msg     = perms.can_send_messages      if perms else True
-    media   = perms.can_send_media_messages if perms else True
-    other   = perms.can_send_other_messages if perms else True
-    webprev = perms.can_add_web_page_previews if perms else True
-    polls   = perms.can_send_polls         if perms else True
-    info    = perms.can_change_info        if perms else True
-    invite  = perms.can_invite_users       if perms else True
-    pin     = perms.can_pin_messages       if perms else True
+    # Safe reads — default True when unlocking, False when locking
+    default = not locking
+    msg     = getattr(perms, "can_send_messages", default)        if perms else default
+    other   = getattr(perms, "can_send_other_messages", default)  if perms else default
+    webprev = getattr(perms, "can_add_web_page_previews", default) if perms else default
+    polls   = getattr(perms, "can_send_polls", default)           if perms else default
+    info    = getattr(perms, "can_change_info", default)          if perms else default
+    invite  = getattr(perms, "can_invite_users", default)         if perms else default
+    pin     = getattr(perms, "can_pin_messages", default)         if perms else default
+
+    # Granular media fields (pyrotgfork new API)
+    audios      = getattr(perms, "can_send_audios", default)      if perms else default
+    documents   = getattr(perms, "can_send_documents", default)   if perms else default
+    photos      = getattr(perms, "can_send_photos", default)      if perms else default
+    videos      = getattr(perms, "can_send_videos", default)      if perms else default
+    video_notes = getattr(perms, "can_send_video_notes", default) if perms else default
+    voice_notes = getattr(perms, "can_send_voice_notes", default) if perms else default
 
     if lock_type == "msg":
         msg = val
     elif lock_type == "media":
-        media = val
+        # Lock/unlock all granular media fields
+        audios = documents = photos = videos = video_notes = voice_notes = val
     elif lock_type in ("stickers", "animations", "games"):
         other = val
     elif lock_type == "webprev":
@@ -178,9 +218,9 @@ def _apply_native_lock(perms: ChatPermissions, lock_type: str, locking: bool) ->
     elif lock_type == "pin":
         pin = val
 
-    return ChatPermissions(
+    # Build ChatPermissions — use granular fields if available in pyrotgfork
+    kwargs = dict(
         can_send_messages=msg,
-        can_send_media_messages=media,
         can_send_other_messages=other,
         can_add_web_page_previews=webprev,
         can_send_polls=polls,
@@ -189,11 +229,29 @@ def _apply_native_lock(perms: ChatPermissions, lock_type: str, locking: bool) ->
         can_pin_messages=pin,
     )
 
+    # Add granular media fields if supported
+    try:
+        test = ChatPermissions(can_send_audios=True)
+        _ = test.can_send_audios
+        # Supported — add granular fields
+        kwargs.update(dict(
+            can_send_audios=audios,
+            can_send_documents=documents,
+            can_send_photos=photos,
+            can_send_videos=videos,
+            can_send_video_notes=video_notes,
+            can_send_voice_notes=voice_notes,
+        ))
+    except (TypeError, AttributeError):
+        # Old pyrogram — fallback to can_send_media_messages
+        kwargs["can_send_media_messages"] = audios  # same value
+
+    return ChatPermissions(**kwargs)
+
 
 def _all_permissions_locked() -> ChatPermissions:
-    return ChatPermissions(
+    kwargs = dict(
         can_send_messages=False,
-        can_send_media_messages=False,
         can_send_other_messages=False,
         can_add_web_page_previews=False,
         can_send_polls=False,
@@ -201,12 +259,24 @@ def _all_permissions_locked() -> ChatPermissions:
         can_invite_users=False,
         can_pin_messages=False,
     )
+    try:
+        ChatPermissions(can_send_audios=False)
+        kwargs.update(dict(
+            can_send_audios=False,
+            can_send_documents=False,
+            can_send_photos=False,
+            can_send_videos=False,
+            can_send_video_notes=False,
+            can_send_voice_notes=False,
+        ))
+    except (TypeError, AttributeError):
+        kwargs["can_send_media_messages"] = False
+    return ChatPermissions(**kwargs)
 
 
 def _all_permissions_unlocked() -> ChatPermissions:
-    return ChatPermissions(
+    kwargs = dict(
         can_send_messages=True,
-        can_send_media_messages=True,
         can_send_other_messages=True,
         can_add_web_page_previews=True,
         can_send_polls=True,
@@ -214,6 +284,19 @@ def _all_permissions_unlocked() -> ChatPermissions:
         can_invite_users=True,
         can_pin_messages=True,
     )
+    try:
+        ChatPermissions(can_send_audios=True)
+        kwargs.update(dict(
+            can_send_audios=True,
+            can_send_documents=True,
+            can_send_photos=True,
+            can_send_videos=True,
+            can_send_video_notes=True,
+            can_send_voice_notes=True,
+        ))
+    except (TypeError, AttributeError):
+        kwargs["can_send_media_messages"] = True
+    return ChatPermissions(**kwargs)
 
 
 # ============================================================
@@ -332,16 +415,14 @@ async def setup_locks_handlers(client: Client):
                 pass
             await enable_all_db_locks(chat_id)
             await message.reply_text(
-                "🔒 <b>All permissions locked</b> for this chat.",
+                "<b>All permissions locked</b> for this chat.",
                 parse_mode=ParseMode.HTML
             )
             return
 
-        # Parse comma-separated types
         requested = [t.strip().lower() for t in raw_args.split(",") if t.strip()]
         invalid, native_done, db_done = [], [], []
 
-        # Fetch fresh permissions once (only if there are native types to set)
         has_native = any(t in NATIVE_LOCK_TYPES for t in requested)
         current_perms = None
         if has_native:
@@ -351,19 +432,14 @@ async def setup_locks_handlers(client: Client):
             if lock_type not in ALL_LOCK_TYPES:
                 invalid.append(lock_type)
                 continue
-
             if lock_type in NATIVE_LOCK_TYPES:
                 try:
                     new_perms = _apply_native_lock(current_perms, lock_type, locking=True)
                     await client.set_chat_permissions(chat_id, new_perms)
-                    # Update current_perms so next iteration has latest state
                     current_perms = new_perms
                     native_done.append(lock_type)
                 except ChatAdminRequired:
-                    await message.reply_text(
-                        "I need admin rights to change permissions.",
-                        parse_mode=ParseMode.HTML
-                    )
+                    await message.reply_text("I need admin rights to change permissions.", parse_mode=ParseMode.HTML)
                     return
                 except ChatNotModified:
                     native_done.append(lock_type)
@@ -373,12 +449,12 @@ async def setup_locks_handlers(client: Client):
         if db_done:
             await enable_multiple_locks(chat_id, db_done)
 
-        all_done = native_done + db_done
         lines = []
+        all_done = native_done + db_done
         if all_done:
-            lines.append("🔒 Locked: " + ", ".join(f"<code>{t}</code>" for t in all_done))
+            lines.append("Locked: " + ", ".join(f"<code>{t}</code>" for t in all_done))
         if invalid:
-            lines.append("⚠️ Unknown: " + ", ".join(f"<code>{t}</code>" for t in invalid))
+            lines.append("Unknown: " + ", ".join(f"<code>{t}</code>" for t in invalid))
             lines.append("Use <code>/locktypes</code> to see valid types.")
         if lines:
             await message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
@@ -413,12 +489,11 @@ async def setup_locks_handlers(client: Client):
                 pass
             await disable_all_locks(chat_id)
             await message.reply_text(
-                "🔓 <b>All permissions unlocked</b> for this chat.",
+                "<b>All permissions unlocked</b> for this chat.",
                 parse_mode=ParseMode.HTML
             )
             return
 
-        # Parse comma-separated types
         requested = [t.strip().lower() for t in raw_args.split(",") if t.strip()]
         invalid, native_done, db_done = [], [], []
 
@@ -431,7 +506,6 @@ async def setup_locks_handlers(client: Client):
             if lock_type not in ALL_LOCK_TYPES:
                 invalid.append(lock_type)
                 continue
-
             if lock_type in NATIVE_LOCK_TYPES:
                 try:
                     new_perms = _apply_native_lock(current_perms, lock_type, locking=False)
@@ -439,10 +513,7 @@ async def setup_locks_handlers(client: Client):
                     current_perms = new_perms
                     native_done.append(lock_type)
                 except ChatAdminRequired:
-                    await message.reply_text(
-                        "I need admin rights to change permissions.",
-                        parse_mode=ParseMode.HTML
-                    )
+                    await message.reply_text("I need admin rights to change permissions.", parse_mode=ParseMode.HTML)
                     return
                 except ChatNotModified:
                     native_done.append(lock_type)
@@ -452,60 +523,54 @@ async def setup_locks_handlers(client: Client):
         if db_done:
             await disable_multiple_locks(chat_id, db_done)
 
-        all_done = native_done + db_done
         lines = []
+        all_done = native_done + db_done
         if all_done:
-            lines.append("🔓 Unlocked: " + ", ".join(f"<code>{t}</code>" for t in all_done))
+            lines.append(" Unlocked: " + ", ".join(f"<code>{t}</code>" for t in all_done))
         if invalid:
-            lines.append("⚠️ Unknown: " + ", ".join(f"<code>{t}</code>" for t in invalid))
+            lines.append("Unknown: " + ", ".join(f"<code>{t}</code>" for t in invalid))
             lines.append("Use <code>/locktypes</code> to see valid types.")
         if lines:
             await message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
 
-    # ── /locks — show active locks ────────────────────────────
+    # ── /locks ────────────────────────────────────────────────
     @client.on_message(filters.command("locks") & filters.group)
     async def locks_command(client: Client, message: Message):
         chat_id = message.chat.id
 
-        # DB locks (cache-first)
         db_locks = await get_chat_locks(chat_id)
-
-        # Native locks — fetch fresh from Telegram
         perms = await _get_current_permissions(client, chat_id)
+
         native_active = []
         if perms:
-            if not perms.can_send_messages:
+            if perms.can_send_messages is False:
                 native_active.append("msg")
-            if not perms.can_send_media_messages:
+            # Media — use new helper that handles both old and new API
+            if _is_media_locked(perms):
                 native_active.append("media")
-            if not perms.can_send_other_messages:
+            if perms.can_send_other_messages is False:
                 native_active.append("stickers / animations / games")
-            if not perms.can_add_web_page_previews:
+            if perms.can_add_web_page_previews is False:
                 native_active.append("webprev")
-            if not perms.can_send_polls:
+            if perms.can_send_polls is False:
                 native_active.append("polls")
-            if not perms.can_change_info:
+            if perms.can_change_info is False:
                 native_active.append("info")
-            if not perms.can_invite_users:
+            if perms.can_invite_users is False:
                 native_active.append("invite")
-            if not perms.can_pin_messages:
+            if perms.can_pin_messages is False:
                 native_active.append("pin")
 
         if not db_locks and not native_active:
-            await message.reply_text(
-                "🔓 No active locks in this chat.",
-                parse_mode=ParseMode.HTML
-            )
+            await message.reply_text("No active locks in this chat.", parse_mode=ParseMode.HTML)
             return
 
-        lines = ["<b>🔒 Active Locks:</b>\n"]
-
+        lines = ["<b>Active Locks:</b>\n"]
         if native_active:
             lines.append("<b>Telegram Permissions (disabled):</b>")
             for n in native_active:
                 lines.append(f"  • <code>{n}</code>")
             lines.append("")
-
         if db_locks:
             lines.append("<b>Content Locks (bot enforced):</b>")
             for lock_type in sorted(db_locks.keys()):
@@ -522,12 +587,10 @@ async def setup_locks_handlers(client: Client):
     async def service_bot_lock(client: Client, message: Message):
         if message.service != MessageServiceType.NEW_CHAT_MEMBERS:
             return
-
         chat_id = message.chat.id
         locks = await get_chat_locks(chat_id)
         if not locks.get("bot"):
             return
-
         for member in (message.new_chat_members or []):
             if not member.is_bot:
                 continue
@@ -541,18 +604,15 @@ async def setup_locks_handlers(client: Client):
             except Exception as e:
                 logger.error(f"Bot lock ban error in {chat_id}: {e}")
 
-    # ── Message watcher — enforce DB locks ────────────────────
-    # group=6 → runs after all other handlers (low priority)
+    # ── Message watcher ───────────────────────────────────────
     @client.on_message(filters.group & ~filters.me, group=6)
     async def lock_message_watcher(client: Client, message: Message):
         chat_id = message.chat.id
 
-        # Fast path: cache hit → no DB call
         locks = await get_chat_locks(chat_id)
         if not locks:
             return
 
-        # Skip admins
         user = message.from_user
         if user:
             try:
@@ -568,11 +628,8 @@ async def setup_locks_handlers(client: Client):
             except Exception:
                 pass
 
-        # ── Anon channel ──────────────────────────────────────
         if locks.get("anonchannel") and _is_anon_channel(message):
             await _delete(); return
-
-        # ── Forwards ─────────────────────────────────────────
         if locks.get("allforward") and _is_any_forward(message):
             await _delete(); return
         if locks.get("userforward") and _is_forward_from_user(message):
@@ -581,16 +638,11 @@ async def setup_locks_handlers(client: Client):
             await _delete(); return
         if locks.get("forwardstory") and _is_forward_story(message):
             await _delete(); return
-
-        # ── External reply ────────────────────────────────────
         if locks.get("externalreply") and _is_external_reply(message):
             await _delete(); return
-
-        # ── Inline bot ────────────────────────────────────────
         if locks.get("inline") and _has_inline(message):
             await _delete(); return
 
-        # ── Media types ───────────────────────────────────────
         media = message.media
         if media:
             if locks.get("audio")    and media == MessageMediaType.AUDIO:      await _delete(); return
@@ -601,15 +653,10 @@ async def setup_locks_handlers(client: Client):
             if locks.get("contact")  and media == MessageMediaType.CONTACT:    await _delete(); return
             if locks.get("poll")     and media == MessageMediaType.POLL:       await _delete(); return
 
-        # ── Checklist (pyrotgfork) ────────────────────────────
         if locks.get("checklist") and _is_checklist(message):
             await _delete(); return
-
-        # ── Album ─────────────────────────────────────────────
         if locks.get("album") and _is_album(message):
             await _delete(); return
-
-        # ── Text / entity-based ───────────────────────────────
         if locks.get("links")       and _has_links(message):        await _delete(); return
         if locks.get("email")       and _has_email(message):        await _delete(); return
         if locks.get("phone")       and _has_phone(message):        await _delete(); return
@@ -619,8 +666,6 @@ async def setup_locks_handlers(client: Client):
             text = message.text or message.caption or ""
             if _has_emoji(text):
                 await _delete(); return
-
-        # ── Comment (non-member channel commenter) ────────────
         if locks.get("comment") and message.sender_chat:
             await _delete(); return
 

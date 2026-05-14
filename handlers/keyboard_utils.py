@@ -133,13 +133,38 @@ async def get_extra_commands_keyboard(user_id: int):
     if tagall_text is None:
         tagall_text = "𝖳𝖺𝗀𝖠𝗅𝗅"
     builder.button(text=tagall_text, callback_data=SharedCallbacks.EXTRA_CMD_TAGALL)
+
+    locks_text = get_text_sync(language, "B_LOCKS")
+    if locks_text is None:
+        locks_text = "𝖫𝗈𝖼𝗄𝗌"
+    builder.button(text=locks_text, callback_data=SharedCallbacks.EXTRA_CMD_LOCKS)
+
+    warns_text = get_text_sync(language, "B_WARNS")
+    if warns_text is None:
+        warns_text = "𝖶𝖺𝗋𝗇𝗌"
+    builder.button(text=warns_text, callback_data=SharedCallbacks.EXTRA_CMD_WARNS)
+
+    ban_text = get_text_sync(language, "B_BAN")
+    if ban_text is None:
+        ban_text = "𝖡𝖺𝗇"
+    builder.button(text=ban_text, callback_data=SharedCallbacks.EXTRA_CMD_BAN)
+
+    mute_text = get_text_sync(language, "B_MUTE")
+    if mute_text is None:
+        mute_text = "𝖬𝗎𝗍𝖾"
+    builder.button(text=mute_text, callback_data=SharedCallbacks.EXTRA_CMD_MUTE)
+
+    filters_text = get_text_sync(language, "B_FILTERS")
+    if filters_text is None:
+        filters_text = "𝖥𝗂𝗅𝗍𝖾𝗋𝗌"
+    builder.button(text=filters_text, callback_data=SharedCallbacks.EXTRA_CMD_FILTERS)
     
     back_text = get_text_sync(language, "B_BACK")
     if back_text is None:
         back_text = "⬅️ 𝖡𝖺𝖼𝗄"
     builder.button(text=back_text, callback_data=SharedCallbacks.BACK_TO_MAIN)
     
-    builder.adjust(3, 3, 1)
+    builder.adjust(3, 3, 3, 2, 1)
     return builder.as_markup()
 
 

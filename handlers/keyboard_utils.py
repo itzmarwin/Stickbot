@@ -20,6 +20,11 @@ class SharedCallbacks:
     EXTRA_CMD_MEMEFI = "extra_memefi"
     EXTRA_CMD_WELCOME = "extra_welcome"
     EXTRA_CMD_TAGALL = "extra_tagall"
+    EXTRA_CMD_LOCKS = "extra_locks"
+    EXTRA_CMD_WARNS = "extra_warns"
+    EXTRA_CMD_BAN = "extra_ban"
+    EXTRA_CMD_MUTE = "extra_mute"
+    EXTRA_CMD_FILTERS = "extra_filters"
 
 
 async def get_main_menu_keyboard(user_id: int):

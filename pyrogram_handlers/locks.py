@@ -148,6 +148,17 @@ ALL_UNLOCKED = ChatPermissions(
 )
 
 
+async def _bot_can_delete(client: Client, chat_id: int) -> bool:
+    try:
+        bot = await client.get_me()
+        member = await client.get_chat_member(chat_id, bot.id)
+        if member.status != ChatMemberStatus.ADMINISTRATOR:
+            return False
+        return bool(getattr(member.privileges, "can_delete_messages", False))
+    except Exception:
+        return False
+
+
 def _has_emoji(text: str) -> bool:
     return any(unicodedata.category(c) in ("So", "Cs") for c in text) if text else False
 
@@ -211,10 +222,22 @@ async def setup_locks_handlers(client: Client):
             return
 
         requested = [t.strip().lower() for t in raw.split(",") if t.strip()]
+
+        # "all" ko individual lock mein allow nahi — sirf /lock all se
+        requested = [t for t in requested if t != "all"]
+
         valid = [t for t in requested if t in DB_LOCK_TYPES]
         invalid = [t for t in requested if t not in DB_LOCK_TYPES]
 
         if valid:
+            # Delete permission check — sirf DB locks ke liye zaroori
+            if not await _bot_can_delete(client, chat_id):
+                await message.reply_text(
+                    "This lock can't work without delete permissions.\n"
+                    "Promote me properly and I'll keep the chat clean.",
+                    parse_mode=ParseMode.HTML
+                )
+                return
             await enable_multiple_locks(chat_id, valid)
 
         lines = []
@@ -328,69 +351,87 @@ async def setup_locks_handlers(client: Client):
         async def _del():
             try:
                 await message.delete()
+                return True
+            except Exception:
+                return False
+
+        async def _no_perm_disable():
+            await disable_all_locks(chat_id)
+            try:
+                await client.send_message(
+                    chat_id,
+                    "Unable to remove locked content because I don't have delete permissions.\n"
+                    "Locks have been disabled. Please enable the required permission and set them up again.",
+                    parse_mode=ParseMode.HTML
+                )
             except Exception:
                 pass
 
+        should_delete = False
+
         if locks.get("all"):
-            await _del(); return
+            should_delete = True
 
-        if locks.get("anonchannel") and message.sender_chat and not message.forward_from_chat:
-            await _del(); return
+        elif locks.get("anonchannel") and message.sender_chat and not message.forward_from_chat:
+            should_delete = True
 
-        if locks.get("allforward") and (message.forward_from or message.forward_from_chat):
-            await _del(); return
-        if locks.get("userforward") and message.forward_from and not message.forward_from_chat:
-            await _del(); return
-        if locks.get("channelforward") and message.forward_from_chat:
-            await _del(); return
-        if locks.get("forwardstory") and (getattr(message, "forward_story", None) or getattr(message, "story", None)):
-            await _del(); return
+        elif locks.get("allforward") and (message.forward_from or message.forward_from_chat):
+            should_delete = True
+        elif locks.get("userforward") and message.forward_from and not message.forward_from_chat:
+            should_delete = True
+        elif locks.get("channelforward") and message.forward_from_chat:
+            should_delete = True
+        elif locks.get("forwardstory") and (getattr(message, "forward_story", None) or getattr(message, "story", None)):
+            should_delete = True
 
-        if locks.get("externalreply") and getattr(message, "external_reply", None):
-            await _del(); return
+        elif locks.get("externalreply") and getattr(message, "external_reply", None):
+            should_delete = True
 
-        if locks.get("inline") and message.via_bot:
-            await _del(); return
+        elif locks.get("inline") and message.via_bot:
+            should_delete = True
 
-        media = message.media
-        if media:
-            if locks.get("audio")    and media == MessageMediaType.AUDIO:     await _del(); return
-            if locks.get("voice")    and media == MessageMediaType.VOICE:     await _del(); return
-            if locks.get("video")    and media == MessageMediaType.VIDEO:     await _del(); return
-            if locks.get("gif")      and media == MessageMediaType.ANIMATION: await _del(); return
-            if locks.get("document") and media == MessageMediaType.DOCUMENT:  await _del(); return
-            if locks.get("contact")  and media == MessageMediaType.CONTACT:   await _del(); return
-            if locks.get("poll")     and media == MessageMediaType.POLL:      await _del(); return
-            if locks.get("stickers") and media == MessageMediaType.STICKER:   await _del(); return
+        else:
+            media = message.media
+            if media:
+                if locks.get("audio")    and media == MessageMediaType.AUDIO:     should_delete = True
+                elif locks.get("voice")  and media == MessageMediaType.VOICE:     should_delete = True
+                elif locks.get("video")  and media == MessageMediaType.VIDEO:     should_delete = True
+                elif locks.get("gif")    and media == MessageMediaType.ANIMATION: should_delete = True
+                elif locks.get("document") and media == MessageMediaType.DOCUMENT: should_delete = True
+                elif locks.get("contact")  and media == MessageMediaType.CONTACT:  should_delete = True
+                elif locks.get("poll")     and media == MessageMediaType.POLL:     should_delete = True
+                elif locks.get("stickers") and media == MessageMediaType.STICKER:  should_delete = True
+                elif locks.get("animations") and media == MessageMediaType.ANIMATION: should_delete = True
+                elif locks.get("games")    and media == MessageMediaType.GAME:     should_delete = True
 
-        if locks.get("checklist") and getattr(message, "checklist", None):
-            await _del(); return
+            if not should_delete and locks.get("checklist") and getattr(message, "checklist", None):
+                should_delete = True
+            if not should_delete and locks.get("album") and message.media_group_id:
+                should_delete = True
+            if not should_delete and locks.get("msg") and message.text and not message.via_bot:
+                should_delete = True
+            if not should_delete and locks.get("links") and _has_links(message):
+                should_delete = True
+            if not should_delete and locks.get("email") and _has_email(message):
+                should_delete = True
+            if not should_delete and locks.get("phone") and _has_phone(message):
+                should_delete = True
+            if not should_delete and locks.get("command") and _has_command(message):
+                should_delete = True
+            if not should_delete and locks.get("emojicustom") and _has_custom_emoji(message):
+                should_delete = True
+            if not should_delete and locks.get("emoji"):
+                text = message.text or message.caption or ""
+                if _has_emoji(text):
+                    should_delete = True
+            if not should_delete and locks.get("webprev"):
+                entities = message.entities or message.caption_entities or []
+                if any(e.type == MessageEntityType.URL for e in entities):
+                    should_delete = True
+            if not should_delete and locks.get("comment") and message.sender_chat:
+                should_delete = True
 
-        if locks.get("album") and message.media_group_id:
-            await _del(); return
-
-        if locks.get("animations") and media == MessageMediaType.ANIMATION:
-            await _del(); return
-        if locks.get("games") and media == MessageMediaType.GAME:
-            await _del(); return
-
-        if locks.get("msg") and message.text and not message.via_bot:
-            await _del(); return
-
-        if locks.get("links")       and _has_links(message):        await _del(); return
-        if locks.get("email")       and _has_email(message):        await _del(); return
-        if locks.get("phone")       and _has_phone(message):        await _del(); return
-        if locks.get("command")     and _has_command(message):      await _del(); return
-        if locks.get("emojicustom") and _has_custom_emoji(message): await _del(); return
-        if locks.get("emoji"):
-            text = message.text or message.caption or ""
-            if _has_emoji(text):
-                await _del(); return
-
-        if locks.get("webprev"):
-            entities = message.entities or message.caption_entities or []
-            if any(e.type == MessageEntityType.URL for e in entities):
-                await _del(); return
-
-        if locks.get("comment") and message.sender_chat:
-            await _del(); return
+        if should_delete:
+            deleted = await _del()
+            if not deleted:
+                await _no_perm_disable()

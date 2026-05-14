@@ -58,7 +58,7 @@ LOCK_DESCRIPTIONS = {
     "info":           "Changing group info",
 }
 
-LOCK_TYPES_TEXT = """<b>🔒 Available Lock Types:</b>
+LOCK_TYPES_TEXT = """<b>Available Lock Types:</b>
 
 <b>── Global ──</b>
 • <code>all</code>         — Lock everything (native Telegram permissions)
@@ -218,7 +218,7 @@ async def setup_locks_handlers(client: Client):
             except (ChatAdminRequired, ChatNotModified):
                 pass
             await enable_multiple_locks(chat_id, ["all"])
-            await message.reply_text("🔒 <b>All permissions locked.</b>", parse_mode=ParseMode.HTML)
+            await message.reply_text("<b>All permissions locked.</b>", parse_mode=ParseMode.HTML)
             return
 
         requested = [t.strip().lower() for t in raw.split(",") if t.strip()]
@@ -242,9 +242,9 @@ async def setup_locks_handlers(client: Client):
 
         lines = []
         if valid:
-            lines.append("🔒 Locked: " + ", ".join(f"<code>{t}</code>" for t in valid))
+            lines.append("Locked: " + ", ".join(f"<code>{t}</code>" for t in valid))
         if invalid:
-            lines.append("⚠️ Unknown: " + ", ".join(f"<code>{t}</code>" for t in invalid))
+            lines.append("Unknown: " + ", ".join(f"<code>{t}</code>" for t in invalid))
             lines.append("Use <code>/locktypes</code> to see valid types.")
         if lines:
             await message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
@@ -274,7 +274,7 @@ async def setup_locks_handlers(client: Client):
             except (ChatAdminRequired, ChatNotModified):
                 pass
             await disable_all_locks(chat_id)
-            await message.reply_text("🔓 <b>All permissions unlocked.</b>", parse_mode=ParseMode.HTML)
+            await message.reply_text("<b>All permissions unlocked.</b>", parse_mode=ParseMode.HTML)
             return
 
         requested = [t.strip().lower() for t in raw.split(",") if t.strip()]
@@ -286,9 +286,9 @@ async def setup_locks_handlers(client: Client):
 
         lines = []
         if valid:
-            lines.append("🔓 Unlocked: " + ", ".join(f"<code>{t}</code>" for t in valid))
+            lines.append("Unlocked: " + ", ".join(f"<code>{t}</code>" for t in valid))
         if invalid:
-            lines.append("⚠️ Unknown: " + ", ".join(f"<code>{t}</code>" for t in invalid))
+            lines.append("Unknown: " + ", ".join(f"<code>{t}</code>" for t in invalid))
             lines.append("Use <code>/locktypes</code> to see valid types.")
         if lines:
             await message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
@@ -299,10 +299,10 @@ async def setup_locks_handlers(client: Client):
         locks = await get_chat_locks(chat_id)
 
         if not locks:
-            await message.reply_text("🔓 No active locks in this chat.", parse_mode=ParseMode.HTML)
+            await message.reply_text("No active locks in this chat.", parse_mode=ParseMode.HTML)
             return
 
-        lines = ["<b>🔒 Active Locks:</b>\n"]
+        lines = ["<b>Active Locks:</b>\n"]
         for lock_type in sorted(locks.keys()):
             desc = LOCK_DESCRIPTIONS.get(lock_type, "")
             entry = f"  • <code>{lock_type}</code>"

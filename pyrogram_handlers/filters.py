@@ -228,7 +228,7 @@ async def setup_filter_handlers(client: Client):
             parse_mode=ParseMode.HTML
         )
 
-    @client.on_message(filters.group & filters.text & ~filters.me & ~filters.command, group=2)
+    @client.on_message(filters.group & filters.text & ~filters.me, group=2)
     async def filter_trigger(client: Client, message: Message):
         chat_id = message.chat.id
 

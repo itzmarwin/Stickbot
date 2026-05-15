@@ -67,7 +67,7 @@ async def get_main_menu_keyboard(user_id: int):
     
     builder.button(
         text=support_text, 
-        url="https://t.me/Samurais_Support"
+        url="https://t.me/SamuraisSupport"
     )
     
     updates_text = get_text_sync(language, "B_UPDATES")
@@ -76,7 +76,7 @@ async def get_main_menu_keyboard(user_id: int):
     
     builder.button(
         text=updates_text, 
-        url="https://t.me/Samurais_network"
+        url="https://t.me/bot_updates_Smr"
     )
     
     builder.adjust(1, 1, 1, 2)

@@ -3,6 +3,7 @@ from pyrogram.types import Message
 from pyrogram.enums import ParseMode
 from pyrogram.errors import ChatAdminRequired, BadRequest, FloodWait, MessageDeleteForbidden
 import asyncio
+from pyrogram.types import Message, LinkPreviewOptions
 
 from pyrogram_handlers.utils import is_user_admin
 

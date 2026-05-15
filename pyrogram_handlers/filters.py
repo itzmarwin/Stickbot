@@ -201,8 +201,10 @@ async def setup_filter_handlers(client: Client):
                 f"Filter <code>{keyword}</code> removed successfully!",
                 parse_mode=ParseMode.HTML
             )
+            await message.stop_propagation()
         else:
             await message.reply_text("Failed to remove filter. Please try again.", parse_mode=ParseMode.HTML)
+            await message.stop_propagation()
 
     @client.on_message(filters.command("stopallfilters") & filters.group, group=0)
     async def stop_all_filters_command(client: Client, message: Message):
@@ -229,6 +231,7 @@ async def setup_filter_handlers(client: Client):
             f"All <b>{deleted}</b> filters removed successfully!",
             parse_mode=ParseMode.HTML
         )
+        await message.stop_propagation()
 
     @client.on_message(filters.group & filters.text & ~filters.me, group=2)
     async def filter_trigger(client: Client, message: Message):

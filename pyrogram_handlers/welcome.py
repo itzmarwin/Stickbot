@@ -1,7 +1,8 @@
 from pyrogram import Client, filters
-from pyrogram.types import Message, ChatMemberUpdated
+from pyrogram.types import Message, ChatMemberUpdated, LinkPreviewOptions
 from pyrogram.enums import ChatMemberStatus, ParseMode
 from pyrogram.errors import ChatAdminRequired, MessageDeleteForbidden, BadRequest, FloodWait
+import re
 
 from pyrogram_handlers.utils import (
     parse_buttons,
@@ -32,6 +33,27 @@ DEFAULT_WELCOME_TEXT = (
     ' Welcome {MENTION}! '
     'Hope you have a great time here <emoji id="5447432232698389583">👋</emoji> '
 )
+
+FILLING_MAP = {
+    "ID": "ID",
+    "NAME": "NAME",
+    "SURNAME": "SURNAME",
+    "NAMESURNAME": "NAMESURNAME",
+    "DATE": "DATE",
+    "TIME": "TIME",
+    "MENTION": "MENTION",
+    "USERNAME": "USERNAME",
+    "GROUPNAME": "GROUPNAME",
+}
+
+def normalize_fillings(text: str) -> str:
+    """Convert any case filling to uppercase — {name} -> {NAME}"""
+    def replacer(match):
+        key = match.group(1).upper()
+        if key in FILLING_MAP:
+            return "{" + FILLING_MAP[key] + "}"
+        return match.group(0)
+    return re.sub(r'\{(\w+)\}', replacer, text)
 
 
 async def setup_welcome_handlers(client: Client):
@@ -83,7 +105,12 @@ async def setup_welcome_handlers(client: Client):
                     elif media_type == "animation":
                         await message.reply_animation(animation=media_id, caption=text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
                 else:
-                    await message.reply_text(text=text, reply_markup=reply_markup, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
+                    await message.reply_text(
+                        text=text,
+                        reply_markup=reply_markup,
+                        parse_mode=ParseMode.HTML,
+                        link_preview_options=LinkPreviewOptions(is_disabled=True)
+                    )
             return
 
         action = command_parts[1].lower()
@@ -157,10 +184,6 @@ async def setup_welcome_handlers(client: Client):
             await message.reply_text("<b>Please promote the bot to admin first.</b>", parse_mode=ParseMode.HTML)
             return
 
-        if not message.reply_to_message:
-            await message.reply_text("<b>Please reply to a message.</b>", parse_mode=ParseMode.HTML)
-            return
-
         settings = await get_welcome_settings(chat_id)
         if not settings:
             await create_default_welcome_settings(chat_id)
@@ -173,31 +196,51 @@ async def setup_welcome_handlers(client: Client):
             )
             return
 
-        replied_msg = message.reply_to_message
         media_type = None
         media_id = None
         text = None
 
-        if replied_msg.photo:
-            media_type = "photo"
-            media_id = replied_msg.photo.file_id
-            text = replied_msg.caption.html if replied_msg.caption else ""
-        elif replied_msg.video:
-            media_type = "video"
-            media_id = replied_msg.video.file_id
-            text = replied_msg.caption.html if replied_msg.caption else ""
-        elif replied_msg.animation:
-            media_type = "animation"
-            media_id = replied_msg.animation.file_id
-            text = replied_msg.caption.html if replied_msg.caption else ""
-        elif replied_msg.text:
-            text = replied_msg.text.html
+        # Case 1: Reply se set karo (photo/video/gif/text)
+        if message.reply_to_message:
+            replied_msg = message.reply_to_message
+
+            if replied_msg.photo:
+                media_type = "photo"
+                media_id = replied_msg.photo.file_id
+                text = replied_msg.caption.html if replied_msg.caption else ""
+            elif replied_msg.video:
+                media_type = "video"
+                media_id = replied_msg.video.file_id
+                text = replied_msg.caption.html if replied_msg.caption else ""
+            elif replied_msg.animation:
+                media_type = "animation"
+                media_id = replied_msg.animation.file_id
+                text = replied_msg.caption.html if replied_msg.caption else ""
+            elif replied_msg.text:
+                text = replied_msg.text.html
+            else:
+                await message.reply_text(
+                    "<b>Unsupported message type.</b>\n\nSupported: Photo, Video, GIF, Text",
+                    parse_mode=ParseMode.HTML
+                )
+                return
+
+        # Case 2: Inline text — /setwelcome Hello {NAME}!
         else:
-            await message.reply_text(
-                "<b>Unsupported message type.</b>\n\nSupported: Photo, Video, GIF, Text",
-                parse_mode=ParseMode.HTML
-            )
-            return
+            parts = message.text.split(maxsplit=1)
+            if len(parts) < 2 or not parts[1].strip():
+                await message.reply_text(
+                    "<b>Please provide a welcome message.</b>\n\n"
+                    "Reply to a message: <code>/setwelcome</code> (reply)\n"
+                    "Or inline text: <code>/setwelcome Hello {NAME}!</code>",
+                    parse_mode=ParseMode.HTML
+                )
+                return
+            text = parts[1].strip()
+
+        # Case insensitive fillings normalize karo
+        if text:
+            text = normalize_fillings(text)
 
         is_caption = media_type is not None
         validation_error = validate_text_length(text, is_caption)
@@ -437,7 +480,8 @@ async def setup_welcome_handlers(client: Client):
         else:
             sent_message = await client.send_message(
                 chat_id=chat_id, text=formatted_text, reply_markup=reply_markup,
-                parse_mode=ParseMode.HTML, disable_web_page_preview=True
+                parse_mode=ParseMode.HTML,
+                link_preview_options=LinkPreviewOptions(is_disabled=True)
             )
 
         auto_delete = welcome_config.get('auto_delete', {})

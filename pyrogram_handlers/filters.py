@@ -1,9 +1,8 @@
 from pyrogram import Client, filters
-from pyrogram.types import Message
+from pyrogram.types import Message, LinkPreviewOptions
 from pyrogram.enums import ParseMode
 from pyrogram.errors import ChatAdminRequired, BadRequest, FloodWait, MessageDeleteForbidden
 import asyncio
-from pyrogram.types import Message, LinkPreviewOptions
 
 from pyrogram_handlers.utils import is_user_admin
 
@@ -274,4 +273,8 @@ async def setup_filter_handlers(client: Client):
             elif media_type == "sticker":
                 await message.reply_sticker(sticker=media_id)
         elif text:
-            await message.reply_text(text=text, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
+            await message.reply_text(
+                text=text,
+                parse_mode=ParseMode.HTML,
+                link_preview_options=LinkPreviewOptions(is_disabled=True)
+            )

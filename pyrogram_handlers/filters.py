@@ -140,8 +140,10 @@ async def setup_filter_handlers(client: Client):
                 f"Filter <code>{keyword}</code> saved successfully!",
                 parse_mode=ParseMode.HTML
             )
+            await message.stop_propagation()
         else:
             await message.reply_text("Failed to save filter. Please try again.", parse_mode=ParseMode.HTML)
+            await message.stop_propagation()
 
     @client.on_message(filters.command("filters") & filters.group, group=0)
     async def filters_list_command(client: Client, message: Message):

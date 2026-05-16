@@ -1,11 +1,11 @@
 import logging
-from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo import AsyncMongoClient
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 
 logger = logging.getLogger(__name__)
 
-_client: Optional[AsyncIOMotorClient] = None
+_client: Optional[AsyncMongoClient] = None
 _db = None
 
 _lang_cache: Dict[int, str] = {}
@@ -13,7 +13,7 @@ _user_cache: Dict[int, Dict[str, Any]] = {}
 _started_users: set = set()
 
 
-def init_userdb(client: AsyncIOMotorClient, db):
+def init_userdb(client: AsyncMongoClient, db):
     global _client, _db
     _client = client
     _db = db
@@ -82,7 +82,7 @@ async def create_user(
 async def get_all_users() -> List[Dict[str, Any]]:
     try:
         cursor = _db.users.find({}, {"user_id": 1, "username": 1, "first_name": 1})
-        return await cursor.to_list(length=None)
+        return await cursor.to_list(None)
     except Exception as e:
         logger.error(f"Error getting all users: {e}")
         return []
@@ -152,7 +152,7 @@ async def remove_served_chat(chat_id: int) -> bool:
 async def get_served_chats() -> List[Dict[str, Any]]:
     try:
         cursor = _db.served_chats.find({})
-        return await cursor.to_list(length=None)
+        return await cursor.to_list(None)
     except Exception as e:
         logger.error(f"Error getting served chats: {e}")
         return []
@@ -191,7 +191,7 @@ async def remove_banned_user(user_id: int) -> bool:
 async def get_banned_users() -> List[int]:
     try:
         cursor = _db.gbans.find({})
-        banned_users = await cursor.to_list(length=None)
+        banned_users = await cursor.to_list(None)
         return [user["user_id"] for user in banned_users]
     except Exception as e:
         logger.error(f"Error getting banned users: {e}")

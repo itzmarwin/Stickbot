@@ -5,7 +5,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from telethon import TelegramClient
 from pyrogram import Client
-from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo import AsyncMongoClient
 
 from config import BOT_TOKEN, TELEGRAM_API_ID, TELEGRAM_API_HASH, LOG_GROUP_ID, MONGO_URI, DATABASE_NAME
 
@@ -13,7 +13,6 @@ from mongo.userdb import init_userdb, create_indexes as create_user_indexes
 from mongo.stickerdb import init_stickerdb, create_indexes as create_sticker_indexes
 from mongo.managementdb import init_managementdb, create_indexes as create_management_indexes
 from mongo.locksdb import init_locksdb, create_indexes as create_locks_indexes
-
 
 from handlers import start, kang, misc, logger
 from handlers import sticker_id
@@ -47,8 +46,10 @@ logging.basicConfig(
 logging.getLogger("aiogram").setLevel(logging.WARNING)
 logging.getLogger("aiogram.event").disabled = True
 logging.getLogger("aiogram.dispatcher").setLevel(logging.WARNING)
+logging.getLogger("pymongo").setLevel(logging.WARNING)
+logging.getLogger("telethon").setLevel(logging.WARNING)
+logging.getLogger("pyrogram").setLevel(logging.WARNING)
 
-# Global clients
 pyro_client = None
 telethon_client = None
 aiogram_bot = None
@@ -56,10 +57,9 @@ mongo_client = None
 
 
 async def init_databases():
-    """Single MongoDB connection, teeno modules ko share karo"""
     global mongo_client
 
-    mongo_client = AsyncIOMotorClient(
+    mongo_client = AsyncMongoClient(
         MONGO_URI,
         serverSelectionTimeoutMS=5000,
         connectTimeoutMS=10000,
@@ -72,17 +72,14 @@ async def init_databases():
         maxIdleTimeMS=45000
     )
 
-    # Connection test
     await mongo_client.admin.command('ping')
     db = mongo_client[DATABASE_NAME]
 
-    # Teeno modules ko same client aur db do
     init_userdb(mongo_client, db)
     init_stickerdb(mongo_client, db)
     init_managementdb(mongo_client, db)
     init_locksdb(mongo_client, db)
 
-    # Indexes banao
     await create_user_indexes()
     await create_sticker_indexes()
     await create_management_indexes()
@@ -93,7 +90,6 @@ async def init_databases():
 
 
 async def close_databases():
-    """Ek hi connection close karna hai"""
     global mongo_client
     if mongo_client:
         logging.info("Closing MongoDB connection...")

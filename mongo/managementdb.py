@@ -1,13 +1,12 @@
 import logging
-from motor.motor_asyncio import AsyncIOMotorClient
-from pymongo import ReturnDocument
+from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.errors import DuplicateKeyError
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 
 logger = logging.getLogger(__name__)
 
-_client: Optional[AsyncIOMotorClient] = None
+_client: Optional[AsyncMongoClient] = None
 _db = None
 
 DEFAULT_AUTO_DELETE_SECONDS = 600
@@ -15,44 +14,26 @@ DEFAULT_WARN_LIMIT = 3
 DEFAULT_WARN_MODE = "ban"
 
 
-def init_managementdb(client: AsyncIOMotorClient, db):
-    """
-    Initialize managementdb with shared client and db instance.
-    Called from main.py after main DB connection is established.
-    """
+def init_managementdb(client: AsyncMongoClient, db):
     global _client, _db
     _client = client
     _db = db
 
 
 async def create_indexes():
-    """Create only necessary indexes for management collections"""
-    # Welcome settings - sirf chat_id zaruri hai
     await _db.welcome_settings.create_index("chat_id", unique=True)
-
-    # Filters - chat_id + keyword composite unique index zaruri hai
     await _db.filters.create_index(
         [("chat_id", 1), ("keyword", 1)],
         unique=True
     )
-    # chat_id index filters list ke liye
     await _db.filters.create_index("chat_id")
-
-    # Warns - chat_id + user_id composite unique index zaruri hai
     await _db.warns.create_index(
         [("chat_id", 1), ("user_id", 1)],
         unique=True
     )
-
-    # Warn settings - sirf chat_id zaruri hai
     await _db.warn_settings.create_index("chat_id", unique=True)
-
     logger.info("✅ managementdb indexes created")
 
-
-# ============================================================
-# WELCOME / GOODBYE FUNCTIONS
-# ============================================================
 
 async def get_welcome_settings(chat_id: int) -> Optional[Dict[str, Any]]:
     try:
@@ -274,10 +255,6 @@ async def update_goodbye_auto_delete(
         return False
 
 
-# ============================================================
-# FILTERS FUNCTIONS
-# ============================================================
-
 async def add_filter(
     chat_id: int,
     keyword: str,
@@ -338,10 +315,6 @@ async def delete_all_filters(chat_id: int) -> int:
         logger.error(f"Error deleting all filters {chat_id}: {e}")
         return 0
 
-
-# ============================================================
-# WARNS FUNCTIONS
-# ============================================================
 
 async def get_user_warns(chat_id: int, user_id: int) -> Dict[str, Any]:
     try:

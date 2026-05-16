@@ -1,40 +1,27 @@
 import logging
-from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo import AsyncMongoClient
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 
 logger = logging.getLogger(__name__)
 
-_client: Optional[AsyncIOMotorClient] = None
+_client: Optional[AsyncMongoClient] = None
 _db = None
 
 
-def init_stickerdb(client: AsyncIOMotorClient, db):
-    """
-    Initialize stickerdb with shared client and db instance.
-    Called from main.py after main DB connection is established.
-    """
+def init_stickerdb(client: AsyncMongoClient, db):
     global _client, _db
     _client = client
     _db = db
 
 
 async def create_indexes():
-    """Create only necessary indexes for sticker related collections"""
-    # Sticker pack indexes - sirf zaruri wale
     await _db.sticker_packs.create_index("user_id")
     await _db.sticker_packs.create_index("short_name", unique=True)
     await _db.sticker_packs.create_index([("user_id", 1), ("created_at", -1)])
-
-    # AFK indexes - sirf zaruri wale
     await _db.afk.create_index("user.id", unique=True)
-
     logger.info("✅ stickerdb indexes created")
 
-
-# ============================================================================
-# STICKER PACK FUNCTIONS
-# ============================================================================
 
 async def get_user_active_pack(user_id: int) -> Optional[Dict[str, Any]]:
     try:
@@ -43,7 +30,7 @@ async def get_user_active_pack(user_id: int) -> Optional[Dict[str, Any]]:
             {"pack_name": 1, "short_name": 1, "sticker_count": 1, "created_at": 1, "pack_link": 1}
         ).sort("created_at", -1).limit(1)
 
-        packs = await cursor.to_list(length=1)
+        packs = await cursor.to_list(1)
         return packs[0] if packs else None
     except Exception as e:
         logger.error(f"Error getting user active pack {user_id}: {e}")
@@ -56,7 +43,7 @@ async def get_user_all_packs(user_id: int) -> List[Dict[str, Any]]:
             {"user_id": user_id},
             {"pack_name": 1, "short_name": 1, "sticker_count": 1, "created_at": 1, "pack_link": 1}
         ).sort("created_at", -1)
-        return await cursor.to_list(length=None)
+        return await cursor.to_list(None)
     except Exception as e:
         logger.error(f"Error getting user packs {user_id}: {e}")
         return []
@@ -107,7 +94,6 @@ async def update_pack_sticker_count(pack_short_name: str, count: int) -> bool:
 
 
 async def delete_user_pack(user_id: int) -> bool:
-    """Used in kang.py when STICKERSET_INVALID error occurs"""
     try:
         result = await _db.sticker_packs.delete_one({"user_id": user_id})
         return result.deleted_count > 0
@@ -124,7 +110,7 @@ async def get_user_packs_paginated(user_id: int, page: int = 0, limit: int = 6):
             {"pack_name": 1, "short_name": 1, "sticker_count": 1, "created_at": 1}
         ).sort("created_at", -1).skip(skip).limit(limit)
 
-        packs = await cursor.to_list(length=limit)
+        packs = await cursor.to_list(limit)
         total = await _db.sticker_packs.count_documents({"user_id": user_id})
         return packs, total
     except Exception as e:
@@ -162,7 +148,6 @@ async def get_pack_by_short_name(short_name: str) -> Optional[Dict[str, Any]]:
 
 
 async def delete_user_packs(user_id: int) -> int:
-    """Delete all packs for a user - used in gban"""
     try:
         result = await _db.sticker_packs.delete_many({"user_id": user_id})
         return result.deleted_count
@@ -178,10 +163,6 @@ async def get_total_packs_count() -> int:
         logger.error(f"Error getting packs count: {e}")
         return 0
 
-
-# ============================================================================
-# AFK FUNCTIONS
-# ============================================================================
 
 async def get_afk_user(user_id: int) -> Optional[Dict[str, Any]]:
     try:

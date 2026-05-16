@@ -1,7 +1,7 @@
 from typing import Optional, Dict, List
-from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo import AsyncMongoClient
 
-_client: Optional[AsyncIOMotorClient] = None
+_client: Optional[AsyncMongoClient] = None
 _db = None
 
 _locks_cache: Dict[int, Dict[str, bool]] = {}
@@ -43,7 +43,7 @@ DB_LOCK_TYPES = frozenset({
 })
 
 
-def init_locksdb(client: AsyncIOMotorClient, db):
+def init_locksdb(client: AsyncMongoClient, db):
     global _client, _db
     _client = client
     _db = db

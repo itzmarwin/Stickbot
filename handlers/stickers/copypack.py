@@ -13,7 +13,7 @@ from utils.fsm_states import CopyPackStates
 from utils.helpers import validate_pack_name, format_pack_name, generate_short_name
 from utils.html_utils import escape_html
 from config import BOT_USERNAME, LOG_GROUP_ID
-from handlers.kang import get_random_emoji
+from handlers.stickers.kang import get_random_emoji
 from rate_limiter import (
     is_copypack_processing, can_copy_pack,
     start_copypack_processing, stop_copypack_processing

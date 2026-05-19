@@ -14,12 +14,13 @@ from mongo.stickerdb import init_stickerdb, create_indexes as create_sticker_ind
 from mongo.managementdb import init_managementdb, create_indexes as create_management_indexes
 from mongo.locksdb import init_locksdb, create_indexes as create_locks_indexes
 
-from handlers import start, kang, misc, logger
-from handlers import sticker_id
-from handlers import getsticker, getvidsticker
-from handlers import copypack
-from handlers import pack_management
+from handlers import start, misc, logger
 from handlers import language
+from handlers.stickers import kang
+from handlers.stickers import sticker_id
+from handlers.stickers import getsticker, getvidsticker
+from handlers.stickers import copypack
+from handlers.stickers import pack_management
 
 from telethon_quotly import setup_telethon_handlers
 

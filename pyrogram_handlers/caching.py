@@ -2,6 +2,7 @@ import asyncio
 import logging
 from datetime import datetime, timezone
 from time import time
+from pyrogram.enums import ParseMode
 from typing import Dict, Optional, Any
 
 from pyrogram import Client, filters
@@ -280,7 +281,7 @@ async def setup_cache_handlers(client: Client):
                 time_str = f"{seconds}s"
             await message.reply_text(
                 f"Please wait <b>{time_str}</b> before reloading again.",
-                parse_mode="html"
+                parse_mode=ParseMode.HTML
             )
             return
 
@@ -295,7 +296,7 @@ async def setup_cache_handlers(client: Client):
             count = len(ADMIN_CACHE.get(chat_id, {}))
             await processing.edit_text(
                 f"Admin cache refreshed — <b>{count} admin(s)</b> cached.",
-                parse_mode="html"
+                parse_mode=ParseMode.HTML
             )
         else:
             await processing.edit_text("Failed to reload cache. Make sure I'm an admin in this group.")

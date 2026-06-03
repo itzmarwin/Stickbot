@@ -13,6 +13,7 @@ from mongo.userdb import init_userdb, create_indexes as create_user_indexes
 from mongo.stickerdb import init_stickerdb, create_indexes as create_sticker_indexes
 from mongo.managementdb import init_managementdb, create_indexes as create_management_indexes
 from mongo.locksdb import init_locksdb, create_indexes as create_locks_indexes
+from mongo.antipromo_db import init_antipromo_db, create_indexes as create_antipromo_indexes
 
 from handlers import start, misc, logger
 from handlers import language
@@ -39,6 +40,7 @@ from pyrogram_handlers.warns import setup_warn_handlers
 from pyrogram_handlers.mute import setup_mute_handlers
 from pyrogram_handlers.locks import setup_locks_handlers
 from pyrogram_handlers.caching import setup_cache_handlers
+from pyrogram_handlers.antipromo import setup_antipromo_handlers
 
 logging.basicConfig(
     level=logging.INFO,
@@ -81,11 +83,13 @@ async def init_databases():
     init_stickerdb(mongo_client, db)
     init_managementdb(mongo_client, db)
     init_locksdb(mongo_client, db)
+    init_antipromo_db(mongo_client, db)
 
     await create_user_indexes()
     await create_sticker_indexes()
     await create_management_indexes()
     await create_locks_indexes()
+    await create_antipromo_indexes()
 
     logging.info("✅ Database initialized successfully")
     logging.info(f"✅ Connected to: {DATABASE_NAME}")
@@ -123,6 +127,7 @@ async def setup_pyrogram():
         await setup_mute_handlers(pyro_client)
         await setup_locks_handlers(pyro_client)
         await setup_cache_handlers(pyro_client)
+        await setup_antipromo_handlers(pyro_client)
         await setup_filter_handlers(pyro_client)
         await setup_afk_handlers(pyro_client)
         await setup_restart_handlers(pyro_client)

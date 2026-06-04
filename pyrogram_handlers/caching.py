@@ -295,7 +295,7 @@ async def setup_cache_handlers(client: Client):
         if success:
             count = len(ADMIN_CACHE.get(chat_id, {}))
             await processing.edit_text(
-                f"Admin cache refreshed — <b>{count} admin(s)</b> cached.",
+                f"Admin cache refreshed - <b>{count} admin(s)</b> cached.",
                 parse_mode=ParseMode.HTML
             )
         else:

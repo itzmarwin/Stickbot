@@ -7,13 +7,14 @@ from pyrogram.types import Message, ChatPermissions
 from pyrogram.enums import (
     ParseMode,
     ChatMemberStatus,
+    ChatMembersFilter,
     MessageEntityType,
     MessageMediaType,
     MessageServiceType,
 )
 from pyrogram.errors import ChatAdminRequired, ChatNotModified, UserAdminInvalid
 
-from pyrogram_handlers.utils import is_user_admin
+from pyrogram_handlers.caching import get_admin_permissions, is_chat_cached
 from mongo.locksdb import (
     get_chat_locks,
     enable_multiple_locks,
@@ -148,15 +149,41 @@ ALL_UNLOCKED = ChatPermissions(
 )
 
 
-async def _bot_can_delete(client: Client, chat_id: int) -> bool:
+async def _check_admin(client: Client, chat_id: int, user_id: int) -> bool:
+    perms = get_admin_permissions(chat_id, user_id)
+    if perms is not None:
+        return True
     try:
-        bot = await client.get_me()
+        member = await client.get_chat_member(chat_id, user_id)
+        return member.status in (ChatMemberStatus.OWNER, ChatMemberStatus.ADMINISTRATOR)
+    except ChatAdminRequired:
+        try:
+            async for admin in client.get_chat_members(chat_id, filter=ChatMembersFilter.ADMINISTRATORS):
+                if admin.user.id == user_id:
+                    return True
+            return False
+        except Exception:
+            return False
+    except Exception:
+        return False
+
+
+async def _bot_can_delete(client: Client, chat_id: int) -> bool:
+    perms = get_admin_permissions(chat_id, (await client.get_me()).id)
+    if perms is not None:
+        return perms.get("can_delete_messages", False)
+    try:
+        bot    = await client.get_me()
         member = await client.get_chat_member(chat_id, bot.id)
         if member.status != ChatMemberStatus.ADMINISTRATOR:
             return False
         return bool(getattr(member.privileges, "can_delete_messages", False))
     except Exception:
         return False
+
+
+def _is_admin_in_cache(chat_id: int, user_id: int) -> bool:
+    return get_admin_permissions(chat_id, user_id) is not None
 
 
 def _has_emoji(text: str) -> bool:
@@ -193,12 +220,13 @@ async def setup_locks_handlers(client: Client):
     async def locktypes_command(_, message: Message):
         await message.reply_text(LOCK_TYPES_TEXT, parse_mode=ParseMode.HTML)
 
+
     @client.on_message(filters.command("lock") & filters.group)
     async def lock_command(client: Client, message: Message):
         chat_id = message.chat.id
         user_id = message.from_user.id if message.from_user else None
 
-        if not await is_user_admin(client, chat_id, user_id):
+        if not await _check_admin(client, chat_id, user_id):
             await message.reply_text("Only admins can lock permissions.", parse_mode=ParseMode.HTML)
             return
 
@@ -222,19 +250,15 @@ async def setup_locks_handlers(client: Client):
             return
 
         requested = [t.strip().lower() for t in raw.split(",") if t.strip()]
-
-        # "all" ko individual lock mein allow nahi — sirf /lock all se
         requested = [t for t in requested if t != "all"]
 
-        valid = [t for t in requested if t in DB_LOCK_TYPES]
+        valid   = [t for t in requested if t in DB_LOCK_TYPES]
         invalid = [t for t in requested if t not in DB_LOCK_TYPES]
 
         if valid:
-            # Delete permission check — sirf DB locks ke liye zaroori
             if not await _bot_can_delete(client, chat_id):
                 await message.reply_text(
-                    "This lock can't work without delete permissions.\n"
-                    "Promote me properly and I'll keep the chat clean.",
+                    "This lock can't work without delete permissions.\nPromote me properly and I'll keep the chat clean.",
                     parse_mode=ParseMode.HTML
                 )
                 return
@@ -249,12 +273,13 @@ async def setup_locks_handlers(client: Client):
         if lines:
             await message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
 
+
     @client.on_message(filters.command("unlock") & filters.group)
     async def unlock_command(client: Client, message: Message):
         chat_id = message.chat.id
         user_id = message.from_user.id if message.from_user else None
 
-        if not await is_user_admin(client, chat_id, user_id):
+        if not await _check_admin(client, chat_id, user_id):
             await message.reply_text("Only admins can unlock permissions.", parse_mode=ParseMode.HTML)
             return
 
@@ -278,7 +303,7 @@ async def setup_locks_handlers(client: Client):
             return
 
         requested = [t.strip().lower() for t in raw.split(",") if t.strip()]
-        valid = [t for t in requested if t in DB_LOCK_TYPES]
+        valid   = [t for t in requested if t in DB_LOCK_TYPES]
         invalid = [t for t in requested if t not in DB_LOCK_TYPES]
 
         if valid:
@@ -293,10 +318,11 @@ async def setup_locks_handlers(client: Client):
         if lines:
             await message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
 
+
     @client.on_message(filters.command("locks") & filters.group)
     async def locks_command(_, message: Message):
         chat_id = message.chat.id
-        locks = await get_chat_locks(chat_id)
+        locks   = await get_chat_locks(chat_id)
 
         if not locks:
             await message.reply_text("No active locks in this chat.", parse_mode=ParseMode.HTML)
@@ -304,13 +330,14 @@ async def setup_locks_handlers(client: Client):
 
         lines = ["<b>Active Locks:</b>\n"]
         for lock_type in sorted(locks.keys()):
-            desc = LOCK_DESCRIPTIONS.get(lock_type, "")
+            desc  = LOCK_DESCRIPTIONS.get(lock_type, "")
             entry = f"  • <code>{lock_type}</code>"
             if desc:
                 entry += f" — {desc}"
             lines.append(entry)
 
         await message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
+
 
     @client.on_message(filters.service & filters.group, group=5)
     async def service_bot_lock(client: Client, message: Message):
@@ -324,12 +351,16 @@ async def setup_locks_handlers(client: Client):
                 continue
             try:
                 from datetime import datetime, timedelta
-                await client.ban_chat_member(message.chat.id, member.id, until_date=datetime.now() + timedelta(minutes=5))
+                await client.ban_chat_member(
+                    message.chat.id, member.id,
+                    until_date=datetime.now() + timedelta(minutes=5)
+                )
                 await asyncio.sleep(0.5)
             except (UserAdminInvalid, ChatAdminRequired):
                 continue
             except Exception:
                 pass
+
 
     @client.on_message(filters.group & ~filters.me, group=6)
     async def lock_watcher(client: Client, message: Message):
@@ -341,6 +372,8 @@ async def setup_locks_handlers(client: Client):
 
         user = message.from_user
         if user:
+            if _is_admin_in_cache(chat_id, user.id):
+                return
             try:
                 member = await client.get_chat_member(chat_id, user.id)
                 if member.status in (ChatMemberStatus.OWNER, ChatMemberStatus.ADMINISTRATOR):
@@ -371,10 +404,8 @@ async def setup_locks_handlers(client: Client):
 
         if locks.get("all"):
             should_delete = True
-
         elif locks.get("anonchannel") and message.sender_chat and not message.forward_from_chat:
             should_delete = True
-
         elif locks.get("allforward") and (message.forward_from or message.forward_from_chat):
             should_delete = True
         elif locks.get("userforward") and message.forward_from and not message.forward_from_chat:
@@ -383,26 +414,23 @@ async def setup_locks_handlers(client: Client):
             should_delete = True
         elif locks.get("forwardstory") and (getattr(message, "forward_story", None) or getattr(message, "story", None)):
             should_delete = True
-
         elif locks.get("externalreply") and getattr(message, "external_reply", None):
             should_delete = True
-
         elif locks.get("inline") and message.via_bot:
             should_delete = True
-
         else:
             media = message.media
             if media:
-                if locks.get("audio")    and media == MessageMediaType.AUDIO:     should_delete = True
-                elif locks.get("voice")  and media == MessageMediaType.VOICE:     should_delete = True
-                elif locks.get("video")  and media == MessageMediaType.VIDEO:     should_delete = True
-                elif locks.get("gif")    and media == MessageMediaType.ANIMATION: should_delete = True
-                elif locks.get("document") and media == MessageMediaType.DOCUMENT: should_delete = True
-                elif locks.get("contact")  and media == MessageMediaType.CONTACT:  should_delete = True
-                elif locks.get("poll")     and media == MessageMediaType.POLL:     should_delete = True
-                elif locks.get("stickers") and media == MessageMediaType.STICKER:  should_delete = True
+                if locks.get("audio")      and media == MessageMediaType.AUDIO:     should_delete = True
+                elif locks.get("voice")    and media == MessageMediaType.VOICE:     should_delete = True
+                elif locks.get("video")    and media == MessageMediaType.VIDEO:     should_delete = True
+                elif locks.get("gif")      and media == MessageMediaType.ANIMATION: should_delete = True
+                elif locks.get("document") and media == MessageMediaType.DOCUMENT:  should_delete = True
+                elif locks.get("contact")  and media == MessageMediaType.CONTACT:   should_delete = True
+                elif locks.get("poll")     and media == MessageMediaType.POLL:      should_delete = True
+                elif locks.get("stickers") and media == MessageMediaType.STICKER:   should_delete = True
                 elif locks.get("animations") and media == MessageMediaType.ANIMATION: should_delete = True
-                elif locks.get("games")    and media == MessageMediaType.GAME:     should_delete = True
+                elif locks.get("games")    and media == MessageMediaType.GAME:      should_delete = True
 
             if not should_delete and locks.get("checklist") and getattr(message, "checklist", None):
                 should_delete = True

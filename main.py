@@ -179,6 +179,14 @@ async def main():
         logging.info("Initializing database...")
         await init_databases()
 
+        # Templates ko explicitly load karo — import pe hota hai
+        # lekin yahan force karke confirm karte hain
+        from utils.language import load_template, SUPPORTED_LANGUAGES, _template_cache
+        for lang_code in SUPPORTED_LANGUAGES:
+            load_template(lang_code)
+        loaded = list(_template_cache.keys())
+        logging.info(f"✅ Language templates loaded: {loaded}")
+
         global aiogram_bot
         aiogram_bot = Bot(
             token=BOT_TOKEN,

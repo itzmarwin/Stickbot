@@ -22,7 +22,8 @@ def get_language_selection_keyboard():
 
 @router.message(Command("lang"), F.chat.type == "private")
 async def cmd_lang(message: Message):
-    _, lang = await get_lang_dict(message.from_user.id)
+    user_id = message.from_user.id
+    _, lang = await get_lang_dict(user_id)
     lang_select_msg = get_text_from_dict(lang, "LANG_SELECT_MESSAGE")
     await message.answer(lang_select_msg, reply_markup=get_language_selection_keyboard())
 
@@ -53,11 +54,15 @@ async def set_language_callback(callback: CallbackQuery):
         first_name=escape_html(callback.from_user.first_name)
     )
 
-    await callback.message.edit_text(start_text, reply_markup=get_main_menu_keyboard(lang))
+    await callback.message.edit_text(
+        start_text,
+        reply_markup=get_main_menu_keyboard(lang)
+    )
     await callback.answer()
 
 
 async def show_language_selection_for_new_user(message: Message):
-    _, lang = await get_lang_dict(message.from_user.id)
+    user_id = message.from_user.id
+    _, lang = await get_lang_dict(user_id)
     lang_select_msg = get_text_from_dict(lang, "LANG_SELECT_MESSAGE")
     await message.answer(lang_select_msg, reply_markup=get_language_selection_keyboard())

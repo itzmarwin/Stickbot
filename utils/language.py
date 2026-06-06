@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Optional, Dict
+from typing import Optional, Dict, Tuple
 from pathlib import Path
 
 from mongo.userdb import get_user_language
@@ -39,12 +39,23 @@ def load_template(language: str) -> Dict[str, str]:
         return {}
 
 
+async def get_lang_dict(user_id: int) -> Tuple[str, Dict[str, str]]:
+    try:
+        lang_code = await get_user_language(user_id)
+        lang_dict = _template_cache.get(lang_code) or _template_cache.get(DEFAULT_LANGUAGE, {})
+        return lang_code, lang_dict
+    except Exception as e:
+        logger.error(f"Error in get_lang_dict user {user_id}: {e}")
+        return DEFAULT_LANGUAGE, _template_cache.get(DEFAULT_LANGUAGE, {})
+
+
 async def get_text(user_id: int, key: str, **kwargs) -> Optional[str]:
     try:
         language = await get_user_language(user_id)
         template = _template_cache.get(language) or _template_cache.get(DEFAULT_LANGUAGE, {})
 
         if key not in template:
+            logger.warning(f"Missing key '{key}' for language '{language}'")
             return None
 
         message = template[key]
@@ -65,6 +76,7 @@ def get_text_sync(language: str, key: str, **kwargs) -> Optional[str]:
         template = _template_cache.get(language) or _template_cache.get(DEFAULT_LANGUAGE, {})
 
         if key not in template:
+            logger.warning(f"Missing key '{key}' for language '{language}'")
             return None
 
         message = template[key]
@@ -78,6 +90,27 @@ def get_text_sync(language: str, key: str, **kwargs) -> Optional[str]:
     except Exception as e:
         logger.error(f"Error in get_text_sync language '{language}', key '{key}': {e}")
         return None
+
+
+def get_text_from_dict(lang_dict: Dict[str, str], key: str, **kwargs) -> str:
+    try:
+        if not lang_dict:
+            lang_dict = _template_cache.get(DEFAULT_LANGUAGE, {})
+
+        message = lang_dict.get(key)
+        if message is None:
+            logger.warning(f"Missing key '{key}' in lang_dict")
+            message = _template_cache.get(DEFAULT_LANGUAGE, {}).get(key, "")
+
+        if kwargs and message:
+            try:
+                message = message.format(**kwargs)
+            except Exception as e:
+                logger.error(f"Error formatting key '{key}': {e}")
+        return message or ""
+    except Exception as e:
+        logger.error(f"Error in get_text_from_dict key '{key}': {e}")
+        return ""
 
 
 def reload_templates():

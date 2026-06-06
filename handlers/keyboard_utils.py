@@ -3,8 +3,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import CallbackQuery
 from aiogram.exceptions import TelegramBadRequest
 
-from mongo.userdb import get_user_language
-from utils.language import get_text_sync
+from utils.language import get_text_from_dict
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +12,7 @@ class SharedCallbacks:
     MANAGE_PACKS = "manage_packs"
     EXTRA_COMMANDS = "extra_commands"
     BACK_TO_MAIN = "back_to_main"
-    
+
     EXTRA_CMD_AFK = "extra_afk"
     EXTRA_CMD_QUOTLY = "extra_quotly"
     EXTRA_CMD_STICKERS = "extra_stickers"
@@ -27,180 +26,130 @@ class SharedCallbacks:
     EXTRA_CMD_FILTERS = "extra_filters"
 
 
-async def get_main_menu_keyboard(user_id: int):
+# ─────────────────────────────────────────────
+# Saare keyboard builders ab SYNC hain
+# lang_dict bahar se pass hota hai — andar koi
+# DB call ya await nahi hai
+# ─────────────────────────────────────────────
+
+def get_main_menu_keyboard(lang_dict: dict):
     from config import BOT_USERNAME
-    
-    language = await get_user_language(user_id)
-    
+
     builder = InlineKeyboardBuilder()
-    
-    add_group_text = get_text_sync(language, "B_ADD_ME_GROUP")
-    if add_group_text is None:
-        add_group_text = "𝖠𝖽𝖽 𝖬𝖾 𝖨𝗇 𝖸𝗈𝗎𝗋 𝖦𝗋𝗈𝗎𝗉"
-    
+
     builder.button(
-        text=add_group_text, 
+        text=get_text_from_dict(lang_dict, "B_ADD_ME_GROUP") or "𝖠𝖽𝖽 𝖬𝖾 𝖨𝗇 𝖸𝗈𝗎𝗋 𝖦𝗋𝗈𝗎𝗉",
         url=f"https://t.me/{BOT_USERNAME}?startgroup=true"
     )
-    
-    extra_cmd_text = get_text_sync(language, "B_EXTRA_COMMANDS")
-    if extra_cmd_text is None:
-        extra_cmd_text = "𝖤𝗑𝗍𝗋𝖺 𝖢𝗈𝗆𝗆𝖺𝗇𝖽𝗌"
-    
     builder.button(
-        text=extra_cmd_text, 
+        text=get_text_from_dict(lang_dict, "B_EXTRA_COMMANDS") or "𝖦𝗋𝗈𝗎𝗉 𝖬𝖺𝗇𝖺𝗀𝖾𝗋",
         callback_data=SharedCallbacks.EXTRA_COMMANDS
     )
-    
-    manage_packs_text = get_text_sync(language, "B_MANAGE_PACKS")
-    if manage_packs_text is None:
-        manage_packs_text = "𝖬𝖺𝗇𝖺𝗀𝖾 𝖯𝖺𝖼𝗄𝗌"
-    
     builder.button(
-        text=manage_packs_text, 
+        text=get_text_from_dict(lang_dict, "B_MANAGE_PACKS") or "𝖬𝗒 𝖲𝗍𝗂𝖼𝗄𝖾𝗋 𝖯𝖺𝖼𝗄𝗌",
         callback_data=SharedCallbacks.MANAGE_PACKS
     )
-    
-    support_text = get_text_sync(language, "B_SUPPORT")
-    if support_text is None:
-        support_text = "𝖲𝗎𝗉𝗉𝗈𝗋𝗍"
-    
     builder.button(
-        text=support_text, 
+        text=get_text_from_dict(lang_dict, "B_SUPPORT") or "𝖲𝗎𝗉𝗉𝗈𝗋𝗍",
         url="https://t.me/SamuraisSupport"
     )
-    
-    updates_text = get_text_sync(language, "B_UPDATES")
-    if updates_text is None:
-        updates_text = "𝖴𝗉𝖽𝖺𝗍𝖾𝗌"
-    
     builder.button(
-        text=updates_text, 
+        text=get_text_from_dict(lang_dict, "B_UPDATES") or "𝖴𝗉𝖽𝖺𝗍𝖾𝗌",
         url="https://t.me/bot_updates_Smr"
     )
-    
+
     builder.adjust(1, 1, 1, 2)
     return builder.as_markup()
 
 
 def get_group_start_keyboard():
     from config import BOT_USERNAME
-    
+
     builder = InlineKeyboardBuilder()
-    builder.button(
-        text="𝖲𝗍𝖺𝗋𝗍 𝖬𝖾", 
-        url=f"https://t.me/{BOT_USERNAME}?start=group"
-    )
-    builder.button(
-        text="𝖲𝗎𝗉𝗉𝗈𝗋𝗍", 
-        url="https://t.me/Samurais_Support"
-    )
+    builder.button(text="𝖲𝗍𝖺𝗋𝗍 𝖬𝖾", url=f"https://t.me/{BOT_USERNAME}?start=group")
+    builder.button(text="𝖲𝗎𝗉𝗉𝗈𝗋𝗍", url="https://t.me/Samurais_Support")
     builder.adjust(2)
     return builder.as_markup()
 
 
-async def get_extra_commands_keyboard(user_id: int):
-    language = await get_user_language(user_id)
-    
+def get_extra_commands_keyboard(lang_dict: dict):
     builder = InlineKeyboardBuilder()
-    
-    afk_text = get_text_sync(language, "B_AFK")
-    if afk_text is None:
-        afk_text = "𝖠𝖿𝗄"
-    builder.button(text=afk_text, callback_data=SharedCallbacks.EXTRA_CMD_AFK)
-    
-    quotly_text = get_text_sync(language, "B_QUOTLY")
-    if quotly_text is None:
-        quotly_text = "𝖰𝗎𝗈𝗍𝗅𝗒"
-    builder.button(text=quotly_text, callback_data=SharedCallbacks.EXTRA_CMD_QUOTLY)
-    
-    stickers_text = get_text_sync(language, "B_STICKERS")
-    if stickers_text is None:
-        stickers_text = "𝖲𝗍𝗂𝖼𝗄𝖾𝗋𝗌"
-    builder.button(text=stickers_text, callback_data=SharedCallbacks.EXTRA_CMD_STICKERS)
-    
-    memefi_text = get_text_sync(language, "B_MEMEFI")
-    if memefi_text is None:
-        memefi_text = "𝖬𝖾𝗆𝖾𝖿𝗂"
-    builder.button(text=memefi_text, callback_data=SharedCallbacks.EXTRA_CMD_MEMEFI)
-    
-    greetings_text = get_text_sync(language, "B_GREETINGS")
-    if greetings_text is None:
-        greetings_text = "𝖦𝗋𝖾𝖾𝗍𝗂𝗇𝗀𝗌"
-    builder.button(text=greetings_text, callback_data=SharedCallbacks.EXTRA_CMD_WELCOME)
 
-    tagall_text = get_text_sync(language, "B_TAGALL")
-    if tagall_text is None:
-        tagall_text = "𝖳𝖺𝗀𝖠𝗅𝗅"
-    builder.button(text=tagall_text, callback_data=SharedCallbacks.EXTRA_CMD_TAGALL)
+    builder.button(
+        text=get_text_from_dict(lang_dict, "B_AFK") or "𝖠𝖿𝗄",
+        callback_data=SharedCallbacks.EXTRA_CMD_AFK
+    )
+    builder.button(
+        text=get_text_from_dict(lang_dict, "B_QUOTLY") or "𝖰𝗎𝗈𝗍𝗅𝗒",
+        callback_data=SharedCallbacks.EXTRA_CMD_QUOTLY
+    )
+    builder.button(
+        text=get_text_from_dict(lang_dict, "B_STICKERS") or "𝖲𝗍𝗂𝖼𝗄𝖾𝗋𝗌",
+        callback_data=SharedCallbacks.EXTRA_CMD_STICKERS
+    )
+    builder.button(
+        text=get_text_from_dict(lang_dict, "B_MEMEFI") or "𝖬𝖾𝗆𝖾𝖿𝗂",
+        callback_data=SharedCallbacks.EXTRA_CMD_MEMEFI
+    )
+    builder.button(
+        text=get_text_from_dict(lang_dict, "B_GREETINGS") or "𝖦𝗋𝖾𝖾𝗍𝗂𝗇𝗀𝗌",
+        callback_data=SharedCallbacks.EXTRA_CMD_WELCOME
+    )
+    builder.button(
+        text=get_text_from_dict(lang_dict, "B_TAGALL") or "𝖳𝖺𝗀𝖠𝗅𝗅",
+        callback_data=SharedCallbacks.EXTRA_CMD_TAGALL
+    )
+    builder.button(
+        text=get_text_from_dict(lang_dict, "B_LOCKS") or "𝖫𝗈𝖼𝗄𝗌",
+        callback_data=SharedCallbacks.EXTRA_CMD_LOCKS
+    )
+    builder.button(
+        text=get_text_from_dict(lang_dict, "B_WARNS") or "𝖶𝖺𝗋𝗇𝗌",
+        callback_data=SharedCallbacks.EXTRA_CMD_WARNS
+    )
+    builder.button(
+        text=get_text_from_dict(lang_dict, "B_BAN") or "𝖡𝖺𝗇",
+        callback_data=SharedCallbacks.EXTRA_CMD_BAN
+    )
+    builder.button(
+        text=get_text_from_dict(lang_dict, "B_MUTE") or "𝖬𝗎𝗍𝖾",
+        callback_data=SharedCallbacks.EXTRA_CMD_MUTE
+    )
+    builder.button(
+        text=get_text_from_dict(lang_dict, "B_FILTERS") or "𝖥𝗂𝗅𝗍𝖾𝗋𝗌",
+        callback_data=SharedCallbacks.EXTRA_CMD_FILTERS
+    )
+    builder.button(
+        text=get_text_from_dict(lang_dict, "B_BACK") or "⬅️ 𝖡𝖺𝖼𝗄",
+        callback_data=SharedCallbacks.BACK_TO_MAIN
+    )
 
-    locks_text = get_text_sync(language, "B_LOCKS")
-    if locks_text is None:
-        locks_text = "𝖫𝗈𝖼𝗄𝗌"
-    builder.button(text=locks_text, callback_data=SharedCallbacks.EXTRA_CMD_LOCKS)
-
-    warns_text = get_text_sync(language, "B_WARNS")
-    if warns_text is None:
-        warns_text = "𝖶𝖺𝗋𝗇𝗌"
-    builder.button(text=warns_text, callback_data=SharedCallbacks.EXTRA_CMD_WARNS)
-
-    ban_text = get_text_sync(language, "B_BAN")
-    if ban_text is None:
-        ban_text = "𝖡𝖺𝗇"
-    builder.button(text=ban_text, callback_data=SharedCallbacks.EXTRA_CMD_BAN)
-
-    mute_text = get_text_sync(language, "B_MUTE")
-    if mute_text is None:
-        mute_text = "𝖬𝗎𝗍𝖾"
-    builder.button(text=mute_text, callback_data=SharedCallbacks.EXTRA_CMD_MUTE)
-
-    filters_text = get_text_sync(language, "B_FILTERS")
-    if filters_text is None:
-        filters_text = "𝖥𝗂𝗅𝗍𝖾𝗋𝗌"
-    builder.button(text=filters_text, callback_data=SharedCallbacks.EXTRA_CMD_FILTERS)
-    
-    back_text = get_text_sync(language, "B_BACK")
-    if back_text is None:
-        back_text = "⬅️ 𝖡𝖺𝖼𝗄"
-    builder.button(text=back_text, callback_data=SharedCallbacks.BACK_TO_MAIN)
-    
     builder.adjust(3, 3, 3, 2, 1)
     return builder.as_markup()
 
 
-async def get_back_to_extra_keyboard(user_id: int):
-    language = await get_user_language(user_id)
-    
+def get_back_to_extra_keyboard(lang_dict: dict):
     builder = InlineKeyboardBuilder()
-    
-    back_text = get_text_sync(language, "B_BACK")
-    if back_text is None:
-        back_text = "⬅️ 𝖡𝖺𝖼𝗄"
-    
     builder.button(
-        text=back_text, 
+        text=get_text_from_dict(lang_dict, "B_BACK") or "⬅️ 𝖡𝖺𝖼𝗄",
         callback_data=SharedCallbacks.EXTRA_COMMANDS
     )
     return builder.as_markup()
 
 
-async def get_back_to_main_keyboard(user_id: int):
-    language = await get_user_language(user_id)
-    
+def get_back_to_main_keyboard(lang_dict: dict):
     builder = InlineKeyboardBuilder()
-    
-    back_text = get_text_sync(language, "B_BACK")
-    if back_text is None:
-        back_text = "⬅️ 𝖡𝖺𝖼𝗄"
-    
     builder.button(
-        text=back_text, 
+        text=get_text_from_dict(lang_dict, "B_BACK") or "⬅️ 𝖡𝖺𝖼𝗄",
         callback_data=SharedCallbacks.BACK_TO_MAIN
     )
     return builder.as_markup()
 
 
 async def safe_edit_message(callback: CallbackQuery, text: str, reply_markup=None):
+    if not text:
+        await callback.answer("Something went wrong, please try again.", show_alert=True)
+        return
     try:
         if callback.message.text:
             await callback.message.edit_text(text, reply_markup=reply_markup)

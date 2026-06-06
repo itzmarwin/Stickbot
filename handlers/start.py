@@ -95,7 +95,7 @@ async def cmd_help(message: Message):
 
 @router.callback_query(F.data == SharedCallbacks.EXTRA_COMMANDS)
 async def extra_commands_callback(callback: CallbackQuery):
-    asyncio.create_task(callback.answer())
+    await callback.answer()
     try:
         _, lang = await get_lang_dict(callback.from_user.id)
         message_text = get_text_from_dict(lang, "EXTRA_COMMANDS_MESSAGE")
@@ -106,7 +106,7 @@ async def extra_commands_callback(callback: CallbackQuery):
 
 @router.callback_query(F.data == SharedCallbacks.EXTRA_CMD_AFK)
 async def extra_afk_callback(callback: CallbackQuery):
-    asyncio.create_task(callback.answer())
+    await callback.answer()
     try:
         _, lang = await get_lang_dict(callback.from_user.id)
         message_text = get_text_from_dict(lang, "AFK_INFO_MESSAGE")
@@ -117,7 +117,7 @@ async def extra_afk_callback(callback: CallbackQuery):
 
 @router.callback_query(F.data == SharedCallbacks.EXTRA_CMD_QUOTLY)
 async def extra_quotly_callback(callback: CallbackQuery):
-    asyncio.create_task(callback.answer())
+    await callback.answer()
     try:
         _, lang = await get_lang_dict(callback.from_user.id)
         message_text = get_text_from_dict(lang, "QUOTLY_INFO_MESSAGE")
@@ -128,7 +128,7 @@ async def extra_quotly_callback(callback: CallbackQuery):
 
 @router.callback_query(F.data == SharedCallbacks.EXTRA_CMD_STICKERS)
 async def extra_stickers_callback(callback: CallbackQuery):
-    asyncio.create_task(callback.answer())
+    await callback.answer()
     try:
         _, lang = await get_lang_dict(callback.from_user.id)
         message_text = get_text_from_dict(lang, "STICKERS_INFO_MESSAGE")
@@ -139,7 +139,7 @@ async def extra_stickers_callback(callback: CallbackQuery):
 
 @router.callback_query(F.data == SharedCallbacks.EXTRA_CMD_MEMEFI)
 async def extra_memefi_callback(callback: CallbackQuery):
-    asyncio.create_task(callback.answer())
+    await callback.answer()
     try:
         _, lang = await get_lang_dict(callback.from_user.id)
         message_text = get_text_from_dict(lang, "MEMEFI_INFO_MESSAGE")
@@ -150,7 +150,7 @@ async def extra_memefi_callback(callback: CallbackQuery):
 
 @router.callback_query(F.data == SharedCallbacks.EXTRA_CMD_WELCOME)
 async def extra_welcome_callback(callback: CallbackQuery):
-    asyncio.create_task(callback.answer())
+    await callback.answer()
     try:
         _, lang = await get_lang_dict(callback.from_user.id)
         message_text = get_text_from_dict(lang, "WELCOME_INFO_MESSAGE")
@@ -161,7 +161,7 @@ async def extra_welcome_callback(callback: CallbackQuery):
 
 @router.callback_query(F.data == SharedCallbacks.EXTRA_CMD_TAGALL)
 async def extra_tagall_callback(callback: CallbackQuery):
-    asyncio.create_task(callback.answer())
+    await callback.answer()
     try:
         _, lang = await get_lang_dict(callback.from_user.id)
         message_text = get_text_from_dict(lang, "TAGALL_INFO_MESSAGE")
@@ -172,7 +172,7 @@ async def extra_tagall_callback(callback: CallbackQuery):
 
 @router.callback_query(F.data == SharedCallbacks.EXTRA_CMD_LOCKS)
 async def extra_locks_callback(callback: CallbackQuery):
-    asyncio.create_task(callback.answer())
+    await callback.answer()
     try:
         _, lang = await get_lang_dict(callback.from_user.id)
         message_text = get_text_from_dict(lang, "LOCKS_INFO_MESSAGE")
@@ -183,7 +183,7 @@ async def extra_locks_callback(callback: CallbackQuery):
 
 @router.callback_query(F.data == SharedCallbacks.EXTRA_CMD_WARNS)
 async def extra_warns_callback(callback: CallbackQuery):
-    asyncio.create_task(callback.answer())
+    await callback.answer()
     try:
         _, lang = await get_lang_dict(callback.from_user.id)
         message_text = get_text_from_dict(lang, "WARNS_INFO_MESSAGE")
@@ -194,7 +194,7 @@ async def extra_warns_callback(callback: CallbackQuery):
 
 @router.callback_query(F.data == SharedCallbacks.EXTRA_CMD_BAN)
 async def extra_ban_callback(callback: CallbackQuery):
-    asyncio.create_task(callback.answer())
+    await callback.answer()
     try:
         _, lang = await get_lang_dict(callback.from_user.id)
         message_text = get_text_from_dict(lang, "BAN_INFO_MESSAGE")
@@ -205,7 +205,7 @@ async def extra_ban_callback(callback: CallbackQuery):
 
 @router.callback_query(F.data == SharedCallbacks.EXTRA_CMD_MUTE)
 async def extra_mute_callback(callback: CallbackQuery):
-    asyncio.create_task(callback.answer())
+    await callback.answer()
     try:
         _, lang = await get_lang_dict(callback.from_user.id)
         message_text = get_text_from_dict(lang, "MUTE_INFO_MESSAGE")
@@ -216,7 +216,7 @@ async def extra_mute_callback(callback: CallbackQuery):
 
 @router.callback_query(F.data == SharedCallbacks.EXTRA_CMD_FILTERS)
 async def extra_filters_callback(callback: CallbackQuery):
-    asyncio.create_task(callback.answer())
+    await callback.answer()
     try:
         _, lang = await get_lang_dict(callback.from_user.id)
         message_text = get_text_from_dict(lang, "FILTERS_INFO_MESSAGE")
@@ -227,7 +227,7 @@ async def extra_filters_callback(callback: CallbackQuery):
 
 @router.callback_query(F.data == SharedCallbacks.BACK_TO_MAIN)
 async def back_to_main_callback(callback: CallbackQuery):
-    asyncio.create_task(callback.answer())
+    await callback.answer()
     try:
         user = callback.from_user
         _, lang = await get_lang_dict(user.id)

@@ -73,6 +73,7 @@
     "PACK_CREATED_SUCCESS": "<b>Your sticker pack has been created successfully!</b>\n\n<a href=\"{pack_link}\">{pack_name}</a>",
     "PACK_CREATE_FAILED_TEMP": "<b>Failed to create pack.</b>\nThis might be a temporary issue. Please try again.",
     "OPERATION_CANCELLED": "Operation cancelled.",
+    "STATE_CANCELLED_MESSAGE": "<b>Operation cancelled.</b>\n\nYou sent an invalid message. If you want to continue, please use /start to begin again."
     "PUBLISH_PACK_ASK_KEYWORD": "<b>Publish Pack</b>\n\n<b>Pack:</b> {pack_name}\n\nPlease send a keyword (3-20 characters, alphanumeric only) that people will use to find your pack via inline mode.\n\n<b>Example:</b> <code>@{bot_username} memes</code>",
     "PUBLISH_KEYWORD_SEND_TEXT": "Please send a text keyword.",
     "PUBLISH_KEYWORD_INVALID": "<b>Invalid keyword!</b>\n\nKeyword must be:\n- 3-20 characters long\n- Alphanumeric only (a-z, 0-9)\n- No spaces or special characters\n\nPlease try again.",

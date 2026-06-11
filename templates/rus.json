@@ -292,4 +292,12 @@
     "antipromo_usage": "Используйте /antipromo on или /antipromo off",
     "antipromo_removed": "🛡️ Удалено рекламное сообщение от {sender}.",
     "btn_add_me": "Добавить меня",
+
+
+
+    "afk_set": "{user} теперь недоступен.",
+    "afk_set_with_reason": "{user} теперь недоступен.\nПричина: {reason}",
+    "afk_welcome_back": "С возвращением, {user}! Вы отсутствовали {duration}.",
+    "afk_user_is_afk": "{user} недоступен (отсутствует {duration}).",
+    "afk_user_is_afk_reason": "{user} недоступен: {reason} (отсутствует {duration}).",
 }

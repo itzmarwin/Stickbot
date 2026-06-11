@@ -11,6 +11,9 @@ _db = None
 _lang_cache: Dict[int, str] = {}
 _user_cache: Dict[int, Dict[str, Any]] = {}
 _started_users: set = set()
+_group_lang_cache: Dict[int, str] = {}
+
+DEFAULT_GROUP_LANG = "en"
 
 
 def init_userdb(client: AsyncMongoClient, db):
@@ -127,6 +130,47 @@ async def set_user_language(user_id: int, language: str) -> bool:
         return False
 
 
+# ─── Group Language ───────────────────────────────────────────────────────────
+
+async def get_group_language(chat_id: int) -> str:
+    """
+    Get language for a group chat.
+    Cache check first — DB only on miss.
+    """
+    if chat_id in _group_lang_cache:
+        return _group_lang_cache[chat_id]
+    try:
+        doc = await _db.served_chats.find_one({"chat_id": chat_id}, {"language": 1})
+        lang = doc.get("language", DEFAULT_GROUP_LANG) if doc else DEFAULT_GROUP_LANG
+        _group_lang_cache[chat_id] = lang
+        return lang
+    except Exception as e:
+        logger.error(f"Error getting group language {chat_id}: {e}")
+        return DEFAULT_GROUP_LANG
+
+
+async def set_group_language(chat_id: int, language: str) -> bool:
+    """
+    Set language for a group chat.
+    Updates served_chats collection — same collection, just adds language field.
+    """
+    try:
+        if language not in ["en", "rus", "bur"]:
+            language = "en"
+        await _db.served_chats.update_one(
+            {"chat_id": chat_id},
+            {"$set": {"language": language}},
+            upsert=True
+        )
+        _group_lang_cache[chat_id] = language
+        return True
+    except Exception as e:
+        logger.error(f"Error setting group language {chat_id}: {e}")
+        return False
+
+
+# ─── Served Chats ─────────────────────────────────────────────────────────────
+
 async def add_served_chat(chat_id: int) -> bool:
     try:
         await _db.served_chats.update_one(
@@ -143,6 +187,8 @@ async def add_served_chat(chat_id: int) -> bool:
 async def remove_served_chat(chat_id: int) -> bool:
     try:
         await _db.served_chats.delete_one({"chat_id": chat_id})
+        # Cache bhi clear karo
+        _group_lang_cache.pop(chat_id, None)
         return True
     except Exception as e:
         logger.error(f"Error removing served chat {chat_id}: {e}")
@@ -165,6 +211,8 @@ async def get_served_chats_count() -> int:
         logger.error(f"Error getting served chats count: {e}")
         return 0
 
+
+# ─── Banned Users ─────────────────────────────────────────────────────────────
 
 async def add_banned_user(user_id: int) -> bool:
     try:

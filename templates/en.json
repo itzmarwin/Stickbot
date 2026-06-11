@@ -331,5 +331,9 @@
     "goodbye_autodelete_enabled": "<b>Auto-delete is enabled</b>\n\nGoodbye messages will be deleted after: <b>{time}</b>",
     "goodbye_autodelete_turned_on": "<b>Auto-delete enabled</b>\n\nGoodbye messages will be deleted after: <b>{time}</b>",
     "goodbye_autodelete_time_updated": "<b>Auto-delete time updated</b>\n\nGoodbye messages will be deleted after: <b>{time}</b>",
-    "cleangoodbye_usage": "Use <code>/cleangoodbye on</code> or <code>/cleangoodbye off</code>"
+    "cleangoodbye_usage": "Use <code>/cleangoodbye on</code> or <code>/cleangoodbye off</code>",
+
+
+    
+    "group_lang_changed": "Group language changed to"
 }

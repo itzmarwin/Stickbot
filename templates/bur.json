@@ -300,4 +300,27 @@
     "afk_welcome_back": "ပြန်လာကြိုဆိုသည်, {user}! {duration} ကြာ AFK ဖြစ်ခဲ့သည်။",
     "afk_user_is_afk": "{user} AFK ဖြစ်နေသည် ({duration} ကြာ)။",
     "afk_user_is_afk_reason": "{user} AFK ဖြစ်နေသည်: {reason} ({duration} ကြာ)။",
+
+
+
+    "goodbye_status_enabled": "<b>Goodbye မက်ဆေ့ ဖွင့်ထားသည်။</b>",
+    "goodbye_status_disabled": "<b>Goodbye မက်ဆေ့ ပိတ်ထားသည်။</b>",
+    "goodbye_already_enabled": "Goodbye ဖွင့်ပြီးသားဖြစ်သည်။",
+    "goodbye_already_disabled": "Goodbye ပိတ်ပြီးသားဖြစ်သည်။",
+    "goodbye_enabled_custom": "<b>Goodbye ဖွင့်ပြီးပါပြီ!</b>\n\nအဖွဲ့မှ ထွက်သူများသို့ Custom goodbye မက်ဆေ့ ပေးပို့မည်။",
+    "goodbye_enabled_default": "<b>Goodbye ဖွင့်ပြီးပါပြီ။</b>\n\nအဖွဲ့မှ ထွက်သူများသို့ မူရင်း goodbye မက်ဆေ့ ပေးပို့မည်။\nCustom မက်ဆေ့ သတ်မှတ်ရန် <code>/setgoodbye</code> အသုံးပြုပါ။",
+    "goodbye_disabled": "<b>Goodbye ပိတ်ပြီးပါပြီ။</b>",
+    "goodbye_usage": "<code>/goodbye on</code> သို့မဟုတ် <code>/goodbye off</code> အသုံးပြုပါ",
+    "goodbye_already_set": "<b>Goodbye မက်ဆေ့ ထပ်မံ သတ်မှတ်ပြီးသားဖြစ်သည်။</b>\n\nဖျက်ရန် <code>/delgoodbye</code> ကို ဦးစွာ အသုံးပြုပါ။",
+    "setgoodbye_reply_required": "<b>မက်ဆေ့ကို ပြန်တုံ့ပြန်ပါ။</b>",
+    "goodbye_set_success": "<b>Goodbye မက်ဆေ့ သတ်မှတ်ပြီးပါပြီ!</b>\n\nGoodbye <b>ဖွင့်</b>ထားပြီ။",
+    "goodbye_set_failed": "Goodbye မက်ဆေ့ သတ်မှတ်ရန် မအောင်မြင်ပါ။ ထပ်ကြိုးစားပါ။",
+    "no_goodbye_settings": "ဤ group အတွက် goodbye ဆက်တင်များ မတွေ့ပါ။",
+    "no_custom_goodbye": "<b>Custom goodbye မက်ဆေ့ မသတ်မှတ်ထားပါ။</b>\n\nသတ်မှတ်ရန် <code>/setgoodbye</code> အသုံးပြုပါ။",
+    "goodbye_deleted": "<b>Goodbye မက်ဆေ့ ဖျက်ပြီးပါပြီ!</b>\n\nGoodbye <b>ပိတ်</b>သွားပြီ။\nမူရင်းမက်ဆေ့ ဖွင့်ရန် <code>/goodbye on</code> အသုံးပြုပါ။",
+    "goodbye_delete_failed": "Goodbye မက်ဆေ့ ဖျက်ရန် မအောင်မြင်ပါ။ ထပ်ကြိုးစားပါ။",
+    "goodbye_autodelete_enabled": "<b>အလိုအလျောက် ဖျက်ခြင်း ဖွင့်ထားသည်</b>\n\nGoodbye မက်ဆေ့ကို {time} အကြာတွင် ဖျက်မည်",
+    "goodbye_autodelete_turned_on": "<b>အလိုအလျောက် ဖျက်ခြင်း ဖွင့်ပြီးပါပြီ</b>\n\nGoodbye မက်ဆေ့ကို {time} အကြာတွင် ဖျက်မည်",
+    "goodbye_autodelete_time_updated": "<b>အလိုအလျောက် ဖျက်ချိန် ပြောင်းပြီးပါပြီ</b>\n\nGoodbye မက်ဆေ့ကို {time} အကြာတွင် ဖျက်မည်",
+    "cleangoodbye_usage": "<code>/cleangoodbye on</code> သို့မဟုတ် <code>/cleangoodbye off</code> အသုံးပြုပါ"
 }

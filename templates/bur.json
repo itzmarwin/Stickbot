@@ -130,7 +130,7 @@
     "cb_only_admins_unmute": "အက်ဒမင်များသာ mute ဖြုတ်နိုင်သည်!",
     "cb_need_restrict_unmute": "mute ဖြုတ်ရန် ကန့်သတ်ခွင့်ပြုချက် လိုအပ်သည်!",
     "cb_need_admin_unmute": "mute ဖြုတ်ရန် အက်ဒမင် အခွင့်အရေး လိုအပ်သည်!",
-    "cb_user_unmuted": "Mute ဖြုတ်ပြီးပါပြီ!"
+    "cb_user_unmuted": "Mute ဖြုတ်ပြီးပါပြီ!",
 
 
     "only_admins_warn": "အက်ဒမင်များသာ သတိပေးချက် ထုတ်နိုင်သည်။",

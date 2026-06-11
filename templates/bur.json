@@ -229,4 +229,23 @@
     "lock_desc_pin": "မက်ဆေ့ ပင်ထိုးခြင်း",
     "lock_desc_info": "Group သတင်းအချက်အလက် ပြောင်းလဲခြင်း",
     "lock_types_text": "<b>ရရှိနိုင်သော Lock အမျိုးအစားများ:</b>\n\n<b>── ကမ္ဘာလုံးဆိုင်ရာ ──</b>\n• <code>all</code>         — အားလုံး ပိတ်မည်\n\n<b>── အကြောင်းအရာ ──</b>\n• <code>msg</code>         — စာသား မက်ဆေ့\n• <code>audio</code>       — Audio\n• <code>voice</code>       — Voice မက်ဆေ့\n• <code>video</code>       — ဗီဒီယို\n• <code>gif</code>         — GIF\n• <code>document</code>    — Document\n• <code>album</code>       — Album\n• <code>contact</code>     — Contact\n• <code>stickers</code>    — Sticker\n• <code>animations</code>  — Animation\n• <code>games</code>       — Game\n• <code>poll</code>        — Poll\n• <code>checklist</code>   — Checklist\n• <code>inline</code>      — Inline bot\n\n<b>── စာသား Pattern ──</b>\n• <code>links</code>       — Link များ\n• <code>email</code>       — Email\n• <code>phone</code>       — ဖုန်းနံပါတ်\n• <code>command</code>     — Bot command\n• <code>emoji</code>       — Emoji\n• <code>emojicustom</code> — Custom emoji\n• <code>webprev</code>     — Link preview\n\n<b>── Forward ──</b>\n• <code>allforward</code>     — Forward အားလုံး\n• <code>userforward</code>    — User မှ forward\n• <code>channelforward</code> — Channel မှ forward\n• <code>forwardstory</code>   — Story forward\n\n<b>── User လုပ်ဆောင်ချက် ──</b>\n• <code>bot</code>         — Bot ထည့်ခြင်း\n• <code>invite</code>      — ဖိတ်ကြားခြင်း\n• <code>pin</code>         — Pin ထိုးခြင်း\n• <code>info</code>        — Group info ပြောင်းခြင်း\n• <code>anonchannel</code> — Channel အနေဖြင့် ပို့ခြင်း\n\n<b>── အခြား ──</b>\n• <code>externalreply</code> — အပြင် chat reply\n• <code>comment</code>       — Channel commenter\n\n<b>အသုံးပြုပုံ:</b>\n<code>/lock &lt;အမျိုးအစား&gt;</code>\n<code>/lock all</code> သို့မဟုတ် <code>/lock everything</code>\n<code>/unlock &lt;အမျိုးအစား&gt;</code>\n<code>/unlock all</code> သို့မဟုတ် <code>/unlock everything</code>",
+
+
+
+    "only_admins_filter": "အက်ဒမင်များသာ filter များ ထည့်နိုင်သည်။",
+    "only_admins_remove_filter": "အက်ဒမင်များသာ filter များ ဖျက်နိုင်သည်။",
+    "promote_me_first": "<b>ကျွန်တော့်ကို အက်ဒမင် အရင်လုပ်ပေးပါ။</b>",
+    "filter_usage": "/filter &lt;keyword&gt; &lt;reply&gt; ဖြင့် filter ထည့်ပါ သို့မဟုတ် မက်ဆေ့ကို ပြန်တုံ့ပြန်ပြီး /filter &lt;keyword&gt; အသုံးပြုပါ။",
+    "keyword_empty": "Keyword ဗလာမဖြစ်ရပါ။",
+    "unsupported_filter_media": "ဤ media အမျိုးအစားကို filter အဖြစ် မသုံးနိုင်ပါ။ စာသား၊ ဓာတ်ပုံ၊ ဗီဒီယို၊ GIF သို့မဟုတ် Sticker သုံးပါ။",
+    "filter_provide_reply": "<b>ပြန်တုံ့ပြန်သော မက်ဆေ့ ထည့်ပေးပါ။</b>\nKeyword နောက် စာသား ရေးပါ သို့မဟုတ် မက်ဆေ့ကို ပြန်တုံ့ပြန်ပါ။",
+    "filter_saved": "Filter <code>{keyword}</code> သိမ်းဆည်းပြီးပါပြီ!",
+    "filter_save_failed": "Filter သိမ်းဆည်းရန် မအောင်မြင်ပါ။ ထပ်ကြိုးစားပါ။",
+    "no_active_filters": "ဤ group တွင် တက်ကြွသော filter များ မရှိပါ။",
+    "filters_list": "<b>တက်ကြွသော filter များ:</b>\n\n{keywords}",
+    "filter_keyword_missing": "Filter keyword မေ့သွားသည်။",
+    "filter_not_found": "<code>{keyword}</code> အတွက် filter မတွေ့ပါ။",
+    "filter_removed": "Filter <code>{keyword}</code> ဖျက်ပြီးပါပြီ!",
+    "filter_remove_failed": "Filter ဖျက်ရန် မအောင်မြင်ပါ။ ထပ်ကြိုးစားပါ။",
+    "all_filters_removed": "Filter <b>{count}</b> ခု အားလုံး ဖျက်ပြီးပါပြီ!"
 }

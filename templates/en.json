@@ -257,5 +257,36 @@
     "filter_not_found": "No filter found for <code>{keyword}</code>.",
     "filter_removed": "Filter <code>{keyword}</code> removed successfully!",
     "filter_remove_failed": "Failed to remove filter. Please try again.",
-    "all_filters_removed": "All <b>{count}</b> filters removed successfully!"
+    "all_filters_removed": "All <b>{count}</b> filters removed successfully!",
+
+
+
+    "need_change_info_perm": "You need <b>Change Group Info</b> permission for this.",
+    "promote_bot_admin": "<b>Please promote me to admin to enable welcome messages.</b>",
+    "welcome_status_enabled": "<b>Welcome messages are currently enabled.</b>",
+    "welcome_status_disabled": "<b>Welcome messages are currently disabled.</b>",
+    "welcome_already_enabled": "Welcome is already enabled.",
+    "welcome_already_disabled": "Welcome is already disabled.",
+    "welcome_enabled_custom": "<b>Welcome enabled!</b>\n\nCustom welcome message will be sent to new members.",
+    "welcome_enabled_default": "<b>Welcome enabled.</b>\n\nDefault welcome message will be sent to new members.\nUse <code>/setwelcome</code> to set a custom message.",
+    "welcome_disabled": "<b>Welcome disabled.</b>",
+    "welcome_usage": "Use <code>/welcome on</code> or <code>/welcome off</code>",
+    "welcome_already_set": "<b>Welcome message already set.</b>\n\nUse <code>/delwelcome</code> first to remove it.",
+    "welcome_unsupported_media": "<b>Unsupported message type.</b>\n\nSupported: Photo, Video, GIF, Text",
+    "setwelcome_usage": "<b>Please provide a welcome message.</b>\n\nReply to a message: <code>/setwelcome</code> (reply)\nOr inline text: <code>/setwelcome Hello {NAME}!</code>",
+    "welcome_button_error": "<b>Button Error:</b> {error}\n\n<b>Format:</b> <code>[Text](URL)</code>\n<b>Multiple:</b> <code>[Btn1](url) | [Btn2](url)</code>",
+    "welcome_set_success": "<b>Welcome message set successfully.</b>\n\nWelcome is now <b>enabled</b>.",
+    "welcome_set_failed": "Failed to set welcome message. Please try again.",
+    "no_welcome_settings": "No welcome settings found for this group.",
+    "no_custom_welcome": "<b>No custom welcome message set.</b>\n\nUse <code>/setwelcome</code> to set a custom message.",
+    "welcome_deleted": "<b>Custom welcome message deleted successfully.</b>\n\nWelcome is now <b>disabled</b>.\nUse <code>/welcome on</code> to enable default message.",
+    "welcome_delete_failed": "Failed to delete welcome message. Please try again.",
+    "autodelete_enabled": "<b>Auto-delete is enabled</b>\n\nWelcome messages will be deleted after: <b>{time}</b>",
+    "autodelete_disabled": "<b>Auto-delete is disabled</b>",
+    "autodelete_already_enabled": "Auto-delete is already enabled.",
+    "autodelete_already_disabled": "Auto-delete is already disabled.",
+    "autodelete_turned_on": "<b>Auto-delete enabled</b>\n\nWelcome messages will be deleted after: <b>{time}</b>",
+    "autodelete_turned_off": "<b>Auto-delete disabled</b>",
+    "autodelete_time_updated": "<b>Auto-delete time updated</b>\n\nWelcome messages will be deleted after: <b>{time}</b>",
+    "cleanwelcome_usage": "Use <code>/cleanwelcome on</code> or <code>/cleanwelcome off</code>"
 }

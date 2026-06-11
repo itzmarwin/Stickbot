@@ -7,6 +7,7 @@ from pyrogram.enums import MessageEntityType
 
 from mongo.stickerdb import get_afk_user, set_afk_user, remove_afk_user
 from pyrogram_handlers.commands import cmd, COMMAND_PREFIXES
+from utils.language import get_chat_lang_dict
 
 
 class AFKCache:
@@ -20,7 +21,6 @@ class AFKCache:
     def get(self, user_id: int) -> Optional[Dict[str, Any]]:
         if datetime.now() - self.last_cleanup > self.cleanup_interval:
             self._cleanup()
-
         if user_id in self.cache:
             data, timestamp = self.cache[user_id]
             if datetime.now() - timestamp < self.ttl:
@@ -28,16 +28,13 @@ class AFKCache:
                 return data
             else:
                 del self.cache[user_id]
-
         return None
 
     def set(self, user_id: int, data: Dict[str, Any]):
         if user_id in self.cache:
             del self.cache[user_id]
-
         if len(self.cache) >= self.max_size:
             self.cache.popitem(last=False)
-
         self.cache[user_id] = (data, datetime.now())
 
     def remove(self, user_id: int):
@@ -69,12 +66,12 @@ afk_cache = AFKCache(max_size=1000, ttl_hours=24)
 
 
 def get_afk_duration(since: datetime) -> str:
-    delta = datetime.now() - since
+    delta   = datetime.now() - since
     seconds = int(delta.total_seconds())
 
     minutes, seconds = divmod(seconds, 60)
-    hours, minutes = divmod(minutes, 60)
-    days, hours = divmod(hours, 24)
+    hours, minutes   = divmod(minutes, 60)
+    days, hours      = divmod(hours, 24)
 
     duration = []
     if days:
@@ -88,41 +85,38 @@ def get_afk_duration(since: datetime) -> str:
     return " ".join(duration)
 
 
-def format_afk_message(user_mention: str, reason: Optional[str], duration: str) -> str:
-    if reason:
-        return f"{user_mention} is AFK: {reason} (since {duration})."
-    else:
-        return f"{user_mention} is AFK (since {duration})."
-
-
 async def setup_afk_handlers(client: Client):
 
     @client.on_message(cmd("afk") & filters.group, group=0)
     async def afk_command(_, message: Message):
-        user = message.from_user
+        user   = message.from_user
         reason = " ".join(message.command[1:]).strip() or None
-        now = datetime.now()
+        now    = datetime.now()
+        lang   = await get_chat_lang_dict(message.chat.id)
 
         await set_afk_user(user.id, user.first_name, reason, now)
 
         afk_cache.set(user.id, {
-            "user": {"id": user.id, "first_name": user.first_name},
+            "user"  : {"id": user.id, "first_name": user.first_name},
             "reason": reason,
-            "since": now
+            "since" : now
         })
 
-        response = f"{user.mention} is now AFK."
         if reason:
-            response += f"\nReason: {reason}"
+            response = lang["afk_set_with_reason"].format(
+                user=user.mention,
+                reason=reason
+            )
+        else:
+            response = lang["afk_set"].format(user=user.mention)
 
         await message.reply(response)
 
+
     @client.on_message(filters.all & ~filters.service & filters.group, group=1)
     async def afk_user_handler(_, message: Message):
-
         user = message.from_user
 
-        # Check all prefixes
         if message.text:
             msg_lower = message.text.lower()
             if any(msg_lower.startswith(prefix + "afk") for prefix in COMMAND_PREFIXES):
@@ -142,9 +136,13 @@ async def setup_afk_handlers(client: Client):
                 await remove_afk_user(user.id)
                 afk_cache.remove(user.id)
 
+                lang     = await get_chat_lang_dict(message.chat.id)
                 duration = get_afk_duration(afk_data["since"])
                 await message.reply(
-                    f"Welcome back, {user.mention}! You were AFK for {duration}."
+                    lang["afk_welcome_back"].format(
+                        user=user.mention,
+                        duration=duration
+                    )
                 )
                 return
 
@@ -161,10 +159,19 @@ async def setup_afk_handlers(client: Client):
                         afk_cache.set(replied_user.id, afk_data)
 
                 if afk_data:
+                    lang     = await get_chat_lang_dict(message.chat.id)
                     duration = get_afk_duration(afk_data["since"])
-                    text = format_afk_message(
-                        replied_user.mention, afk_data["reason"], duration
-                    )
+                    if afk_data["reason"]:
+                        text = lang["afk_user_is_afk_reason"].format(
+                            user=replied_user.mention,
+                            reason=afk_data["reason"],
+                            duration=duration
+                        )
+                    else:
+                        text = lang["afk_user_is_afk"].format(
+                            user=replied_user.mention,
+                            duration=duration
+                        )
                     await message.reply(text)
                     return
 
@@ -193,8 +200,19 @@ async def setup_afk_handlers(client: Client):
                     afk_cache.set(u.id, afk_data)
 
             if afk_data:
+                lang     = await get_chat_lang_dict(message.chat.id)
                 duration = get_afk_duration(afk_data["since"])
-                text = format_afk_message(u.mention, afk_data["reason"], duration)
+                if afk_data["reason"]:
+                    text = lang["afk_user_is_afk_reason"].format(
+                        user=u.mention,
+                        reason=afk_data["reason"],
+                        duration=duration
+                    )
+                else:
+                    text = lang["afk_user_is_afk"].format(
+                        user=u.mention,
+                        duration=duration
+                    )
                 await message.reply(text)
                 break
 

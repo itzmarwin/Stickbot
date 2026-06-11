@@ -292,4 +292,12 @@
     "antipromo_usage": "/antipromo on သို့မဟုတ် /antipromo off အသုံးပြုပါ",
     "antipromo_removed": "🛡️ {sender} ထံမှ ကြော်ငြာမက်ဆေ့ကို ဖျက်လိုက်ပြီ။",
     "btn_add_me": "ကျွန်တော့်ကို ထည့်မည်",
+
+
+
+    "afk_set": "{user} ယခု AFK ဖြစ်သည်။",
+    "afk_set_with_reason": "{user} ယခု AFK ဖြစ်သည်။\nအကြောင်းပြချက်: {reason}",
+    "afk_welcome_back": "ပြန်လာကြိုဆိုသည်, {user}! {duration} ကြာ AFK ဖြစ်ခဲ့သည်။",
+    "afk_user_is_afk": "{user} AFK ဖြစ်နေသည် ({duration} ကြာ)။",
+    "afk_user_is_afk_reason": "{user} AFK ဖြစ်နေသည်: {reason} ({duration} ကြာ)။",
 }

@@ -307,6 +307,7 @@
     "goodbye_status_enabled": "<b>Goodbye မက်ဆေ့ ဖွင့်ထားသည်။</b>",
     "goodbye_status_disabled": "<b>Goodbye မက်ဆေ့ ပိတ်ထားသည်။</b>",
     "goodbye_already_enabled": "Goodbye ဖွင့်ပြီးသားဖြစ်သည်။",
+    "default_goodbye_text": " နှုတ်ဆက်ပါသည် {MENTION}! သင့်ကို ထပ်မံတွေ့ဆုံနိုင်မည်ဟု မျှော်လင့်ပါသည် <emoji id=\"5445278980909310899\">👋</emoji>",
     "goodbye_already_disabled": "Goodbye ပိတ်ပြီးသားဖြစ်သည်။",
     "goodbye_enabled_custom": "<b>Goodbye ဖွင့်ပြီးပါပြီ!</b>\n\nအဖွဲ့မှ ထွက်သူများသို့ Custom goodbye မက်ဆေ့ ပေးပို့မည်။",
     "goodbye_enabled_default": "<b>Goodbye ဖွင့်ပြီးပါပြီ။</b>\n\nအဖွဲ့မှ ထွက်သူများသို့ မူရင်း goodbye မက်ဆေ့ ပေးပို့မည်။\nCustom မက်ဆေ့ သတ်မှတ်ရန် <code>/setgoodbye</code> အသုံးပြုပါ။",

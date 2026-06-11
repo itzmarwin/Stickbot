@@ -280,4 +280,16 @@
     "autodelete_turned_off": "<b>အလိုအလျောက် ဖျက်ခြင်း ပိတ်ပြီးပါပြီ</b>",
     "autodelete_time_updated": "<b>အလိုအလျောက် ဖျက်ချိန် ပြောင်းပြီးပါပြီ</b>\n\nကြိုဆိုမက်ဆေ့ကို {time} အကြာတွင် ဖျက်မည်",
     "cleanwelcome_usage": "<code>/cleanwelcome on</code> သို့မဟုတ် <code>/cleanwelcome off</code> အသုံးပြုပါ",
+
+
+
+    "antipromo_need_delete_perm": "Antipromo စီမံရန် မက်ဆေ့ ဖျက်ခွင့် လိုအပ်သည်။",
+    "antipromo_status": "Antipromo လက်ရှိ <b>{state}</b> ဖြစ်သည်။\nပြောင်းရန် /antipromo on သို့မဟုတ် /antipromo off အသုံးပြုပါ။",
+    "antipromo_already_on": "Antipromo ဖွင့်ပြီးသားဖြစ်သည်။",
+    "antipromo_already_off": "Antipromo ပိတ်ပြီးသားဖြစ်သည်။",
+    "antipromo_turned_on": "Antipromo ဖွင့်ပြီးပါပြီ။ Bot ၏ ကြော်ငြာမက်ဆေ့များကို အလိုအလျောက် ဖျက်မည်။",
+    "antipromo_turned_off": "Antipromo ပိတ်ပြီးပါပြီ။",
+    "antipromo_usage": "/antipromo on သို့မဟုတ် /antipromo off အသုံးပြုပါ",
+    "antipromo_removed": "🛡️ {sender} ထံမှ ကြော်ငြာမက်ဆေ့ကို ဖျက်လိုက်ပြီ။",
+    "btn_add_me": "ကျွန်တော့်ကို ထည့်မည်",
 }

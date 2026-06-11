@@ -8,6 +8,7 @@ from pyrogram.enums import ParseMode, ChatMemberStatus, ChatMembersFilter, Messa
 from pyrogram.errors import ChatAdminRequired, FloodWait, UserAdminInvalid
 
 from pyrogram_handlers.caching import get_admin_permissions
+from utils.language import get_chat_lang_dict
 
 MAX_BAN_DAYS  = 30
 MAX_BAN_HOURS = MAX_BAN_DAYS * 24
@@ -153,26 +154,27 @@ async def setup_ban_handlers(client: Client):
     async def ban_command(client: Client, message: Message):
         chat_id = message.chat.id
         user_id = message.from_user.id if message.from_user else None
+        lang    = await get_chat_lang_dict(chat_id)
 
         if check_cooldown(user_id, chat_id, "ban"):
             return
 
         is_admin, can_ban = await check_ban_permission(client, chat_id, user_id)
         if not is_admin:
-            await message.reply_text("Only admins can use this command.", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["only_admins"], parse_mode=ParseMode.HTML)
             return
         if not can_ban:
-            await message.reply_text("You need ban permission to use this command.", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["need_ban_permission"], parse_mode=ParseMode.HTML)
             return
 
         target_identifier, reason = extract_user_and_reason(message)
         if not target_identifier:
-            await message.reply_text("Couldn't identify the user, please reply to their message.", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["user_not_identified"], parse_mode=ParseMode.HTML)
             return
 
         bot = await get_bot_cached(client)
         if isinstance(target_identifier, int) and target_identifier == bot.id:
-            await message.reply_text("I can't ban myself.", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["cant_ban_myself"], parse_mode=ParseMode.HTML)
             return
 
         target_user_id, target_user, error = await resolve_user(client, target_identifier)
@@ -180,27 +182,27 @@ async def setup_ban_handlers(client: Client):
             await message.reply_text(error, parse_mode=ParseMode.HTML)
             return
         if target_user_id == bot.id:
-            await message.reply_text("I can't ban myself.", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["cant_ban_myself"], parse_mode=ParseMode.HTML)
             return
         if is_target_admin(chat_id, target_user_id):
-            await message.reply_text("I can't ban an admin.", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["cant_ban_admin"], parse_mode=ParseMode.HTML)
             return
 
         if not reason:
-            reason = "No reason provided"
+            reason = lang["no_reason"]
 
         try:
             await ban_with_retry(client, chat_id, target_user_id)
         except UserAdminInvalid:
-            await message.reply_text("I can't ban an admin.", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["cant_ban_admin"], parse_mode=ParseMode.HTML)
             return
         except Exception:
-            await message.reply_text("Failed to ban user.", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["ban_failed"], parse_mode=ParseMode.HTML)
             return
 
         user_mention = f'<a href="tg://user?id={target_user_id}">{target_user.first_name if target_user else "User"}</a>'
         await message.reply_text(
-            f"<b>Ban Event</b>\n\n<b>User:</b> {user_mention}\n<b>Reason:</b> {reason}",
+            lang["ban_event"].format(user=user_mention, reason=reason),
             parse_mode=ParseMode.HTML
         )
 
@@ -209,6 +211,7 @@ async def setup_ban_handlers(client: Client):
     async def silent_ban_command(client: Client, message: Message):
         chat_id = message.chat.id
         user_id = message.from_user.id if message.from_user else None
+        lang    = await get_chat_lang_dict(chat_id)
 
         if check_cooldown(user_id, chat_id, "sban"):
             return
@@ -219,13 +222,13 @@ async def setup_ban_handlers(client: Client):
 
         target_identifier, reason = extract_user_and_reason(message)
         if not target_identifier:
-            await message.reply_text("Couldn't identify the user, please reply to their message.", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["user_not_identified"], parse_mode=ParseMode.HTML)
             return
 
         bot = await get_bot_cached(client)
 
         if isinstance(target_identifier, int) and target_identifier == bot.id:
-            temp = await message.reply_text("I can't ban myself.", parse_mode=ParseMode.HTML)
+            temp = await message.reply_text(lang["cant_ban_myself"], parse_mode=ParseMode.HTML)
             await asyncio.sleep(3)
             try:
                 await temp.delete()
@@ -245,7 +248,7 @@ async def setup_ban_handlers(client: Client):
                 pass
             return
         if target_user_id == bot.id:
-            temp = await message.reply_text("I can't ban myself.", parse_mode=ParseMode.HTML)
+            temp = await message.reply_text(lang["cant_ban_myself"], parse_mode=ParseMode.HTML)
             await asyncio.sleep(3)
             try:
                 await temp.delete()
@@ -276,16 +279,17 @@ async def setup_ban_handlers(client: Client):
     async def temp_ban_command(client: Client, message: Message):
         chat_id = message.chat.id
         user_id = message.from_user.id if message.from_user else None
+        lang    = await get_chat_lang_dict(chat_id)
 
         if check_cooldown(user_id, chat_id, "tban"):
             return
 
         is_admin, can_ban = await check_ban_permission(client, chat_id, user_id)
         if not is_admin:
-            await message.reply_text("Only admins can use this command.", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["only_admins"], parse_mode=ParseMode.HTML)
             return
         if not can_ban:
-            await message.reply_text("You need ban permission to use this command.", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["need_ban_permission"], parse_mode=ParseMode.HTML)
             return
 
         target_identifier = None
@@ -297,7 +301,7 @@ async def setup_ban_handlers(client: Client):
                 target_identifier = message.reply_to_message.from_user.id
             parts    = message.text.split()
             if len(parts) < 2:
-                await message.reply_text("Please specify ban duration.", parse_mode=ParseMode.HTML)
+                await message.reply_text(lang["specify_ban_duration"], parse_mode=ParseMode.HTML)
                 return
             time_val = parts[1]
             reason   = " ".join(parts[2:]) if len(parts) > 2 else None
@@ -315,7 +319,7 @@ async def setup_ban_handlers(client: Client):
             if not target_identifier:
                 parts = message.text.split()
                 if len(parts) < 3:
-                    await message.reply_text("Couldn't identify the user, please reply to their message.", parse_mode=ParseMode.HTML)
+                    await message.reply_text(lang["user_not_identified"], parse_mode=ParseMode.HTML)
                     return
                 user_arg = parts[1]
                 time_val = parts[2]
@@ -324,18 +328,18 @@ async def setup_ban_handlers(client: Client):
                 elif user_arg.isdigit():
                     target_identifier = int(user_arg)
                 else:
-                    await message.reply_text("Couldn't identify the user, please reply to their message.", parse_mode=ParseMode.HTML)
+                    await message.reply_text(lang["user_not_identified"], parse_mode=ParseMode.HTML)
                     return
                 reason = " ".join(parts[3:]) if len(parts) > 3 else None
 
         ban_seconds, time_display = extract_time(time_val)
         if not ban_seconds:
-            await message.reply_text("<b>Invalid time format.</b>", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["invalid_time_format"], parse_mode=ParseMode.HTML)
             return
 
         bot = await get_bot_cached(client)
         if isinstance(target_identifier, int) and target_identifier == bot.id:
-            await message.reply_text("I can't ban myself.", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["cant_ban_myself"], parse_mode=ParseMode.HTML)
             return
 
         target_user_id, target_user, error = await resolve_user(client, target_identifier)
@@ -343,28 +347,28 @@ async def setup_ban_handlers(client: Client):
             await message.reply_text(error, parse_mode=ParseMode.HTML)
             return
         if target_user_id == bot.id:
-            await message.reply_text("I can't ban myself.", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["cant_ban_myself"], parse_mode=ParseMode.HTML)
             return
         if is_target_admin(chat_id, target_user_id):
-            await message.reply_text("I can't ban an admin.", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["cant_ban_admin"], parse_mode=ParseMode.HTML)
             return
 
         if not reason:
-            reason = "No reason provided"
+            reason = lang["no_reason"]
 
         try:
             ban_until = datetime.now() + timedelta(seconds=ban_seconds)
             await ban_with_retry(client, chat_id, target_user_id, ban_until)
         except UserAdminInvalid:
-            await message.reply_text("I can't ban an admin.", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["cant_ban_admin"], parse_mode=ParseMode.HTML)
             return
         except Exception:
-            await message.reply_text("Failed to ban user.", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["ban_failed"], parse_mode=ParseMode.HTML)
             return
 
         user_mention = f'<a href="tg://user?id={target_user_id}">{target_user.first_name if target_user else "User"}</a>'
         await message.reply_text(
-            f"<b>Temporary Ban</b>\n\n<b>User:</b> {user_mention}\n<b>Duration:</b> {time_display}\n<b>Reason:</b> {reason}",
+            lang["tban_event"].format(user=user_mention, duration=time_display, reason=reason),
             parse_mode=ParseMode.HTML
         )
 
@@ -373,26 +377,27 @@ async def setup_ban_handlers(client: Client):
     async def unban_command(client: Client, message: Message):
         chat_id = message.chat.id
         user_id = message.from_user.id if message.from_user else None
+        lang    = await get_chat_lang_dict(chat_id)
 
         if check_cooldown(user_id, chat_id, "unban"):
             return
 
         is_admin, can_ban = await check_ban_permission(client, chat_id, user_id)
         if not is_admin:
-            await message.reply_text("Only admins can use this command.", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["only_admins"], parse_mode=ParseMode.HTML)
             return
         if not can_ban:
-            await message.reply_text("You need ban permission to use this command.", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["need_ban_permission"], parse_mode=ParseMode.HTML)
             return
 
         target_identifier, reason = extract_user_and_reason(message)
         if not target_identifier:
-            await message.reply_text("Couldn't identify the user, please reply to their message.", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["user_not_identified"], parse_mode=ParseMode.HTML)
             return
 
         bot = await get_bot_cached(client)
         if isinstance(target_identifier, int) and target_identifier == bot.id:
-            await message.reply_text("I'm not banned.", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["not_banned"], parse_mode=ParseMode.HTML)
             return
 
         target_user_id, target_user, error = await resolve_user(client, target_identifier)
@@ -400,14 +405,14 @@ async def setup_ban_handlers(client: Client):
             await message.reply_text(error, parse_mode=ParseMode.HTML)
             return
         if target_user_id == bot.id:
-            await message.reply_text("I'm not banned.", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["not_banned"], parse_mode=ParseMode.HTML)
             return
 
         await unban_with_retry(client, chat_id, target_user_id)
 
         user_mention = f'<a href="tg://user?id={target_user_id}">{target_user.first_name if target_user else "User"}</a>'
         await message.reply_text(
-            f"<b>Unban Event</b>\n\n<b>User:</b> {user_mention}",
+            lang["unban_event"].format(user=user_mention),
             parse_mode=ParseMode.HTML
         )
 
@@ -416,26 +421,27 @@ async def setup_ban_handlers(client: Client):
     async def kick_command(client: Client, message: Message):
         chat_id = message.chat.id
         user_id = message.from_user.id if message.from_user else None
+        lang    = await get_chat_lang_dict(chat_id)
 
         if check_cooldown(user_id, chat_id, "kick"):
             return
 
         is_admin, can_ban = await check_ban_permission(client, chat_id, user_id)
         if not is_admin:
-            await message.reply_text("Only admins can use this command.", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["only_admins"], parse_mode=ParseMode.HTML)
             return
         if not can_ban:
-            await message.reply_text("You need ban permission to use this command.", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["need_ban_permission"], parse_mode=ParseMode.HTML)
             return
 
         target_identifier, reason = extract_user_and_reason(message)
         if not target_identifier:
-            await message.reply_text("Couldn't identify the user, please reply to their message.", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["user_not_identified"], parse_mode=ParseMode.HTML)
             return
 
         bot = await get_bot_cached(client)
         if isinstance(target_identifier, int) and target_identifier == bot.id:
-            await message.reply_text("I can't kick myself.", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["cant_kick_myself"], parse_mode=ParseMode.HTML)
             return
 
         target_user_id, target_user, error = await resolve_user(client, target_identifier)
@@ -443,28 +449,28 @@ async def setup_ban_handlers(client: Client):
             await message.reply_text(error, parse_mode=ParseMode.HTML)
             return
         if target_user_id == bot.id:
-            await message.reply_text("I can't kick myself.", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["cant_kick_myself"], parse_mode=ParseMode.HTML)
             return
         if is_target_admin(chat_id, target_user_id):
-            await message.reply_text("I can't kick an admin.", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["cant_kick_admin"], parse_mode=ParseMode.HTML)
             return
 
         if not reason:
-            reason = "No reason provided"
+            reason = lang["no_reason"]
 
         try:
             await ban_with_retry(client, chat_id, target_user_id)
             await unban_with_retry(client, chat_id, target_user_id)
         except UserAdminInvalid:
-            await message.reply_text("I can't kick an admin.", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["cant_kick_admin"], parse_mode=ParseMode.HTML)
             return
         except Exception:
-            await message.reply_text("Failed to kick user.", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["kick_failed"], parse_mode=ParseMode.HTML)
             return
 
         user_mention = f'<a href="tg://user?id={target_user_id}">{target_user.first_name if target_user else "User"}</a>'
         await message.reply_text(
-            f"<b>Kick Event</b>\n\n<b>User:</b> {user_mention}\n<b>Reason:</b> {reason}",
+            lang["kick_event"].format(user=user_mention, reason=reason),
             parse_mode=ParseMode.HTML
         )
 
@@ -473,6 +479,7 @@ async def setup_ban_handlers(client: Client):
     async def kickme_command(client: Client, message: Message):
         chat_id = message.chat.id
         user_id = message.from_user.id if message.from_user else None
+        lang    = await get_chat_lang_dict(chat_id)
 
         if not user_id:
             return
@@ -480,55 +487,56 @@ async def setup_ban_handlers(client: Client):
             return
 
         if is_target_admin(chat_id, user_id):
-            await message.reply_text("I wish I could... but you're an admin.", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["kickme_admin"], parse_mode=ParseMode.HTML)
             return
 
         try:
             member = await client.get_chat_member(chat_id, user_id)
             if member.status in (ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER):
-                await message.reply_text("I wish I could... but you're an admin.", parse_mode=ParseMode.HTML)
+                await message.reply_text(lang["kickme_admin"], parse_mode=ParseMode.HTML)
                 return
         except Exception:
             pass
 
         await ban_with_retry(client, chat_id, user_id)
         await unban_with_retry(client, chat_id, user_id)
-        await message.reply_text("Goodbye..... You have been kicked as requested.", parse_mode=ParseMode.HTML)
+        await message.reply_text(lang["kickme_success"], parse_mode=ParseMode.HTML)
 
 
     @client.on_message(filters.command("unbanall") & filters.group)
     async def unbanall_command(client: Client, message: Message):
         chat_id = message.chat.id
         user_id = message.from_user.id if message.from_user else None
+        lang    = await get_chat_lang_dict(chat_id)
 
         perms = get_admin_permissions(chat_id, user_id)
         if perms is not None:
             if not perms["is_owner"]:
-                await message.reply_text("<b>Only the group owner can use this command.</b>", parse_mode=ParseMode.HTML)
+                await message.reply_text(lang["only_owner"], parse_mode=ParseMode.HTML)
                 return
         else:
             try:
                 member = await client.get_chat_member(chat_id, user_id)
                 if member.status != ChatMemberStatus.OWNER:
-                    await message.reply_text("<b>Only the group owner can use this command.</b>", parse_mode=ParseMode.HTML)
+                    await message.reply_text(lang["only_owner"], parse_mode=ParseMode.HTML)
                     return
             except Exception:
-                await message.reply_text("<b>Only the group owner can use this command.</b>", parse_mode=ParseMode.HTML)
+                await message.reply_text(lang["only_owner"], parse_mode=ParseMode.HTML)
                 return
 
-        progress_msg = await message.reply_text("<b>Fetching banned users...</b>", parse_mode=ParseMode.HTML)
+        progress_msg = await message.reply_text(lang["fetching_banned"], parse_mode=ParseMode.HTML)
 
         banned_users = []
         async for m in client.get_chat_members(chat_id, filter=ChatMembersFilter.BANNED):
             banned_users.append(m.user)
 
         if not banned_users:
-            await progress_msg.edit_text("<b>No banned users found.</b>", parse_mode=ParseMode.HTML)
+            await progress_msg.edit_text(lang["no_banned_users"], parse_mode=ParseMode.HTML)
             return
 
         total = len(banned_users)
         await progress_msg.edit_text(
-            f"<b>Found {total} banned user(s).</b>\n\nStarting unban process...",
+            lang["unban_starting"].format(total=total),
             parse_mode=ParseMode.HTML
         )
 
@@ -541,7 +549,7 @@ async def setup_ban_handlers(client: Client):
                 unbanned += 1
                 if unbanned % 10 == 0:
                     await progress_msg.edit_text(
-                        f"<b>Unbanning in progress...</b>\n\n<b>Progress:</b> {unbanned}/{total}",
+                        lang["unban_progress"].format(unbanned=unbanned, total=total),
                         parse_mode=ParseMode.HTML
                     )
                 await asyncio.sleep(0.5)
@@ -555,4 +563,4 @@ async def setup_ban_handlers(client: Client):
             except Exception:
                 failed += 1
 
-        await progress_msg.edit_text("<b>Unban Complete.</b>", parse_mode=ParseMode.HTML)
+        await progress_msg.edit_text(lang["unban_complete"], parse_mode=ParseMode.HTML)

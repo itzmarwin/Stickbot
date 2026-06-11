@@ -370,7 +370,14 @@ async def setup_goodbye_handlers(client: Client):
         if not goodbye_config.get('enabled'):
             return
 
-        text         = goodbye_config['text'] if goodbye_config.get('custom_set') and goodbye_config.get('text') else DEFAULT_GOODBYE_TEXT
+        lang = await get_chat_lang_dict(chat_id)
+
+        text = (
+            goodbye_config['text']
+            if goodbye_config.get('custom_set') and goodbye_config.get('text')
+            else lang.get("default_goodbye_text", DEFAULT_GOODBYE_TEXT)
+        )
+
         formatted    = format_message_text(text, left_member, message.chat)
         reply_markup = create_button_markup(goodbye_config['buttons']) if goodbye_config.get('buttons') else None
 

@@ -322,5 +322,9 @@
     "goodbye_autodelete_enabled": "<b>Автоудаление включено</b>\n\nСообщения о выходе будут удаляться через: <b>{time}</b>",
     "goodbye_autodelete_turned_on": "<b>Автоудаление включено</b>\n\nСообщения о выходе будут удаляться через: <b>{time}</b>",
     "goodbye_autodelete_time_updated": "<b>Время автоудаления обновлено</b>\n\nСообщения о выходе будут удаляться через: <b>{time}</b>",
-    "cleangoodbye_usage": "Используйте <code>/cleangoodbye on</code> или <code>/cleangoodbye off</code>"
+    "cleangoodbye_usage": "Используйте <code>/cleangoodbye on</code> или <code>/cleangoodbye off</code>",
+
+
+
+    "group_lang_changed": "Язык группы изменён на"
 }

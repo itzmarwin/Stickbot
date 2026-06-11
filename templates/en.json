@@ -300,5 +300,13 @@
     "antipromo_turned_off": "Antipromo is now off.",
     "antipromo_usage": "Use /antipromo on or /antipromo off",
     "antipromo_removed": "🛡️ Removed a promotional message from {sender}.",
-    "btn_add_me": "Add me"
+    "btn_add_me": "Add me",
+
+
+
+    "afk_set": "{user} is now AFK.",
+    "afk_set_with_reason": "{user} is now AFK.\nReason: {reason}",
+    "afk_welcome_back": "Welcome back, {user}! You were AFK for {duration}.",
+    "afk_user_is_afk": "{user} is AFK (since {duration}).",
+    "afk_user_is_afk_reason": "{user} is AFK: {reason} (since {duration}).",
 }

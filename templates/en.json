@@ -288,5 +288,17 @@
     "autodelete_turned_on": "<b>Auto-delete enabled</b>\n\nWelcome messages will be deleted after: <b>{time}</b>",
     "autodelete_turned_off": "<b>Auto-delete disabled</b>",
     "autodelete_time_updated": "<b>Auto-delete time updated</b>\n\nWelcome messages will be deleted after: <b>{time}</b>",
-    "cleanwelcome_usage": "Use <code>/cleanwelcome on</code> or <code>/cleanwelcome off</code>"
+    "cleanwelcome_usage": "Use <code>/cleanwelcome on</code> or <code>/cleanwelcome off</code>",
+
+
+
+    "antipromo_need_delete_perm": "You need delete messages permission to manage antipromo.",
+    "antipromo_status": "Antipromo is currently <b>{state}</b>.\nUse /antipromo on or /antipromo off to change it.",
+    "antipromo_already_on": "Antipromo is already on.",
+    "antipromo_already_off": "Antipromo is already off.",
+    "antipromo_turned_on": "Antipromo is now on. Promotional bot messages will be removed automatically.",
+    "antipromo_turned_off": "Antipromo is now off.",
+    "antipromo_usage": "Use /antipromo on or /antipromo off",
+    "antipromo_removed": "🛡️ Removed a promotional message from {sender}.",
+    "btn_add_me": "Add me"
 }

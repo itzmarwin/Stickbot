@@ -316,6 +316,7 @@
     "goodbye_status_enabled": "<b>Goodbye messages are currently enabled.</b>",
     "goodbye_status_disabled": "<b>Goodbye messages are currently disabled.</b>",
     "goodbye_already_enabled": "Goodbye is already enabled.",
+    "default_goodbye_text": " Goodbye {MENTION}! We hope to see you again <emoji id=\"5445278980909310899\">👋</emoji>",
     "goodbye_already_disabled": "Goodbye is already disabled.",
     "goodbye_enabled_custom": "<b>Goodbye enabled!</b>\n\nCustom goodbye message will be sent when members leave.",
     "goodbye_enabled_default": "<b>Goodbye enabled.</b>\n\nDefault goodbye message will be sent when members leave.\nUse <code>/setgoodbye</code> to set a custom message.",

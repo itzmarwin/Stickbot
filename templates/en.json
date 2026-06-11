@@ -85,5 +85,32 @@
     "PUBLISH_NOT_CONFIGURED": "<b>Publish feature is not configured.</b>\n\nPlease contact the bot administrator.",
     "PUBLISH_CANCELLED": "<b>Publish cancelled.</b>",
     "STICKER_PROCESSING_WAIT": "<b>Please wait!</b>\n\nYour previous sticker is still being added. Try again in a moment.",
-    "PACK_DELETED_FROM_TELEGRAM": "<b>Pack Not Found</b>\n\nThis pack was deleted from Telegram and has been removed from your list."
+    "PACK_DELETED_FROM_TELEGRAM": "<b>Pack Not Found</b>\n\nThis pack was deleted from Telegram and has been removed from your list.",
+
+    
+    "only_admins": "Only admins can use this command.",
+    "need_ban_permission": "You need ban permission to use this command.",
+    "user_not_identified": "Couldn't identify the user, please reply to their message.",
+    "cant_ban_myself": "I can't ban myself.",
+    "cant_ban_admin": "I can't ban an admin.",
+    "no_reason": "No reason provided",
+    "ban_failed": "Failed to ban user.",
+    "kick_failed": "Failed to kick user.",
+    "cant_kick_myself": "I can't kick myself.",
+    "cant_kick_admin": "I can't kick an admin.",
+    "not_banned": "I'm not banned.",
+    "kickme_admin": "I wish I could... but you're an admin.",
+    "kickme_success": "Goodbye..... You have been kicked as requested.",
+    "only_owner": "<b>Only the group owner can use this command.</b>",
+    "fetching_banned": "<b>Fetching banned users...</b>",
+    "no_banned_users": "<b>No banned users found.</b>",
+    "unban_starting": "<b>Found {total} banned user(s).</b>\n\nStarting unban process...",
+    "unban_progress": "<b>Unbanning in progress...</b>\n\n<b>Progress:</b> {unbanned}/{total}",
+    "unban_complete": "<b>Unban Complete.</b>",
+    "specify_ban_duration": "Please specify ban duration.",
+    "invalid_time_format": "<b>Invalid time format.</b>",
+    "ban_event": "<b>Ban Event</b>\n\n<b>User:</b> {user}\n<b>Reason:</b> {reason}",
+    "tban_event": "<b>Temporary Ban</b>\n\n<b>User:</b> {user}\n<b>Duration:</b> {duration}\n<b>Reason:</b> {reason}",
+    "unban_event": "<b>Unban Event</b>\n\n<b>User:</b> {user}",
+    "kick_event": "<b>Kick Event</b>\n\n<b>User:</b> {user}\n<b>Reason:</b> {reason}"
 }

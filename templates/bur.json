@@ -247,5 +247,37 @@
     "filter_not_found": "<code>{keyword}</code> အတွက် filter မတွေ့ပါ။",
     "filter_removed": "Filter <code>{keyword}</code> ဖျက်ပြီးပါပြီ!",
     "filter_remove_failed": "Filter ဖျက်ရန် မအောင်မြင်ပါ။ ထပ်ကြိုးစားပါ။",
-    "all_filters_removed": "Filter <b>{count}</b> ခု အားလုံး ဖျက်ပြီးပါပြီ!"
+    "all_filters_removed": "Filter <b>{count}</b> ခု အားလုံး ဖျက်ပြီးပါပြီ!",
+
+
+
+
+    "need_change_info_perm": "ဤအတွက် <b>Group Info ပြောင်းခွင့်</b> လိုအပ်သည်။",
+    "promote_bot_admin": "<b>ကြိုဆိုမက်ဆေ့ ဖွင့်ရန် ကျွန်တော့်ကို အက်ဒမင် လုပ်ပေးပါ။</b>",
+    "welcome_status_enabled": "<b>ကြိုဆိုမက်ဆေ့ ဖွင့်ထားသည်။</b>",
+    "welcome_status_disabled": "<b>ကြိုဆိုမက်ဆေ့ ပိတ်ထားသည်။</b>",
+    "welcome_already_enabled": "ကြိုဆိုမက်ဆေ့ ဖွင့်ပြီးသားဖြစ်သည်။",
+    "welcome_already_disabled": "ကြိုဆိုမက်ဆေ့ ပိတ်ပြီးသားဖြစ်သည်။",
+    "welcome_enabled_custom": "<b>ကြိုဆိုမက်ဆေ့ ဖွင့်ပြီးပါပြီ!</b>\n\nCustom ကြိုဆိုမက်ဆေ့ကို အသစ်ဝင်သူများသို့ ပေးပို့မည်။",
+    "welcome_enabled_default": "<b>ကြိုဆိုမက်ဆေ့ ဖွင့်ပြီးပါပြီ။</b>\n\nမူရင်းကြိုဆိုမက်ဆေ့ကို အသစ်ဝင်သူများသို့ ပေးပို့မည်။\nCustom မက်ဆေ့ သတ်မှတ်ရန် <code>/setwelcome</code> အသုံးပြုပါ။",
+    "welcome_disabled": "<b>ကြိုဆိုမက်ဆေ့ ပိတ်ပြီးပါပြီ။</b>",
+    "welcome_usage": "<code>/welcome on</code> သို့မဟုတ် <code>/welcome off</code> အသုံးပြုပါ",
+    "welcome_already_set": "<b>ကြိုဆိုမက်ဆေ့ ထပ်မံ သတ်မှတ်ပြီးသားဖြစ်သည်။</b>\n\nဖျက်ရန် <code>/delwelcome</code> ကို ဦးစွာ အသုံးပြုပါ။",
+    "welcome_unsupported_media": "<b>ဤ media အမျိုးအစား မသုံးနိုင်ပါ။</b>\n\nသုံးနိုင်သည်: ဓာတ်ပုံ၊ ဗီဒီယို၊ GIF၊ စာသား",
+    "setwelcome_usage": "<b>ကြိုဆိုမက်ဆေ့ ထည့်ပေးပါ။</b>\n\nမက်ဆေ့ကို ပြန်တုံ့ပြန်ပါ: <code>/setwelcome</code> (reply)\nသို့မဟုတ် စာသား: <code>/setwelcome မင်္ဂလာပါ {NAME}!</code>",
+    "welcome_button_error": "<b>ခလုတ် အမှား:</b> {error}\n\n<b>ပုံစံ:</b> <code>[စာသား](URL)</code>\n<b>များသော:</b> <code>[ခလုတ်၁](url) | [ခလုတ်၂](url)</code>",
+    "welcome_set_success": "<b>ကြိုဆိုမက်ဆေ့ သတ်မှတ်ပြီးပါပြီ။</b>\n\nကြိုဆိုမက်ဆေ့ <b>ဖွင့်</b>ထားပြီ။",
+    "welcome_set_failed": "ကြိုဆိုမက်ဆေ့ သတ်မှတ်ရန် မအောင်မြင်ပါ။ ထပ်ကြိုးစားပါ။",
+    "no_welcome_settings": "ဤ group အတွက် ကြိုဆိုမက်ဆေ့ ဆက်တင်များ မတွေ့ပါ။",
+    "no_custom_welcome": "<b>Custom ကြိုဆိုမက်ဆေ့ မသတ်မှတ်ထားပါ။</b>\n\nသတ်မှတ်ရန် <code>/setwelcome</code> အသုံးပြုပါ။",
+    "welcome_deleted": "<b>Custom ကြိုဆိုမက်ဆေ့ ဖျက်ပြီးပါပြီ။</b>\n\nကြိုဆိုမက်ဆေ့ <b>ပိတ်</b>သွားပြီ။\nမူရင်းမက်ဆေ့ ဖွင့်ရန် <code>/welcome on</code> အသုံးပြုပါ။",
+    "welcome_delete_failed": "ကြိုဆိုမက်ဆေ့ ဖျက်ရန် မအောင်မြင်ပါ။ ထပ်ကြိုးစားပါ။",
+    "autodelete_enabled": "<b>အလိုအလျောက် ဖျက်ခြင်း ဖွင့်ထားသည်</b>\n\nကြိုဆိုမက်ဆေ့ကို {time} အကြာတွင် ဖျက်မည်",
+    "autodelete_disabled": "<b>အလိုအလျောက် ဖျက်ခြင်း ပိတ်ထားသည်</b>",
+    "autodelete_already_enabled": "အလိုအလျောက် ဖျက်ခြင်း ဖွင့်ပြီးသားဖြစ်သည်။",
+    "autodelete_already_disabled": "အလိုအလျောက် ဖျက်ခြင်း ပိတ်ပြီးသားဖြစ်သည်။",
+    "autodelete_turned_on": "<b>အလိုအလျောက် ဖျက်ခြင်း ဖွင့်ပြီးပါပြီ</b>\n\nကြိုဆိုမက်ဆေ့ကို {time} အကြာတွင် ဖျက်မည်",
+    "autodelete_turned_off": "<b>အလိုအလျောက် ဖျက်ခြင်း ပိတ်ပြီးပါပြီ</b>",
+    "autodelete_time_updated": "<b>အလိုအလျောက် ဖျက်ချိန် ပြောင်းပြီးပါပြီ</b>\n\nကြိုဆိုမက်ဆေ့ကို {time} အကြာတွင် ဖျက်မည်",
+    "cleanwelcome_usage": "<code>/cleanwelcome on</code> သို့မဟုတ် <code>/cleanwelcome off</code> အသုံးပြုပါ",
 }

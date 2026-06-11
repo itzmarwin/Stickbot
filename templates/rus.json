@@ -279,5 +279,17 @@
     "autodelete_turned_on": "<b>Автоудаление включено</b>\n\nПриветствия будут удаляться через: <b>{time}</b>",
     "autodelete_turned_off": "<b>Автоудаление отключено</b>",
     "autodelete_time_updated": "<b>Время автоудаления обновлено</b>\n\nПриветствия будут удаляться через: <b>{time}</b>",
-    "cleanwelcome_usage": "Используйте <code>/cleanwelcome on</code> или <code>/cleanwelcome off</code>"
+    "cleanwelcome_usage": "Используйте <code>/cleanwelcome on</code> или <code>/cleanwelcome off</code>",
+
+
+
+    "antipromo_need_delete_perm": "Вам нужно разрешение на удаление сообщений для управления антипромо.",
+    "antipromo_status": "Антипромо сейчас <b>{state}</b>.\nИспользуйте /antipromo on или /antipromo off для изменения.",
+    "antipromo_already_on": "Антипромо уже включено.",
+    "antipromo_already_off": "Антипромо уже отключено.",
+    "antipromo_turned_on": "Антипромо включено. Рекламные сообщения ботов будут удаляться автоматически.",
+    "antipromo_turned_off": "Антипромо отключено.",
+    "antipromo_usage": "Используйте /antipromo on или /antipromo off",
+    "antipromo_removed": "🛡️ Удалено рекламное сообщение от {sender}.",
+    "btn_add_me": "Добавить меня",
 }

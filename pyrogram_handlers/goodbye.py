@@ -4,6 +4,7 @@ from pyrogram.enums import ChatMemberStatus, ParseMode
 from pyrogram.errors import ChatAdminRequired
 
 from pyrogram_handlers.caching import get_admin_permissions
+from utils.language import get_chat_lang_dict
 from pyrogram_handlers.utils import (
     parse_buttons,
     create_button_markup,
@@ -65,10 +66,11 @@ async def setup_goodbye_handlers(client: Client):
     async def goodbye_command(client: Client, message: Message):
         chat_id = message.chat.id
         user_id = message.from_user.id if message.from_user else None
+        lang    = await get_chat_lang_dict(chat_id)
 
         is_admin, can_change_info = await _check_can_change_info(client, chat_id, user_id)
         if not is_admin:
-            await message.reply_text("Only admins can use this command.", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["only_admins"], parse_mode=ParseMode.HTML)
             return
 
         command_parts = message.text.split(maxsplit=1)
@@ -81,10 +83,9 @@ async def setup_goodbye_handlers(client: Client):
 
             goodbye_config = settings.get('goodbye', {})
             is_enabled     = goodbye_config.get('enabled', False)
-            status_text    = "enabled" if is_enabled else "disabled"
 
             await message.reply_text(
-                f"<b>Goodbye messages are currently {status_text}.</b>",
+                lang["goodbye_status_enabled" if is_enabled else "goodbye_status_disabled"],
                 parse_mode=ParseMode.HTML
             )
 
@@ -109,13 +110,13 @@ async def setup_goodbye_handlers(client: Client):
 
         if action in ["on", "off"]:
             if not can_change_info:
-                await message.reply_text("You need <b>Change Group Info</b> permission for this.", parse_mode=ParseMode.HTML)
+                await message.reply_text(lang["need_change_info_perm"], parse_mode=ParseMode.HTML)
                 return
             if not await is_bot_admin(client, chat_id):
-                await message.reply_text("<b>Please promote me to admin to enable goodbye messages.</b>", parse_mode=ParseMode.HTML)
+                await message.reply_text(lang["promote_bot_admin"], parse_mode=ParseMode.HTML)
                 return
 
-        settings       = await get_welcome_settings(chat_id)
+        settings = await get_welcome_settings(chat_id)
         if not settings:
             await create_default_welcome_settings(chat_id)
             settings = await get_welcome_settings(chat_id)
@@ -124,50 +125,48 @@ async def setup_goodbye_handlers(client: Client):
 
         if action == "on":
             if goodbye_config.get('enabled'):
-                await message.reply_text("Goodbye is already enabled.", parse_mode=ParseMode.HTML)
+                await message.reply_text(lang["goodbye_already_enabled"], parse_mode=ParseMode.HTML)
                 return
             success = await update_goodbye_status(chat_id, True)
             if success:
                 settings = await get_welcome_settings(chat_id)
                 await update_cached_settings(chat_id, 'goodbye', settings['goodbye'])
                 if goodbye_config.get('custom_set'):
-                    await message.reply_text("<b>Goodbye enabled!</b>\n\nCustom goodbye message will be sent when members leave.", parse_mode=ParseMode.HTML)
+                    await message.reply_text(lang["goodbye_enabled_custom"], parse_mode=ParseMode.HTML)
                 else:
-                    await message.reply_text(
-                        "<b>Goodbye enabled.</b>\n\nDefault goodbye message will be sent when members leave.\nUse <code>/setgoodbye</code> to set a custom message.",
-                        parse_mode=ParseMode.HTML
-                    )
+                    await message.reply_text(lang["goodbye_enabled_default"], parse_mode=ParseMode.HTML)
 
         elif action == "off":
             if not goodbye_config.get('enabled'):
-                await message.reply_text("Goodbye is already disabled.", parse_mode=ParseMode.HTML)
+                await message.reply_text(lang["goodbye_already_disabled"], parse_mode=ParseMode.HTML)
                 return
             success = await update_goodbye_status(chat_id, False)
             if success:
                 await clear_cached_settings(chat_id, 'goodbye')
-                await message.reply_text("<b>Goodbye disabled.</b>", parse_mode=ParseMode.HTML)
+                await message.reply_text(lang["goodbye_disabled"], parse_mode=ParseMode.HTML)
 
         else:
-            await message.reply_text("Use <code>/goodbye on</code> or <code>/goodbye off</code>", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["goodbye_usage"], parse_mode=ParseMode.HTML)
 
 
     @client.on_message(filters.command("setgoodbye") & filters.group)
     async def setgoodbye_command(client: Client, message: Message):
         chat_id = message.chat.id
         user_id = message.from_user.id if message.from_user else None
+        lang    = await get_chat_lang_dict(chat_id)
 
         is_admin, can_change_info = await _check_can_change_info(client, chat_id, user_id)
         if not is_admin:
-            await message.reply_text("Only admins can use this command.", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["only_admins"], parse_mode=ParseMode.HTML)
             return
         if not can_change_info:
-            await message.reply_text("You need <b>Change Group Info</b> permission for this.", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["need_change_info_perm"], parse_mode=ParseMode.HTML)
             return
         if not await is_bot_admin(client, chat_id):
-            await message.reply_text("<b>Please promote the bot to admin first.</b>", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["promote_bot_admin"], parse_mode=ParseMode.HTML)
             return
         if not message.reply_to_message:
-            await message.reply_text("<b>Please reply to a message.</b>", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["setgoodbye_reply_required"], parse_mode=ParseMode.HTML)
             return
 
         settings = await get_welcome_settings(chat_id)
@@ -176,10 +175,7 @@ async def setup_goodbye_handlers(client: Client):
             settings = await get_welcome_settings(chat_id)
 
         if settings.get('goodbye', {}).get('custom_set'):
-            await message.reply_text(
-                "<b>Goodbye message already set.</b>\n\nUse <code>/delgoodbye</code> first to remove it.",
-                parse_mode=ParseMode.HTML
-            )
+            await message.reply_text(lang["goodbye_already_set"], parse_mode=ParseMode.HTML)
             return
 
         replied_msg = message.reply_to_message
@@ -202,7 +198,7 @@ async def setup_goodbye_handlers(client: Client):
         elif replied_msg.text:
             text = replied_msg.text.html
         else:
-            await message.reply_text("<b>Unsupported message type.</b>\n\nSupported: Photo, Video, GIF, Text", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["welcome_unsupported_media"], parse_mode=ParseMode.HTML)
             return
 
         validation_error = validate_text_length(text, media_type is not None)
@@ -215,7 +211,7 @@ async def setup_goodbye_handlers(client: Client):
             text, button_rows, error = parse_buttons(text)
             if error:
                 await message.reply_text(
-                    f"<b>Button Error:</b> {error}\n\n<b>Format:</b> <code>[Text](URL)</code>\n<b>Multiple:</b> <code>[Btn1](url) | [Btn2](url)</code>",
+                    lang["welcome_button_error"].format(error=error),
                     parse_mode=ParseMode.HTML
                 )
                 return
@@ -223,63 +219,65 @@ async def setup_goodbye_handlers(client: Client):
         if not text or len(text.strip()) == 0:
             text = DEFAULT_GOODBYE_TEXT
 
-        success = await set_custom_goodbye(chat_id=chat_id, media_type=media_type, media_id=media_id, text=text, buttons=button_rows)
+        success = await set_custom_goodbye(
+            chat_id=chat_id,
+            media_type=media_type,
+            media_id=media_id,
+            text=text,
+            buttons=button_rows
+        )
         if success:
             await update_goodbye_status(chat_id, True)
             settings = await get_welcome_settings(chat_id)
             await update_cached_settings(chat_id, 'goodbye', settings['goodbye'])
-            await message.reply_text("<b>Goodbye message set successfully!</b>\n\nGoodbye is now <b>enabled</b>.", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["goodbye_set_success"], parse_mode=ParseMode.HTML)
         else:
-            await message.reply_text("Failed to set goodbye message. Please try again.", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["goodbye_set_failed"], parse_mode=ParseMode.HTML)
 
 
     @client.on_message(filters.command("delgoodbye") & filters.group)
     async def delgoodbye_command(client: Client, message: Message):
         chat_id = message.chat.id
         user_id = message.from_user.id if message.from_user else None
+        lang    = await get_chat_lang_dict(chat_id)
 
         is_admin, can_change_info = await _check_can_change_info(client, chat_id, user_id)
         if not is_admin:
-            await message.reply_text("Only admins can use this command.", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["only_admins"], parse_mode=ParseMode.HTML)
             return
         if not can_change_info:
-            await message.reply_text("You need <b>Change Group Info</b> permission for this.", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["need_change_info_perm"], parse_mode=ParseMode.HTML)
             return
 
         settings = await get_welcome_settings(chat_id)
         if not settings:
-            await message.reply_text("No goodbye settings found for this group.", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["no_goodbye_settings"], parse_mode=ParseMode.HTML)
             return
 
         if not settings.get('goodbye', {}).get('custom_set'):
-            await message.reply_text(
-                "<b>No custom goodbye message set.</b>\n\nUse <code>/setgoodbye</code> to set a custom message.",
-                parse_mode=ParseMode.HTML
-            )
+            await message.reply_text(lang["no_custom_goodbye"], parse_mode=ParseMode.HTML)
             return
 
         success = await delete_custom_goodbye(chat_id)
         if success:
             await clear_cached_settings(chat_id, 'goodbye')
-            await message.reply_text(
-                "<b>Goodbye message deleted successfully!</b>\n\nGoodbye is now <b>disabled</b>.\nUse <code>/goodbye on</code> to enable default message.",
-                parse_mode=ParseMode.HTML
-            )
+            await message.reply_text(lang["goodbye_deleted"], parse_mode=ParseMode.HTML)
         else:
-            await message.reply_text("Failed to delete goodbye message. Please try again.", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["goodbye_delete_failed"], parse_mode=ParseMode.HTML)
 
 
     @client.on_message(filters.command("cleangoodbye") & filters.group)
     async def cleangoodbye_command(client: Client, message: Message):
         chat_id = message.chat.id
         user_id = message.from_user.id if message.from_user else None
+        lang    = await get_chat_lang_dict(chat_id)
 
         is_admin, can_change_info = await _check_can_change_info(client, chat_id, user_id)
         if not is_admin:
-            await message.reply_text("Only admins can use this command.", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["only_admins"], parse_mode=ParseMode.HTML)
             return
         if not can_change_info:
-            await message.reply_text("You need <b>Change Group Info</b> permission for this.", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["need_change_info_perm"], parse_mode=ParseMode.HTML)
             return
 
         command_parts = message.text.split()
@@ -293,9 +291,12 @@ async def setup_goodbye_handlers(client: Client):
             is_enabled  = auto_delete.get('enabled', False)
             if is_enabled:
                 delete_after = auto_delete.get('delete_after', DEFAULT_AUTO_DELETE_SECONDS)
-                await message.reply_text(f"<b>Auto-delete is enabled</b>\n\nGoodbye messages will be deleted after: <b>{format_time(delete_after)}</b>", parse_mode=ParseMode.HTML)
+                await message.reply_text(
+                    lang["goodbye_autodelete_enabled"].format(time=format_time(delete_after)),
+                    parse_mode=ParseMode.HTML
+                )
             else:
-                await message.reply_text("<b>Auto-delete is disabled</b>", parse_mode=ParseMode.HTML)
+                await message.reply_text(lang["autodelete_disabled"], parse_mode=ParseMode.HTML)
             return
 
         action = command_parts[1].lower()
@@ -303,25 +304,28 @@ async def setup_goodbye_handlers(client: Client):
         if action == "on":
             auto_delete = settings.get('goodbye', {}).get('auto_delete', {})
             if auto_delete.get('enabled'):
-                await message.reply_text("Auto-delete is already enabled.", parse_mode=ParseMode.HTML)
+                await message.reply_text(lang["autodelete_already_enabled"], parse_mode=ParseMode.HTML)
                 return
             success = await update_goodbye_auto_delete(chat_id, True, DEFAULT_AUTO_DELETE_SECONDS)
             if success:
                 settings = await get_welcome_settings(chat_id)
                 await update_cached_settings(chat_id, 'goodbye', settings['goodbye'])
-                await message.reply_text(f"<b>Auto-delete enabled</b>\n\nGoodbye messages will be deleted after: <b>{format_time(DEFAULT_AUTO_DELETE_SECONDS)}</b>", parse_mode=ParseMode.HTML)
+                await message.reply_text(
+                    lang["goodbye_autodelete_turned_on"].format(time=format_time(DEFAULT_AUTO_DELETE_SECONDS)),
+                    parse_mode=ParseMode.HTML
+                )
 
         elif action == "off":
             auto_delete = settings.get('goodbye', {}).get('auto_delete', {})
             if not auto_delete.get('enabled'):
-                await message.reply_text("Auto-delete is already disabled.", parse_mode=ParseMode.HTML)
+                await message.reply_text(lang["autodelete_already_disabled"], parse_mode=ParseMode.HTML)
                 return
             success = await update_goodbye_auto_delete(chat_id, False, None)
             if success:
                 settings = await get_welcome_settings(chat_id)
                 await update_cached_settings(chat_id, 'goodbye', settings['goodbye'])
                 await cancel_pending_deletions(chat_id, 'goodbye')
-                await message.reply_text("<b>Auto-delete disabled</b>", parse_mode=ParseMode.HTML)
+                await message.reply_text(lang["autodelete_turned_off"], parse_mode=ParseMode.HTML)
 
         elif action.isdigit():
             delete_after     = int(action)
@@ -333,10 +337,13 @@ async def setup_goodbye_handlers(client: Client):
             if success:
                 settings = await get_welcome_settings(chat_id)
                 await update_cached_settings(chat_id, 'goodbye', settings['goodbye'])
-                await message.reply_text(f"<b>Auto-delete time updated</b>\n\nGoodbye messages will be deleted after: <b>{format_time(delete_after)}</b>", parse_mode=ParseMode.HTML)
+                await message.reply_text(
+                    lang["goodbye_autodelete_time_updated"].format(time=format_time(delete_after)),
+                    parse_mode=ParseMode.HTML
+                )
 
         else:
-            await message.reply_text("Use <code>/cleangoodbye on</code> or <code>/cleangoodbye off</code>", parse_mode=ParseMode.HTML)
+            await message.reply_text(lang["cleangoodbye_usage"], parse_mode=ParseMode.HTML)
 
 
     @client.on_message(filters.left_chat_member & filters.group)
@@ -379,7 +386,13 @@ async def setup_goodbye_handlers(client: Client):
                 elif media_type == "animation":
                     sent_message = await client.send_animation(chat_id=chat_id, animation=media_id, caption=formatted, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
             else:
-                sent_message = await client.send_message(chat_id=chat_id, text=formatted, reply_markup=reply_markup, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
+                sent_message = await client.send_message(
+                    chat_id=chat_id,
+                    text=formatted,
+                    reply_markup=reply_markup,
+                    parse_mode=ParseMode.HTML,
+                    disable_web_page_preview=True
+                )
         except Exception:
             return
 

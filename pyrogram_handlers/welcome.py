@@ -429,7 +429,14 @@ async def setup_welcome_handlers(client: Client):
         if not welcome_config.get('enabled'):
             return
 
-        text         = welcome_config['text'] if welcome_config.get('custom_set') and welcome_config.get('text') else DEFAULT_WELCOME_TEXT
+        lang = await get_chat_lang_dict(chat_id)
+
+        text = (
+            welcome_config['text']
+            if welcome_config.get('custom_set') and welcome_config.get('text')
+            else lang.get("default_welcome_text", DEFAULT_WELCOME_TEXT)
+        )
+
         formatted    = format_message_text(text, user, member_update.chat)
         reply_markup = create_button_markup(welcome_config['buttons']) if welcome_config.get('buttons') else None
 

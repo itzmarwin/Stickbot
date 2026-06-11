@@ -322,5 +322,8 @@
     "goodbye_autodelete_enabled": "<b>အလိုအလျောက် ဖျက်ခြင်း ဖွင့်ထားသည်</b>\n\nGoodbye မက်ဆေ့ကို {time} အကြာတွင် ဖျက်မည်",
     "goodbye_autodelete_turned_on": "<b>အလိုအလျောက် ဖျက်ခြင်း ဖွင့်ပြီးပါပြီ</b>\n\nGoodbye မက်ဆေ့ကို {time} အကြာတွင် ဖျက်မည်",
     "goodbye_autodelete_time_updated": "<b>အလိုအလျောက် ဖျက်ချိန် ပြောင်းပြီးပါပြီ</b>\n\nGoodbye မက်ဆေ့ကို {time} အကြာတွင် ဖျက်မည်",
-    "cleangoodbye_usage": "<code>/cleangoodbye on</code> သို့မဟုတ် <code>/cleangoodbye off</code> အသုံးပြုပါ"
+    "cleangoodbye_usage": "<code>/cleangoodbye on</code> သို့မဟုတ် <code>/cleangoodbye off</code> အသုံးပြုပါ",
+
+
+    "group_lang_changed": "Group ၏ ဘာသာစကား ပြောင်းပြီးပါပြီ"
 }

@@ -8,6 +8,7 @@ from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, 
 
 from config import OWNER_ID, BOT_USERNAME
 from pyrogram_handlers.caching import get_admin_permissions
+from utils.language import get_chat_lang_dict
 from mongo.antipromo_db import (
     add_to_whitelist,
     remove_from_whitelist,
@@ -19,8 +20,6 @@ from mongo.antipromo_db import (
 
 logger = logging.getLogger(__name__)
 
-# ─── Safe Words (hardcoded, loaded into cache once) ─────────────────
-
 _SAFE_WORDS_RAW = [
     "Title",       "𝖳𝗂𝗍𝗅𝖾",
     "Duration",    "𝖣𝗎𝗋𝖺𝗍𝗂𝗈𝗇",
@@ -31,11 +30,7 @@ _SAFE_WORDS_RAW = [
     "ခေါင်းစဉ်",
 ]
 
-# Loaded once into a set for O(1) lookups
 _SAFE_WORDS_LOWER: Set[str] = {w.lower() for w in _SAFE_WORDS_RAW}
-
-
-# ─── Promo Link Detection ────────────────────────────────────────────
 
 _PROMO_DOMAINS = (
     "t.me/",
@@ -63,13 +58,6 @@ def _is_promo_url(url: str) -> bool:
 
 
 def _count_promo_links(message: Message) -> int:
-    """
-    Count unique promo links in a message.
-    Checks 3 sources:
-      1. Entity type URL       — plain https://t.me/xxx
-      2. Entity type TEXT_LINK — hidden 'click here' hyperlinks
-      3. Regex fallback        — catches URLs not wrapped in entities
-    """
     found: Set[str] = set()
     entities = message.entities or message.caption_entities or []
     text = message.text or message.caption or ""
@@ -79,7 +67,6 @@ def _count_promo_links(message: Message) -> int:
             url = text[entity.offset: entity.offset + entity.length]
             if _is_promo_url(url):
                 found.add(url.lower())
-
         elif entity.type == MessageEntityType.TEXT_LINK:
             url = entity.url or ""
             if _is_promo_url(url):
@@ -102,73 +89,42 @@ def _count_safe_words(message: Message) -> int:
 
 
 def _should_delete(message: Message) -> bool:
-    """
-    Decision matrix:
-      link_count = 0                        → SAFE
-      safe_words >= 2 AND link_count = 1    → SAFE  (music bot)
-      safe_words >= 2 AND link_count >= 2   → DELETE
-      safe_words <= 1 AND link_count >= 1   → DELETE
-    """
     link_count = _count_promo_links(message)
     if link_count == 0:
         return False
-
     safe_count = _count_safe_words(message)
-
     if safe_count >= 2 and link_count == 1:
         return False
-
     return True
 
 
-# ─── Admin Permission Check (cache only, no API call) ───────────────
-
 def _can_manage_antipromo(chat_id: int, user_id: int) -> Optional[bool]:
-    """
-    Returns:
-      True  → user is admin with delete_messages permission
-      False → user is admin but no delete permission
-      None  → user not in cache (not an admin)
-    Uses caching.py ADMIN_CACHE only — zero API calls.
-    """
     perms = get_admin_permissions(chat_id, user_id)
     if perms is None:
         return None
     return perms.get("can_delete_messages", False)
 
 
-# ─── Buttons ─────────────────────────────────────────────────────────
-
-def _promo_removed_buttons() -> InlineKeyboardMarkup:
-    """
-    Two buttons:
-      [Add me]  — bot's add-to-group link (tg://resolve?domain=botusername&startgroup)
-      [Close]   — deletes the notification message
-    """
+def _promo_removed_buttons(lang: dict) -> InlineKeyboardMarkup:
     bot_user = BOT_USERNAME.lstrip("@") if BOT_USERNAME else ""
     add_link = f"https://t.me/{bot_user}?startgroup=start"
     return InlineKeyboardMarkup([[
-        InlineKeyboardButton("Add me", url=add_link),
-        InlineKeyboardButton("Close", callback_data="antipromo_close"),
+        InlineKeyboardButton(lang["btn_add_me"], url=add_link),
+        InlineKeyboardButton(lang["btn_close"],  callback_data="antipromo_close"),
     ]])
 
 
-# ─── Setup ───────────────────────────────────────────────────────────
-
 async def setup_antipromo_handlers(client: Client):
 
-    # ── Auto-delete promo messages ───────────────────────────────────
     @client.on_message(filters.group & filters.bot, group=5)
     async def antipromo_watcher(client: Client, message: Message):
         chat_id = message.chat.id
 
-        # Check if antipromo is enabled for this chat (cached)
         if not await get_antipromo_status(chat_id):
             return
 
-        # Resolve sender bot ID
         sender_id: Optional[int] = None
-        sender_name: str = "a bot"
+        sender_name: str         = "a bot"
 
         if message.from_user and message.from_user.is_bot:
             sender_id   = message.from_user.id
@@ -184,11 +140,9 @@ async def setup_antipromo_handlers(client: Client):
         if sender_id is None:
             return
 
-        # Whitelist check (in-memory set, no DB hit)
         if await is_whitelisted(sender_id):
             return
 
-        # Core detection
         if not _should_delete(message):
             return
 
@@ -202,19 +156,18 @@ async def setup_antipromo_handlers(client: Client):
             logger.warning(f"[AntiPromo] Delete failed: {e}")
             return
 
-        # Send notification with buttons
         try:
+            lang = await get_chat_lang_dict(chat_id)
             await client.send_message(
                 chat_id=chat_id,
-                text=f"🛡️ Removed a promotional message from {sender_name}.",
+                text=lang["antipromo_removed"].format(sender=sender_name),
                 parse_mode=ParseMode.HTML,
-                reply_markup=_promo_removed_buttons(),
+                reply_markup=_promo_removed_buttons(lang),
             )
         except Exception as e:
             logger.warning(f"[AntiPromo] Notify failed: {e}")
 
 
-    # ── Close button callback ────────────────────────────────────────
     @client.on_callback_query(filters.regex(r"^antipromo_close$"))
     async def antipromo_close(client: Client, callback: CallbackQuery):
         try:
@@ -224,7 +177,6 @@ async def setup_antipromo_handlers(client: Client):
         await callback.answer()
 
 
-    # ── /antipromo on/off/status ─────────────────────────────────────
     @client.on_message(filters.command("antipromo") & filters.group)
     async def antipromo_command(client: Client, message: Message):
         chat_id = message.chat.id
@@ -232,19 +184,14 @@ async def setup_antipromo_handlers(client: Client):
         if not user_id:
             return
 
-        # Cache-only admin check — no API call
+        lang = await get_chat_lang_dict(chat_id)
+
         perm = _can_manage_antipromo(chat_id, user_id)
         if perm is None:
-            await message.reply_text(
-                "Only admins can use this command.",
-                parse_mode=ParseMode.HTML,
-            )
+            await message.reply_text(lang["only_admins"], parse_mode=ParseMode.HTML)
             return
         if perm is False:
-            await message.reply_text(
-                "You need delete messages permission to manage antipromo.",
-                parse_mode=ParseMode.HTML,
-            )
+            await message.reply_text(lang["antipromo_need_delete_perm"], parse_mode=ParseMode.HTML)
             return
 
         parts  = message.text.split()
@@ -254,46 +201,29 @@ async def setup_antipromo_handlers(client: Client):
             status = await get_antipromo_status(chat_id)
             state  = "on" if status else "off"
             await message.reply_text(
-                f"Antipromo is currently <b>{state}</b>.\n"
-                f"Use /antipromo on or /antipromo off to change it.",
+                lang["antipromo_status"].format(state=state),
                 parse_mode=ParseMode.HTML,
             )
             return
 
         if action == "on":
             if await get_antipromo_status(chat_id):
-                await message.reply_text(
-                    "Antipromo is already on.",
-                    parse_mode=ParseMode.HTML,
-                )
+                await message.reply_text(lang["antipromo_already_on"], parse_mode=ParseMode.HTML)
                 return
             await set_antipromo_status(chat_id, True)
-            await message.reply_text(
-                "Antipromo is now on. Promotional bot messages will be removed automatically.",
-                parse_mode=ParseMode.HTML,
-            )
+            await message.reply_text(lang["antipromo_turned_on"], parse_mode=ParseMode.HTML)
 
         elif action == "off":
             if not await get_antipromo_status(chat_id):
-                await message.reply_text(
-                    "Antipromo is already off.",
-                    parse_mode=ParseMode.HTML,
-                )
+                await message.reply_text(lang["antipromo_already_off"], parse_mode=ParseMode.HTML)
                 return
             await set_antipromo_status(chat_id, False)
-            await message.reply_text(
-                "Antipromo is now off.",
-                parse_mode=ParseMode.HTML,
-            )
+            await message.reply_text(lang["antipromo_turned_off"], parse_mode=ParseMode.HTML)
 
         else:
-            await message.reply_text(
-                "Use /antipromo on or /antipromo off",
-                parse_mode=ParseMode.HTML,
-            )
+            await message.reply_text(lang["antipromo_usage"], parse_mode=ParseMode.HTML)
 
 
-    # ── /antipw @botusername — Whitelist add (owner only) ────────────
     @client.on_message(filters.command("antipw"))
     async def antipromo_whitelist_add(client: Client, message: Message):
         user_id = message.from_user.id if message.from_user else None
@@ -310,18 +240,12 @@ async def setup_antipromo_handlers(client: Client):
         else:
             parts = message.text.split()
             if len(parts) < 2:
-                await message.reply_text(
-                    "Usage: /antipw @botusername",
-                    parse_mode=ParseMode.HTML,
-                )
+                await message.reply_text("Usage: /antipw @botusername", parse_mode=ParseMode.HTML)
                 return
             try:
                 target = await client.get_users(parts[1].lstrip("@"))
             except Exception:
-                await message.reply_text(
-                    f"Could not find {parts[1]}",
-                    parse_mode=ParseMode.HTML,
-                )
+                await message.reply_text(f"Could not find {parts[1]}", parse_mode=ParseMode.HTML)
                 return
 
         if not target:
@@ -329,31 +253,23 @@ async def setup_antipromo_handlers(client: Client):
             return
 
         if not target.is_bot:
-            await message.reply_text(
-                f"@{target.username} is not a bot.",
-                parse_mode=ParseMode.HTML,
-            )
+            await message.reply_text(f"@{target.username} is not a bot.", parse_mode=ParseMode.HTML)
             return
 
         if await is_whitelisted(target.id):
-            await message.reply_text(
-                f"@{target.username} is already whitelisted.",
-                parse_mode=ParseMode.HTML,
-            )
+            await message.reply_text(f"@{target.username} is already whitelisted.", parse_mode=ParseMode.HTML)
             return
 
         success = await add_to_whitelist(target.id, target.username or str(target.id))
         if success:
             await message.reply_text(
-                f"@{target.username} added to the whitelist. "
-                f"Its messages won't be deleted in any group.",
+                f"@{target.username} added to the whitelist. Its messages won't be deleted in any group.",
                 parse_mode=ParseMode.HTML,
             )
         else:
             await message.reply_text("Something went wrong. Try again.", parse_mode=ParseMode.HTML)
 
 
-    # ── /antipr @botusername — Whitelist remove (owner only) ─────────
     @client.on_message(filters.command("antipr"))
     async def antipromo_whitelist_remove(client: Client, message: Message):
         user_id = message.from_user.id if message.from_user else None
@@ -370,18 +286,12 @@ async def setup_antipromo_handlers(client: Client):
         else:
             parts = message.text.split()
             if len(parts) < 2:
-                await message.reply_text(
-                    "Usage: /antipr @botusername",
-                    parse_mode=ParseMode.HTML,
-                )
+                await message.reply_text("Usage: /antipr @botusername", parse_mode=ParseMode.HTML)
                 return
             try:
                 target = await client.get_users(parts[1].lstrip("@"))
             except Exception:
-                await message.reply_text(
-                    f"Could not find {parts[1]}",
-                    parse_mode=ParseMode.HTML,
-                )
+                await message.reply_text(f"Could not find {parts[1]}", parse_mode=ParseMode.HTML)
                 return
 
         if not target:
@@ -401,7 +311,6 @@ async def setup_antipromo_handlers(client: Client):
             )
 
 
-    # ── /antiplist — Show whitelist (owner only) ─────────────────────
     @client.on_message(filters.command("antiplist"))
     async def antipromo_whitelist_list(client: Client, message: Message):
         user_id = message.from_user.id if message.from_user else None
@@ -414,10 +323,7 @@ async def setup_antipromo_handlers(client: Client):
 
         whitelist = await get_whitelist()
         if not whitelist:
-            await message.reply_text(
-                "Whitelist is empty.",
-                parse_mode=ParseMode.HTML,
-            )
+            await message.reply_text("Whitelist is empty.", parse_mode=ParseMode.HTML)
             return
 
         lines = []

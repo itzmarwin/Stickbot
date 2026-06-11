@@ -188,7 +188,7 @@
     "cb_warn_removed": "Warning removed: {count}/{limit}",
     "cb_warn_added": "Warning added: {count}/{limit}",
     "cb_limit_reached": "Limit reached! Applying: {mode}",
-    "cb_warns_reset": "All warnings reset!"
+    "cb_warns_reset": "All warnings reset!",
 
 
     "only_admins_lock": "Only admins can lock permissions.",

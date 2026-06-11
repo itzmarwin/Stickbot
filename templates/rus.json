@@ -230,4 +230,23 @@
     "lock_desc_pin": "Закрепление сообщений",
     "lock_desc_info": "Изменение информации группы",
     "lock_types_text": "<b>Доступные типы блокировок:</b>\n\n<b>── Глобальные ──</b>\n• <code>all</code>         — Заблокировать всё\n\n<b>── Контент ──</b>\n• <code>msg</code>         — Текстовые сообщения\n• <code>audio</code>       — Аудио и музыка\n• <code>voice</code>       — Голосовые сообщения\n• <code>video</code>       — Видео\n• <code>gif</code>         — GIF анимации\n• <code>document</code>    — Документы\n• <code>album</code>       — Альбомы\n• <code>contact</code>     — Контакты\n• <code>stickers</code>    — Стикеры\n• <code>animations</code>  — Анимации\n• <code>games</code>       — Игры\n• <code>poll</code>        — Опросы\n• <code>checklist</code>   — Чеклисты\n• <code>inline</code>      — Инлайн боты\n\n<b>── Текстовые паттерны ──</b>\n• <code>links</code>       — Ссылки\n• <code>email</code>       — Email адреса\n• <code>phone</code>       — Номера телефонов\n• <code>command</code>     — Команды ботов\n• <code>emoji</code>       — Эмодзи\n• <code>emojicustom</code> — Пользовательские эмодзи\n• <code>webprev</code>     — Предпросмотр ссылок\n\n<b>── Пересылки ──</b>\n• <code>allforward</code>     — Все пересланные\n• <code>userforward</code>    — От пользователей\n• <code>channelforward</code> — От каналов\n• <code>forwardstory</code>   — Истории\n\n<b>── Действия ──</b>\n• <code>bot</code>         — Добавление ботов\n• <code>invite</code>      — Приглашения\n• <code>pin</code>         — Закрепление\n• <code>info</code>        — Изменение информации\n• <code>anonchannel</code> — От имени канала\n\n<b>── Прочее ──</b>\n• <code>externalreply</code> — Ответы из других чатов\n• <code>comment</code>       — Комментаторы канала\n\n<b>Использование:</b>\n<code>/lock &lt;тип&gt;</code>\n<code>/lock all</code> или <code>/lock everything</code>\n<code>/unlock &lt;тип&gt;</code>\n<code>/unlock all</code> или <code>/unlock everything</code>",
+
+
+
+    "only_admins_filter": "Только администраторы могут добавлять фильтры.",
+    "only_admins_remove_filter": "Только администраторы могут удалять фильтры.",
+    "promote_me_first": "<b>Пожалуйста, сначала назначьте меня администратором.</b>",
+    "filter_usage": "Добавьте фильтр с помощью /filter &lt;ключевое слово&gt; &lt;ответ&gt; или ответьте на сообщение используя /filter &lt;ключевое слово&gt;.",
+    "keyword_empty": "Ключевое слово не может быть пустым.",
+    "unsupported_filter_media": "Этот тип медиа не поддерживается как фильтр. Попробуйте: Текст, Фото, Видео, GIF или Стикер.",
+    "filter_provide_reply": "<b>Пожалуйста, укажите ответное сообщение.</b>\nНапишите текст после ключевого слова или ответьте на сообщение.",
+    "filter_saved": "Фильтр <code>{keyword}</code> успешно сохранён!",
+    "filter_save_failed": "Не удалось сохранить фильтр. Попробуйте ещё раз.",
+    "no_active_filters": "В этой группе нет активных фильтров.",
+    "filters_list": "<b>Активные фильтры:</b>\n\n{keywords}",
+    "filter_keyword_missing": "Вы забыли указать ключевое слово фильтра.",
+    "filter_not_found": "Фильтр для <code>{keyword}</code> не найден.",
+    "filter_removed": "Фильтр <code>{keyword}</code> успешно удалён!",
+    "filter_remove_failed": "Не удалось удалить фильтр. Попробуйте ещё раз.",
+    "all_filters_removed": "Все <b>{count}</b> фильтров успешно удалены!",
 }

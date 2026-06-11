@@ -309,4 +309,27 @@
     "afk_welcome_back": "Welcome back, {user}! You were AFK for {duration}.",
     "afk_user_is_afk": "{user} is AFK (since {duration}).",
     "afk_user_is_afk_reason": "{user} is AFK: {reason} (since {duration}).",
+
+
+
+    "goodbye_status_enabled": "<b>Goodbye messages are currently enabled.</b>",
+    "goodbye_status_disabled": "<b>Goodbye messages are currently disabled.</b>",
+    "goodbye_already_enabled": "Goodbye is already enabled.",
+    "goodbye_already_disabled": "Goodbye is already disabled.",
+    "goodbye_enabled_custom": "<b>Goodbye enabled!</b>\n\nCustom goodbye message will be sent when members leave.",
+    "goodbye_enabled_default": "<b>Goodbye enabled.</b>\n\nDefault goodbye message will be sent when members leave.\nUse <code>/setgoodbye</code> to set a custom message.",
+    "goodbye_disabled": "<b>Goodbye disabled.</b>",
+    "goodbye_usage": "Use <code>/goodbye on</code> or <code>/goodbye off</code>",
+    "goodbye_already_set": "<b>Goodbye message already set.</b>\n\nUse <code>/delgoodbye</code> first to remove it.",
+    "setgoodbye_reply_required": "<b>Please reply to a message.</b>",
+    "goodbye_set_success": "<b>Goodbye message set successfully!</b>\n\nGoodbye is now <b>enabled</b>.",
+    "goodbye_set_failed": "Failed to set goodbye message. Please try again.",
+    "no_goodbye_settings": "No goodbye settings found for this group.",
+    "no_custom_goodbye": "<b>No custom goodbye message set.</b>\n\nUse <code>/setgoodbye</code> to set a custom message.",
+    "goodbye_deleted": "<b>Goodbye message deleted successfully!</b>\n\nGoodbye is now <b>disabled</b>.\nUse <code>/goodbye on</code> to enable default message.",
+    "goodbye_delete_failed": "Failed to delete goodbye message. Please try again.",
+    "goodbye_autodelete_enabled": "<b>Auto-delete is enabled</b>\n\nGoodbye messages will be deleted after: <b>{time}</b>",
+    "goodbye_autodelete_turned_on": "<b>Auto-delete enabled</b>\n\nGoodbye messages will be deleted after: <b>{time}</b>",
+    "goodbye_autodelete_time_updated": "<b>Auto-delete time updated</b>\n\nGoodbye messages will be deleted after: <b>{time}</b>",
+    "cleangoodbye_usage": "Use <code>/cleangoodbye on</code> or <code>/cleangoodbye off</code>"
 }

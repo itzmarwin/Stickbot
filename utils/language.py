@@ -3,14 +3,14 @@ import logging
 from typing import Optional, Dict, Tuple
 from pathlib import Path
 
-from mongo.userdb import get_user_language
+from mongo.userdb import get_user_language, get_group_language
 
 logger = logging.getLogger(__name__)
 
 _template_cache: Dict[str, Dict[str, str]] = {}
 
 SUPPORTED_LANGUAGES = ["en", "rus", "bur"]
-DEFAULT_LANGUAGE = "en"
+DEFAULT_LANGUAGE    = "en"
 
 
 def load_template(language: str) -> Dict[str, str]:
@@ -40,6 +40,7 @@ def load_template(language: str) -> Dict[str, str]:
 
 
 async def get_lang_dict(user_id: int) -> Tuple[str, Dict[str, str]]:
+    """Private chat ke liye — user ki apni language."""
     try:
         lang_code = await get_user_language(user_id)
         lang_dict = _template_cache.get(lang_code) or _template_cache.get(DEFAULT_LANGUAGE, {})
@@ -47,6 +48,20 @@ async def get_lang_dict(user_id: int) -> Tuple[str, Dict[str, str]]:
     except Exception as e:
         logger.error(f"Error in get_lang_dict user {user_id}: {e}")
         return DEFAULT_LANGUAGE, _template_cache.get(DEFAULT_LANGUAGE, {})
+
+
+async def get_chat_lang_dict(chat_id: int) -> Dict[str, str]:
+    """
+    Group chat ke liye — group ki language.
+    Saare pyrogram management handlers yahi call karte hain.
+    """
+    try:
+        lang_code = await get_group_language(chat_id)
+        lang_dict = _template_cache.get(lang_code) or _template_cache.get(DEFAULT_LANGUAGE, {})
+        return lang_dict
+    except Exception as e:
+        logger.error(f"Error in get_chat_lang_dict chat {chat_id}: {e}")
+        return _template_cache.get(DEFAULT_LANGUAGE, {})
 
 
 async def get_text(user_id: int, key: str, **kwargs) -> Optional[str]:

@@ -41,6 +41,7 @@ from pyrogram_handlers.mute import setup_mute_handlers
 from pyrogram_handlers.locks import setup_locks_handlers
 from pyrogram_handlers.caching import setup_cache_handlers
 from pyrogram_handlers.antipromo import setup_antipromo_handlers
+from pyrogram_handlers.info import setup_info_handlers
 
 logging.basicConfig(
     level=logging.INFO,
@@ -129,6 +130,7 @@ async def setup_pyrogram():
         await setup_cache_handlers(pyro_client)
         await setup_antipromo_handlers(pyro_client)
         await setup_filter_handlers(pyro_client)
+        setup_info_handlers(pyro_client)
         await setup_afk_handlers(pyro_client)
         await setup_restart_handlers(pyro_client)
         await setup_extra_handlers(pyro_client)

@@ -130,7 +130,6 @@ async def setup_pyrogram():
         await setup_cache_handlers(pyro_client)
         await setup_antipromo_handlers(pyro_client)
         await setup_filter_handlers(pyro_client)
-        await setup_info_handlers(pyro_client)
         await setup_afk_handlers(pyro_client)
         await setup_restart_handlers(pyro_client)
         await setup_extra_handlers(pyro_client)

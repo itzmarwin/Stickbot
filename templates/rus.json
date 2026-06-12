@@ -328,5 +328,24 @@
 
 
 
-    "group_lang_changed": "Язык группы изменён на"
+    "group_lang_changed": "Язык группы изменён на",
+
+
+
+    "id_user": "𝖭𝖺𝗆𝖾: {name}\n𝖴𝗌𝖾𝗋 𝖨𝖣: <code>{user_id}</code>",
+    "id_self": "𝖴𝗌𝖾𝗋 𝖨𝖣: <code>{user_id}</code>",
+    "id_self_group": "𝖴𝗌𝖾𝗋 𝖨𝖣: <code>{user_id}</code>\n𝖢𝗁𝖺𝗍 𝖨𝖣: <code>{chat_id}</code>",
+    "id_chat": "𝖢𝗁𝖺𝗍 𝖨𝖣: <code>{chat_id}</code>",
+    "id_channel": "𝖢𝗁𝖺𝗇𝗇𝖾𝗅 𝖨𝖣: <code>{chat_id}</code>",
+    "id_anonymous_admin": "Это сообщение отправлено анонимным администратором.\n𝖢𝗁𝖺𝗍 𝖨𝖣: <code>{chat_id}</code>",
+    "id_anonymous_admin_private": "Это сообщение отправлено анонимным администратором.",
+    "id_not_found": "Не удалось найти этот ID.",
+    "id_user_not_found": "Пользователь не найден.",
+    "info_user_group": "𝖴𝗌𝖾𝗋 𝖨𝗇𝖿𝗈𝗋𝗆𝖺𝗍𝗂𝗈𝗇\n\n𝖭𝖺𝗆𝖾: {name}\n𝖴𝗌𝖾𝗋𝗇𝖺𝗆𝖾: {username}\n𝖴𝗌𝖾𝗋 𝖨𝖣: <code>{user_id}</code>\n𝖲𝗍𝖺𝗍𝗎𝗌: {status}",
+    "info_user_private": "𝖴𝗌𝖾𝗋 𝖨𝗇𝖿𝗈𝗋𝗆𝖺𝗍𝗂𝗈𝗇\n\n𝖭𝖺𝗆𝖾: {name}\n𝖴𝗌𝖾𝗋𝗇𝖺𝗆𝖾: {username}\n𝖴𝗌𝖾𝗋 𝖨𝖣: <code>{user_id}</code>",
+    "info_chat": "𝖢𝗁𝖺𝗍 𝖨𝗇𝖿𝗈𝗋𝗆𝖺𝗍𝗂𝗈𝗇\n\n𝖭𝖺𝗆𝖾: {name}\n𝖨𝖣: <code>{chat_id}</code>",
+    "info_status_admin": "Администратор",
+    "info_status_member": "Участник",
+    "info_status_not_in_chat": "Не в этом чате",
+    "info_deleted_account": "Удалённый аккаунт"
 }

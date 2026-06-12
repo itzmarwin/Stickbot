@@ -337,5 +337,24 @@
 
 
     
-    "group_lang_changed": "Group language changed to"
+    "group_lang_changed": "Group language changed to",
+
+
+
+    "id_user": "𝖭𝖺𝗆𝖾: {name}\n𝖴𝗌𝖾𝗋 𝖨𝖣: <code>{user_id}</code>",
+    "id_self": "𝖴𝗌𝖾𝗋 𝖨𝖣: <code>{user_id}</code>",
+    "id_self_group": "𝖴𝗌𝖾𝗋 𝖨𝖣: <code>{user_id}</code>\n𝖢𝗁𝖺𝗍 𝖨𝖣: <code>{chat_id}</code>",
+    "id_chat": "𝖢𝗁𝖺𝗍 𝖨𝖣: <code>{chat_id}</code>",
+    "id_channel": "𝖢𝗁𝖺𝗇𝗇𝖾𝗅 𝖨𝖣: <code>{chat_id}</code>",
+    "id_anonymous_admin": "𝖳𝗁𝗂𝗌 𝗆𝖾𝗌𝗌𝖺𝗀𝖾 𝗐𝖺𝗌 𝗌𝖾𝗇𝗍 𝖻𝗒 𝖺𝗇 𝖺𝗇𝗈𝗇𝗒𝗆𝗈𝗎𝗌 𝖺𝖽𝗆𝗂𝗇.\n𝖢𝗁𝖺𝗍 𝖨𝖣: <code>{chat_id}</code>",
+    "id_anonymous_admin_private": "𝖳𝗁𝗂𝗌 𝗆𝖾𝗌𝗌𝖺𝗀𝖾 𝗐𝖺𝗌 𝗌𝖾𝗇𝗍 𝖻𝗒 𝖺𝗇 𝖺𝗇𝗈𝗇𝗒𝗆𝗈𝗎𝗌 𝖺𝖽𝗆𝗂𝗇.",
+    "id_not_found": "𝖢𝗈𝗎𝗅𝖽 𝗇𝗈𝗍 𝖿𝗂𝗇𝖽 𝗍𝗁𝗂𝗌 𝖨𝖣.",
+    "id_user_not_found": "𝖴𝗌𝖾𝗋 𝗇𝗈𝗍 𝖿𝗈𝗎𝗇𝖽.",
+    "info_user_group": "𝖴𝗌𝖾𝗋 𝖨𝗇𝖿𝗈𝗋𝗆𝖺𝗍𝗂𝗈𝗇\n\n𝖭𝖺𝗆𝖾: {name}\n𝖴𝗌𝖾𝗋𝗇𝖺𝗆𝖾: {username}\n𝖴𝗌𝖾𝗋 𝖨𝖣: <code>{user_id}</code>\n𝖲𝗍𝖺𝗍𝗎𝗌: {status}",
+    "info_user_private": "𝖴𝗌𝖾𝗋 𝖨𝗇𝖿𝗈𝗋𝗆𝖺𝗍𝗂𝗈𝗇\n\n𝖭𝖺𝗆𝖾: {name}\n𝖴𝗌𝖾𝗋𝗇𝖺𝗆𝖾: {username}\n𝖴𝗌𝖾𝗋 𝖨𝖣: <code>{user_id}</code>",
+    "info_chat": "𝖢𝗁𝖺𝗍 𝖨𝗇𝖿𝗈𝗋𝗆𝖺𝗍𝗂𝗈𝗇\n\n𝖭𝖺𝗆𝖾: {name}\n𝖨𝖣: <code>{chat_id}</code>",
+    "info_status_admin": "𝖠𝖽𝗆𝗂𝗇𝗂𝗌𝗍𝗋𝖺𝗍𝗈𝗋",
+    "info_status_member": "𝖬𝖾𝗆𝖻𝖾𝗋",
+    "info_status_not_in_chat": "𝖭𝗈𝗍 𝗂𝗇 𝗍𝗁𝗂𝗌 𝖼𝗁𝖺𝗍",
+    "info_deleted_account": "𝖣𝖾𝗅𝖾𝗍𝖾𝖽 𝖠𝖼𝖼𝗈𝗎𝗇𝗍"
 }

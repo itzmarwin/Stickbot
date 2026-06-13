@@ -145,6 +145,17 @@ def get_back_to_main_keyboard(lang_dict: dict):
     )
     return builder.as_markup()
 
+def get_group_help_keyboard(lang_dict: dict):
+    from config import BOT_USERNAME
+    from aiogram.utils.keyboard import InlineKeyboardBuilder
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text=get_text_from_dict(lang_dict, "B_HELP_MENU") or "Help Menu",
+        url=f"https://t.me/{BOT_USERNAME}?start=help"
+    )
+    builder.adjust(1)
+    return builder.as_markup()
+
 
 async def safe_edit_message(callback: CallbackQuery, text: str, reply_markup=None):
     if not text:

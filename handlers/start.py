@@ -66,6 +66,13 @@ async def cmd_start(message: Message, state: FSMContext):
 
     _, lang = await get_lang_dict(user.id)
 
+    # Check karo agar ?start=help se aaya hai
+    args = message.text.split(maxsplit=1)
+    if len(args) > 1 and args[1] == "help":
+        help_text = get_text_from_dict(lang, "EXTRA_COMMANDS_MESSAGE")
+        await message.answer(help_text, reply_markup=get_extra_commands_keyboard(lang))
+        return
+
     if user.id in _started_users:
         start_text = get_text_from_dict(lang, "START_MESSAGE_WITH_IMAGE", uid=user.id, first_name=escape_html(user.first_name))
         await message.answer(start_text, reply_markup=get_main_menu_keyboard(lang))

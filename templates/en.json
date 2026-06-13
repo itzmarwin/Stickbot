@@ -1,7 +1,7 @@
 {
     "START_MESSAGE_WITH_IMAGE": "────「  ꜱᴛɪᴄᴋᴇʀ ᴋᴀɴɢ 」────\n✦ ʜᴇʏ <a href=\"tg://user?id={uid}\">{first_name}</a>...\n╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌\nɪ ᴀᴍ ʏᴏᴜʀ ꜱᴛɪᴄᴋᴇʀ ᴄᴏᴍᴘᴀɴɪᴏɴ 💫\nᴡɪᴛʜ ᴍᴇ ʏᴏᴜ ᴄᴀɴ:\n➤ ᴋᴀɴɢ ꜱᴛɪᴄᴋᴇʀꜱ ɪɴ ᴏɴᴇ ᴛᴀᴘ\n➤ ᴍᴀᴋᴇ ʏᴏᴜʀ ᴏᴡɴ ᴘᴀᴄᴋꜱ\n➤ ᴍᴀɴᴀɢᴇ & ꜱʜᴀʀᴇ ᴇᴀꜱɪʟʏ\n╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌\nᴘʀᴇꜱꜱ ᴛʜᴇ ʙᴜᴛᴛᴏɴꜱ ʙᴇʟᴏᴡ ᴛᴏ ꜱᴛᴀʀᴛ",
     "GROUP_START_MESSAGE": "<b>Hello! I'm Sticker Kang Bot</b>\n\nI help you create and manage custom sticker packs!\n\n<b>Features:</b>\n✦ Create unlimited sticker packs\n✦ Add images, videos, GIFs as stickers\n✦ Manage and organize your packs\n✦ Share packs with others\n\n<b>Start me in PM to use all features!</b>",
-    "HELP_MESSAGE": "For help and support, contact:\n\n<b>Support:</b> @Samurais_Support\n<b>Updates:</b> @Samurais_network",
+    "GROUP_HELP_MESSAGE": "𝖭𝖾𝖾𝖽 𝗁𝖾𝗅𝗉 𝗐𝗂𝗍𝗁 𝗆𝗒 𝖼𝗈𝗆𝗆𝖺𝗇𝖽𝗌 𝖺𝗇𝖽 𝖿𝖾𝖺𝗍𝗎𝗋𝖾𝗌?\n\n𝖢𝗅𝗂𝖼𝗄 𝗍𝗁𝖾 𝖻𝗎𝗍𝗍𝗈𝗇 𝖻𝖾𝗅𝗈𝗐 𝗍𝗈 𝗈𝗉𝖾𝗇 𝗍𝗁𝖾 𝗁𝖾𝗅𝗉 𝗆𝖾𝗇𝗎 𝗂𝗇 𝗉𝗋𝗂𝗏𝖺𝗍𝖾 𝖼𝗁𝖺𝗍."
     "EXTRA_COMMANDS_MESSAGE": "<b>Extra Commands</b>\n\nChoose a feature to learn more:",
     "AFK_INFO_MESSAGE": "<b>AFK (Away From Keyboard)</b>\n\n<b>How it works:</b>\nWhen you're away, set AFK mode and the bot will automatically reply to people who mention you.\n\n<b>Commands:</b>\n• <code>/afk</code> - Set AFK with optional reason\n• <code>/afk [reason]</code> - Set AFK with custom reason\n\n<b>Example:</b>\n<code>/afk Sleeping </code>\n\n<b>Auto-disable:</b>\nAFK automatically turns off when you send a message.",
     "QUOTLY_INFO_MESSAGE": "<b>Quotly - Message to Sticker</b>\n\n<b>How it works:</b>\nConvert any message into a beautiful quote sticker!\n\n<b>Command:</b>\n• <code>/q</code> - Reply to any message\n\n<b>Features:</b>\n• Works with text, images, videos\n• Automatically formats quotes\n• Creates instant stickers\n• Preserves user info & timestamp\n\n<b>Usage:</b>\nJust reply to any message with <code>/q</code>",
@@ -18,6 +18,7 @@
     "B_MANAGE_PACKS": "𝖬𝗒 𝖲𝗍𝗂𝖼𝗄𝖾𝗋 𝖯𝖺𝖼𝗄𝗌",
     "B_SUPPORT": "𝖲𝗎𝗉𝗉𝗈𝗋𝗍",
     "B_UPDATES": "𝖴𝗉𝖽𝖺𝗍𝖾𝗌",
+    "B_HELP_MENU": "𝖧𝖾𝗅𝗉 𝖬𝖾𝗇𝗎",
     "B_AFK": "𝖠𝖿𝗄",
     "B_QUOTLY": "𝖰𝗎𝗈𝗍𝗅𝗒",
     "B_STICKERS": "𝖲𝗍𝗂𝖼𝗄𝖾𝗋𝗌",

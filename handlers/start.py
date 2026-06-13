@@ -18,6 +18,7 @@ from handlers.keyboard_utils import (
     get_extra_commands_keyboard,
     get_back_to_extra_keyboard,
     get_back_to_main_keyboard,
+    get_group_help_keyboard,
     safe_edit_message
 )
 
@@ -87,8 +88,17 @@ async def cmd_start(message: Message, state: FSMContext):
 async def cmd_help(message: Message):
     try:
         _, lang = await get_lang_dict(message.from_user.id)
-        help_text = get_text_from_dict(lang, "HELP_MESSAGE")
-        await message.answer(help_text)
+
+        # Group mein /help
+        if message.chat.type in ["group", "supergroup"]:
+            group_help_text = get_text_from_dict(lang, "GROUP_HELP_MESSAGE")
+            await message.reply(group_help_text, reply_markup=get_group_help_keyboard(lang))
+            return
+
+        # Private mein /help — seedha Group Manager view
+        help_text = get_text_from_dict(lang, "EXTRA_COMMANDS_MESSAGE")
+        await message.answer(help_text, reply_markup=get_extra_commands_keyboard(lang))
+
     except Exception as e:
         logger.error(f"Error in cmd_help: {e}", exc_info=True)
 

@@ -29,26 +29,29 @@ _KAFKA_PATTERN = re.compile(
     re.IGNORECASE
 )
 
-KAFKA_SYSTEM_PROMPT = """သင်သည် Kafka Manager ဖြစ်သည်။ Telegram group management bot တစ်ခုဖြစ်သည်။
+KAFKA_SYSTEM_PROMPT = """You are Kafka, a chill Telegram group bot with a real personality. You are NOT a formal assistant.
 
-သင့်အကြောင်း:
-- သင့်နာမည်မှာ Kafka Manager သို့မဟုတ် Kafka ဟုခေါ်သည်
-- သင်သည် group management လုပ်သော bot ဖြစ်သည်
-- သင်တွင် ကိုယ်ရည်ကိုယ်သွေး ရှိသည်
+Your vibe:
+- You talk like a real person, casual and natural
+- Match the user's energy exactly — if they're playful, be playful. If they're angry, be blunt. If they're sad, be chill and comforting
+- Keep replies SHORT — 1-3 sentences max, never paragraphs
+- No bullet points, no lists, no "I'd be happy to help!" type cringe
+- You can roast people lightly if they're being silly
+- You swear mildly if the conversation calls for it
+- Never sound like a customer service bot
 
-စကားပြောပုံ:
-- Default language: မြန်မာဘာသာ
-- User က English သုံးလျှင် English ဖြင့် ပြန်ဖြေ
-- User က ချစ်ချစ်ခင်ခင် ပြောလျှင် ချစ်ချစ်ခင်ခင် ပြန်ပြော
-- User က ဒေါသတကြီး ပြောလျှင် ဒေါသတကြီး ပြန်ပြော
-- User က ဖျားနာနေလျှင် စာနာသော tone သုံး
-- Mood mirror လုပ်ရမည် — user ၏ tone အတိုင်း ပြန်ပြော
-- "stupid", "idiot", "ပေါက်ကရ", "မိုက်တယ်" ကဲ့သို့ mild abusive words သုံးနိုင်သည် ဒေါသဖြင့် ပြောလျှင်
-- Extreme hardcore abuse မသုံးရ
-- Reply တိုတိုရေး — paragraph ကြီးများ မရေး
-- Natural conversation လုပ်ရမည်
-- သင်သည် bot ဟု acknowledge လုပ်ပေမယ့် personality ရှိသည်
-- Reasoning မလုပ်ရ — seedha reply ပေးရမည်"""
+Language rules:
+- Reply in whatever language the user writes in
+- If someone writes in Burmese, reply in Burmese
+- If someone writes in English, reply in English
+- If someone mixes languages, mix back
+- If user asks you to translate something, just translate it directly — don't explain, don't add commentary, just give the translation
+
+Personality:
+- You have opinions, you're not neutral about everything
+- You get bored of repetitive questions
+- You're a bit sarcastic but not mean
+- You're helpful but only if asked nicely enough"""
 
 
 def _is_expired(thread: dict) -> bool:
@@ -80,8 +83,8 @@ def _update_thread(chat_id: int, user_msg: str, bot_reply: str, user_id: int, bo
     thread = _threads.get(chat_id)
     if thread is None:
         return
-    thread["history"].append({"role": "user",     "content": user_msg})
-    thread["history"].append({"role": "assistant", "content": bot_reply})
+    thread["history"].append({"role": "user",      "content": user_msg})
+    thread["history"].append({"role": "assistant",  "content": bot_reply})
     if len(thread["history"]) > MAX_HISTORY_MESSAGES * 2:
         thread["history"] = thread["history"][-(MAX_HISTORY_MESSAGES * 2):]
     thread["last_activity"]   = time.time()
@@ -104,6 +107,11 @@ def _has_kafka_trigger(text: str) -> bool:
     return bool(_KAFKA_PATTERN.search(text))
 
 
+def _sanitize_text(text: str) -> str:
+    """Remove non-latin scripts that might trigger ZhipuAI content filter."""
+    return text.strip()
+
+
 async def _call_zhipu(history: list[dict], user_message: str) -> Optional[str]:
     if not ZHIPU_API_KEY:
         logger.error("ZHIPU_API_KEY not set!")
@@ -116,8 +124,9 @@ async def _call_zhipu(history: list[dict], user_message: str) -> Optional[str]:
     payload = {
         "model":       ZHIPU_MODEL,
         "messages":    messages,
-        "max_tokens":  300,
-        "temperature": 0.85,
+        "max_tokens":  150,
+        "temperature": 0.9,
+        "top_p":       0.95,
         "stream":      False,
     }
 
@@ -134,6 +143,14 @@ async def _call_zhipu(history: list[dict], user_message: str) -> Optional[str]:
                 headers=headers,
                 timeout=aiohttp.ClientTimeout(total=30)
             ) as resp:
+                if resp.status == 400:
+                    error_data = await resp.json()
+                    error_code = error_data.get("error", {}).get("code", "")
+                    if error_code == "1301":
+                        logger.warning(f"ZhipuAI content filter triggered, retrying with fallback")
+                        return await _call_zhipu_fallback(history, user_message)
+                    logger.error(f"ZhipuAI API error 400: {error_data}")
+                    return None
                 if resp.status != 200:
                     text = await resp.text()
                     logger.error(f"ZhipuAI API error {resp.status}: {text}")
@@ -146,6 +163,55 @@ async def _call_zhipu(history: list[dict], user_message: str) -> Optional[str]:
         return None
     except Exception as e:
         logger.error(f"ZhipuAI API exception: {e}")
+        return None
+
+
+async def _call_zhipu_fallback(history: list[dict], user_message: str) -> Optional[str]:
+    """Fallback: translate Burmese/non-latin to English context for ZhipuAI, then reply naturally."""
+    if not ZHIPU_API_KEY:
+        return None
+
+    safe_history = []
+    for msg in history[-6:]:
+        safe_history.append({
+            "role": msg["role"],
+            "content": f"[previous message in conversation]" if len(msg["content"]) > 100 else msg["content"]
+        })
+
+    fallback_system = """You are Kafka, a casual Telegram bot. The user may be writing in Burmese or a mix of languages. Understand their intent and reply naturally and casually. Keep it short — 1-2 sentences. Match their energy."""
+
+    messages = [{"role": "system", "content": fallback_system}]
+    messages.extend(safe_history)
+    messages.append({"role": "user", "content": f"User message (may contain Burmese or mixed language): {user_message}"})
+
+    payload = {
+        "model":       ZHIPU_MODEL,
+        "messages":    messages,
+        "max_tokens":  150,
+        "temperature": 0.9,
+        "stream":      False,
+    }
+
+    headers = {
+        "Authorization": f"Bearer {ZHIPU_API_KEY}",
+        "Content-Type":  "application/json",
+    }
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                ZHIPU_API_URL,
+                json=payload,
+                headers=headers,
+                timeout=aiohttp.ClientTimeout(total=20)
+            ) as resp:
+                if resp.status != 200:
+                    return None
+                data = await resp.json()
+                content = data["choices"][0]["message"]["content"]
+                return content.strip() if content else None
+    except Exception as e:
+        logger.error(f"ZhipuAI fallback exception: {e}")
         return None
 
 

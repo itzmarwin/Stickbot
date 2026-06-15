@@ -15,15 +15,18 @@ from pyrogram_handlers.caching import get_admin_permissions
 
 logger = logging.getLogger(__name__)
 
-ZHIPU_API_KEY = os.getenv("ZHIPU_API_KEY")
-ZHIPU_API_URL = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
-ZHIPU_MODEL   = "glm-4.5-flash"
+# ─── Groq config ────────────────────────────────────────────────────────────
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
+GROQ_MODEL   = "qwen/qwen3-32b"
 
+# ─── Thread settings ─────────────────────────────────────────────────────────
 _threads: dict[int, dict] = {}
 
 THREAD_EXPIRY_SECONDS = 4 * 60 * 60
 MAX_HISTORY_MESSAGES  = 20
 
+# ─── Trigger pattern ─────────────────────────────────────────────────────────
 _KAFKA_PATTERN = re.compile(
     r"\b(kafka\s+manager|kafka)\b",
     re.IGNORECASE
@@ -48,6 +51,7 @@ KAFKA_SYSTEM_PROMPT = """သင်သည် Kafka ဆိုတဲ့ Telegram gr
 - User ပြောတာကို နားလည်ပြီး သဘာဝကျကျ ဆက်စကားပြော"""
 
 
+# ─── Thread helpers ───────────────────────────────────────────────────────────
 def _is_expired(thread: dict) -> bool:
     return (time.time() - thread["last_activity"]) > THREAD_EXPIRY_SECONDS
 
@@ -101,9 +105,10 @@ def _has_kafka_trigger(text: str) -> bool:
     return bool(_KAFKA_PATTERN.search(text))
 
 
-async def _call_zhipu(history: list[dict], user_message: str) -> Optional[str]:
-    if not ZHIPU_API_KEY:
-        logger.error("[ZhipuAI] ZHIPU_API_KEY not set in environment!")
+# ─── Groq API call ────────────────────────────────────────────────────────────
+async def _call_groq(history: list[dict], user_message: str) -> Optional[str]:
+    if not GROQ_API_KEY:
+        logger.error("[Groq] GROQ_API_KEY not set in environment!")
         return None
 
     messages = [{"role": "system", "content": KAFKA_SYSTEM_PROMPT}]
@@ -111,47 +116,41 @@ async def _call_zhipu(history: list[dict], user_message: str) -> Optional[str]:
     messages.append({"role": "user", "content": user_message})
 
     payload = {
-        "model":       ZHIPU_MODEL,
-        "messages":    messages,
-        "max_tokens":  100,
-        "temperature": 0.9,
-        "top_p":       0.95,
-        "stream":      False,
+        "model":            GROQ_MODEL,
+        "messages":         messages,
+        "max_tokens":       200,
+        "temperature":      0.9,
+        "top_p":            0.95,
+        "stream":           False,
+        # Thinking/reasoning tokens band karo
+        "reasoning_effort": "none",
     }
 
     headers = {
-        "Authorization": f"Bearer {ZHIPU_API_KEY}",
+        "Authorization": f"Bearer {GROQ_API_KEY}",
         "Content-Type":  "application/json",
     }
 
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(
-                ZHIPU_API_URL,
+                GROQ_API_URL,
                 json=payload,
                 headers=headers,
                 timeout=aiohttp.ClientTimeout(total=25),
             ) as resp:
                 body = await resp.text()
 
-                if resp.status == 400:
-                    try:
-                        error_data = await resp.json(content_type=None)
-                        error_code = error_data.get("error", {}).get("code", "unknown")
-                    except Exception:
-                        error_code = "parse_failed"
-                    logger.warning(f"[ZhipuAI] 400 content filter code={error_code} | trying fallback")
-                    if error_code == "1301":
-                        return await _call_zhipu_fallback(history, user_message)
-                    logger.error(f"[ZhipuAI] 400 unhandled: {body[:300]}")
+                if resp.status == 429:
+                    logger.warning("[Groq] Rate limited (429)")
                     return None
 
-                if resp.status == 429:
-                    logger.warning(f"[ZhipuAI] Rate limited (429)")
+                if resp.status == 400:
+                    logger.error(f"[Groq] 400 Bad Request: {body[:300]}")
                     return None
 
                 if resp.status != 200:
-                    logger.error(f"[ZhipuAI] HTTP {resp.status}: {body[:300]}")
+                    logger.error(f"[Groq] HTTP {resp.status}: {body[:300]}")
                     return None
 
                 try:
@@ -159,73 +158,24 @@ async def _call_zhipu(history: list[dict], user_message: str) -> Optional[str]:
                     content = data["choices"][0]["message"]["content"]
                     return content.strip() if content else None
                 except Exception as e:
-                    logger.error(f"[ZhipuAI] JSON parse failed: {e} | body={body[:200]}")
+                    logger.error(f"[Groq] JSON parse failed: {e} | body={body[:200]}")
                     return None
 
     except asyncio.TimeoutError:
-        logger.error("[ZhipuAI] Request timed out after 25s")
+        logger.error("[Groq] Request timed out after 25s")
         return None
     except aiohttp.ClientConnectorError as e:
-        logger.error(f"[ZhipuAI] Connection failed: {e}")
+        logger.error(f"[Groq] Connection failed: {e}")
         return None
     except aiohttp.ServerDisconnectedError as e:
-        logger.error(f"[ZhipuAI] Server disconnected: {e}")
+        logger.error(f"[Groq] Server disconnected: {e}")
         return None
     except Exception as e:
-        logger.error(f"[ZhipuAI] Unexpected {type(e).__name__}: {e}")
+        logger.error(f"[Groq] Unexpected {type(e).__name__}: {e}")
         return None
 
 
-async def _call_zhipu_fallback(history: list[dict], user_message: str) -> Optional[str]:
-    if not ZHIPU_API_KEY:
-        return None
-
-    safe_history = []
-    for msg in history[-4:]:
-        safe_history.append({
-            "role":    msg["role"],
-            "content": msg["content"] if len(msg["content"]) <= 80 else "[prev msg]"
-        })
-
-    fallback_system = "သင်သည် Kafka ဆိုတဲ့ casual Telegram bot တစ်ယောက်ဖြစ်တယ်။ မြန်မာဘာသာနဲ့ တိုတိုလေး meaningful ဖြေပေး။ User ပြောတာကို နားလည်ပြီး သဘာဝကျကျ ဆက်ပြော။"
-
-    messages = [{"role": "system", "content": fallback_system}]
-    messages.extend(safe_history)
-    messages.append({"role": "user", "content": user_message})
-
-    payload = {
-        "model":       ZHIPU_MODEL,
-        "messages":    messages,
-        "max_tokens":  100,
-        "temperature": 0.9,
-        "stream":      False,
-    }
-
-    headers = {
-        "Authorization": f"Bearer {ZHIPU_API_KEY}",
-        "Content-Type":  "application/json",
-    }
-
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                ZHIPU_API_URL,
-                json=payload,
-                headers=headers,
-                timeout=aiohttp.ClientTimeout(total=20),
-            ) as resp:
-                body = await resp.text()
-                if resp.status != 200:
-                    logger.error(f"[ZhipuAI fallback] HTTP {resp.status}: {body[:200]}")
-                    return None
-                data = await resp.json(content_type=None)
-                content = data["choices"][0]["message"]["content"]
-                return content.strip() if content else None
-    except Exception as e:
-        logger.error(f"[ZhipuAI fallback] {type(e).__name__}: {e}")
-        return None
-
-
+# ─── Admin check ──────────────────────────────────────────────────────────────
 async def _is_admin(client: Client, chat_id: int, user_id: int) -> bool:
     perms = get_admin_permissions(chat_id, user_id)
     if perms is not None:
@@ -237,6 +187,7 @@ async def _is_admin(client: Client, chat_id: int, user_id: int) -> bool:
         return False
 
 
+# ─── Handlers ─────────────────────────────────────────────────────────────────
 async def setup_chatbot_handlers(client: Client):
     bot_me = await client.get_me()
     BOT_ID = bot_me.id
@@ -333,10 +284,10 @@ async def setup_chatbot_handlers(client: Client):
         except Exception:
             pass
 
-        reply_text = await _call_zhipu(history, text)
+        reply_text = await _call_groq(history, text)
 
         if not reply_text:
-            logger.warning(f"[Chatbot] ZhipuAI returned None for chat {chat_id} | msg={text[:50]!r}")
+            logger.warning(f"[Chatbot] Groq returned None for chat {chat_id} | msg={text[:50]!r}")
             return
 
         try:

@@ -88,12 +88,14 @@ async def init_databases():
     init_managementdb(mongo_client, db)
     init_locksdb(mongo_client, db)
     init_antipromo_db(mongo_client, db)
+    init_chatbotdb(mongo_client, db)
 
     await create_user_indexes()
     await create_sticker_indexes()
     await create_management_indexes()
     await create_locks_indexes()
     await create_antipromo_indexes()
+    await create_chatbot_indexes()
 
     logging.info("✅ Database initialized successfully")
     logging.info(f"✅ Connected to: {DATABASE_NAME}")
@@ -134,6 +136,7 @@ async def setup_pyrogram():
         await setup_antipromo_handlers(pyro_client)
         await setup_filter_handlers(pyro_client)
         setup_info_handlers(pyro_client)
+        await setup_chatbot_handlers(pyro_client)
         await setup_afk_handlers(pyro_client)
         await setup_restart_handlers(pyro_client)
         await setup_extra_handlers(pyro_client)

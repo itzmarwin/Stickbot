@@ -20,7 +20,6 @@ ZHIPU_API_URL = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
 ZHIPU_MODEL   = "glm-4.5-flash"
 
 _threads: dict[int, dict] = {}
-_http_session: Optional[aiohttp.ClientSession] = None
 
 THREAD_EXPIRY_SECONDS = 4 * 60 * 60
 MAX_HISTORY_MESSAGES  = 20
@@ -47,28 +46,6 @@ KAFKA_SYSTEM_PROMPT = """သင်သည် Kafka ဆိုတဲ့ Telegram gr
 - Opinion ရှိတယ်၊ neutral ဆုံးဖြတ်ချက်တွေ မပေး
 - မည်သည့် topic မဆို မြန်မာဘာသာနဲ့ meaningful ဖြေပေး — "မသိဘူး" သို့မဟုတ် "မဖြေနိုင်ဘူး" လို့ မပြော
 - User ပြောတာကို နားလည်ပြီး သဘာဝကျကျ ဆက်စကားပြော"""
-
-
-def _get_http_session() -> aiohttp.ClientSession:
-    global _http_session
-    if _http_session is None or _http_session.closed:
-        connector = aiohttp.TCPConnector(
-            limit=10,
-            ttl_dns_cache=300,
-            enable_cleanup_closed=True,
-        )
-        _http_session = aiohttp.ClientSession(
-            connector=connector,
-            timeout=aiohttp.ClientTimeout(total=25, connect=5),
-        )
-    return _http_session
-
-
-async def close_http_session():
-    global _http_session
-    if _http_session and not _http_session.closed:
-        await _http_session.close()
-        _http_session = None
 
 
 def _is_expired(thread: dict) -> bool:
@@ -126,7 +103,7 @@ def _has_kafka_trigger(text: str) -> bool:
 
 async def _call_zhipu(history: list[dict], user_message: str) -> Optional[str]:
     if not ZHIPU_API_KEY:
-        logger.error("ZHIPU_API_KEY not set!")
+        logger.error("[ZhipuAI] ZHIPU_API_KEY not set in environment!")
         return None
 
     messages = [{"role": "system", "content": KAFKA_SYSTEM_PROMPT}]
@@ -147,40 +124,55 @@ async def _call_zhipu(history: list[dict], user_message: str) -> Optional[str]:
         "Content-Type":  "application/json",
     }
 
-    session = _get_http_session()
-
     try:
-        async with session.post(ZHIPU_API_URL, json=payload, headers=headers) as resp:
-            if resp.status == 400:
-                error_data = await resp.json()
-                error_code = error_data.get("error", {}).get("code", "")
-                logger.warning(f"ZhipuAI 400 error_code={error_code} | attempting fallback")
-                if error_code == "1301":
-                    return await _call_zhipu_fallback(history, user_message)
-                logger.error(f"ZhipuAI 400 unhandled: {error_data}")
-                return None
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                ZHIPU_API_URL,
+                json=payload,
+                headers=headers,
+                timeout=aiohttp.ClientTimeout(total=25),
+            ) as resp:
+                body = await resp.text()
 
-            if resp.status == 429:
-                logger.warning("ZhipuAI rate limited (429)")
-                return None
+                if resp.status == 400:
+                    try:
+                        error_data = await resp.json(content_type=None)
+                        error_code = error_data.get("error", {}).get("code", "unknown")
+                    except Exception:
+                        error_code = "parse_failed"
+                    logger.warning(f"[ZhipuAI] 400 content filter code={error_code} | trying fallback")
+                    if error_code == "1301":
+                        return await _call_zhipu_fallback(history, user_message)
+                    logger.error(f"[ZhipuAI] 400 unhandled: {body[:300]}")
+                    return None
 
-            if resp.status != 200:
-                text = await resp.text()
-                logger.error(f"ZhipuAI API error {resp.status}: {text}")
-                return None
+                if resp.status == 429:
+                    logger.warning(f"[ZhipuAI] Rate limited (429)")
+                    return None
 
-            data = await resp.json()
-            content = data["choices"][0]["message"]["content"]
-            return content.strip() if content else None
+                if resp.status != 200:
+                    logger.error(f"[ZhipuAI] HTTP {resp.status}: {body[:300]}")
+                    return None
+
+                try:
+                    data = await resp.json(content_type=None)
+                    content = data["choices"][0]["message"]["content"]
+                    return content.strip() if content else None
+                except Exception as e:
+                    logger.error(f"[ZhipuAI] JSON parse failed: {e} | body={body[:200]}")
+                    return None
 
     except asyncio.TimeoutError:
-        logger.error("ZhipuAI API timeout (25s exceeded)")
+        logger.error("[ZhipuAI] Request timed out after 25s")
         return None
     except aiohttp.ClientConnectorError as e:
-        logger.error(f"ZhipuAI connection error: {e}")
+        logger.error(f"[ZhipuAI] Connection failed: {e}")
+        return None
+    except aiohttp.ServerDisconnectedError as e:
+        logger.error(f"[ZhipuAI] Server disconnected: {e}")
         return None
     except Exception as e:
-        logger.error(f"ZhipuAI unexpected exception: {e}")
+        logger.error(f"[ZhipuAI] Unexpected {type(e).__name__}: {e}")
         return None
 
 
@@ -214,19 +206,23 @@ async def _call_zhipu_fallback(history: list[dict], user_message: str) -> Option
         "Content-Type":  "application/json",
     }
 
-    session = _get_http_session()
-
     try:
-        async with session.post(ZHIPU_API_URL, json=payload, headers=headers) as resp:
-            if resp.status != 200:
-                text = await resp.text()
-                logger.error(f"ZhipuAI fallback error {resp.status}: {text}")
-                return None
-            data = await resp.json()
-            content = data["choices"][0]["message"]["content"]
-            return content.strip() if content else None
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                ZHIPU_API_URL,
+                json=payload,
+                headers=headers,
+                timeout=aiohttp.ClientTimeout(total=20),
+            ) as resp:
+                body = await resp.text()
+                if resp.status != 200:
+                    logger.error(f"[ZhipuAI fallback] HTTP {resp.status}: {body[:200]}")
+                    return None
+                data = await resp.json(content_type=None)
+                content = data["choices"][0]["message"]["content"]
+                return content.strip() if content else None
     except Exception as e:
-        logger.error(f"ZhipuAI fallback exception: {e}")
+        logger.error(f"[ZhipuAI fallback] {type(e).__name__}: {e}")
         return None
 
 

@@ -14,6 +14,7 @@ from mongo.stickerdb import init_stickerdb, create_indexes as create_sticker_ind
 from mongo.managementdb import init_managementdb, create_indexes as create_management_indexes
 from mongo.locksdb import init_locksdb, create_indexes as create_locks_indexes
 from mongo.antipromo_db import init_antipromo_db, create_indexes as create_antipromo_indexes
+from mongo.chatbotdb import init_chatbotdb, create_indexes as create_chatbot_indexes
 
 from handlers import start, misc, logger
 from handlers import language
@@ -42,6 +43,8 @@ from pyrogram_handlers.locks import setup_locks_handlers
 from pyrogram_handlers.caching import setup_cache_handlers
 from pyrogram_handlers.antipromo import setup_antipromo_handlers
 from pyrogram_handlers.info import setup_info_handlers
+from pyrogram_handlers.chatbot import setup_chatbot_handlers
+
 
 logging.basicConfig(
     level=logging.INFO,

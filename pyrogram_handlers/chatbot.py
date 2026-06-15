@@ -20,6 +20,7 @@ ZHIPU_API_URL = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
 ZHIPU_MODEL   = "glm-4.5-flash"
 
 _threads: dict[int, dict] = {}
+_http_session: Optional[aiohttp.ClientSession] = None
 
 THREAD_EXPIRY_SECONDS = 4 * 60 * 60
 MAX_HISTORY_MESSAGES  = 20
@@ -29,29 +30,45 @@ _KAFKA_PATTERN = re.compile(
     re.IGNORECASE
 )
 
-KAFKA_SYSTEM_PROMPT = """You are Kafka, a chill Telegram group bot with a real personality. You are NOT a formal assistant.
+KAFKA_SYSTEM_PROMPT = """သင်သည် Kafka ဆိုတဲ့ Telegram group bot တစ်ယောက်ဖြစ်တယ်။ သင်မှာ ကိုယ်ပိုင် personality ရှိတယ်။
 
-Your vibe:
-- You talk like a real person, casual and natural
-- Match the user's energy exactly — if they're playful, be playful. If they're angry, be blunt. If they're sad, be chill and comforting
-- Keep replies SHORT — 1-3 sentences max, never paragraphs
-- No bullet points, no lists, no "I'd be happy to help!" type cringe
-- You can roast people lightly if they're being silly
-- You swear mildly if the conversation calls for it
-- Never sound like a customer service bot
+အရေးကြီးဆုံး rules:
+- မြန်မာဘာသာနဲ့ပဲ default ပြောတယ်
+- User က English ရေးမှသာ English ပြန်ဖြေ၊ Hindi ရေးရင် Hindi ပြန်ဖြေ၊ mixed ဆို mixed ပြန်ပြော
+- Reply အတိုလေး — ၁-၂ ကြောင်းပဲ၊ paragraph ကြီးတွေ မရေး
+- Bullet point, list တွေ မသုံး
+- Real လူတစ်ယောက်လို casual ပြော၊ formal assistant လို မပြော
+- "ကျွန်တော် ကူညီရတာ ဝမ်းသာပါတယ်" စတဲ့ cringe phrases တွေ မသုံးရ
+- User ရဲ့ mood ကို mirror လုပ် — သူ playful ဆို playful၊ ဒေါသနဲ့ ဆို blunt၊ sad ဆို chill
+- Mild roast လုပ်လို့ရတယ် သူ silly ဖြစ်နေရင်
+- "ပေါက်ကရ"၊ "မိုက်တယ်" စတဲ့ mild words သုံးလို့ရတယ် ဒေါသ context မှာ
+- Hardcore abuse မသုံးရ
+- User က translate လုပ်ခိုင်းရင် ရှင်းပြချက် မထည့်ဘဲ တိုက်ရိုက် translate ပေး
+- Opinion ရှိတယ်၊ neutral ဆုံးဖြတ်ချက်တွေ မပေး
+- မည်သည့် topic မဆို မြန်မာဘာသာနဲ့ meaningful ဖြေပေး — "မသိဘူး" သို့မဟုတ် "မဖြေနိုင်ဘူး" လို့ မပြော
+- User ပြောတာကို နားလည်ပြီး သဘာဝကျကျ ဆက်စကားပြော"""
 
-Language rules:
-- Reply in whatever language the user writes in
-- If someone writes in Burmese, reply in Burmese
-- If someone writes in English, reply in English
-- If someone mixes languages, mix back
-- If user asks you to translate something, just translate it directly — don't explain, don't add commentary, just give the translation
 
-Personality:
-- You have opinions, you're not neutral about everything
-- You get bored of repetitive questions
-- You're a bit sarcastic but not mean
-- You're helpful but only if asked nicely enough"""
+def _get_http_session() -> aiohttp.ClientSession:
+    global _http_session
+    if _http_session is None or _http_session.closed:
+        connector = aiohttp.TCPConnector(
+            limit=10,
+            ttl_dns_cache=300,
+            enable_cleanup_closed=True,
+        )
+        _http_session = aiohttp.ClientSession(
+            connector=connector,
+            timeout=aiohttp.ClientTimeout(total=25, connect=5),
+        )
+    return _http_session
+
+
+async def close_http_session():
+    global _http_session
+    if _http_session and not _http_session.closed:
+        await _http_session.close()
+        _http_session = None
 
 
 def _is_expired(thread: dict) -> bool:
@@ -107,11 +124,6 @@ def _has_kafka_trigger(text: str) -> bool:
     return bool(_KAFKA_PATTERN.search(text))
 
 
-def _sanitize_text(text: str) -> str:
-    """Remove non-latin scripts that might trigger ZhipuAI content filter."""
-    return text.strip()
-
-
 async def _call_zhipu(history: list[dict], user_message: str) -> Optional[str]:
     if not ZHIPU_API_KEY:
         logger.error("ZHIPU_API_KEY not set!")
@@ -124,7 +136,7 @@ async def _call_zhipu(history: list[dict], user_message: str) -> Optional[str]:
     payload = {
         "model":       ZHIPU_MODEL,
         "messages":    messages,
-        "max_tokens":  150,
+        "max_tokens":  100,
         "temperature": 0.9,
         "top_p":       0.95,
         "stream":      False,
@@ -135,59 +147,64 @@ async def _call_zhipu(history: list[dict], user_message: str) -> Optional[str]:
         "Content-Type":  "application/json",
     }
 
+    session = _get_http_session()
+
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                ZHIPU_API_URL,
-                json=payload,
-                headers=headers,
-                timeout=aiohttp.ClientTimeout(total=30)
-            ) as resp:
-                if resp.status == 400:
-                    error_data = await resp.json()
-                    error_code = error_data.get("error", {}).get("code", "")
-                    if error_code == "1301":
-                        logger.warning(f"ZhipuAI content filter triggered, retrying with fallback")
-                        return await _call_zhipu_fallback(history, user_message)
-                    logger.error(f"ZhipuAI API error 400: {error_data}")
-                    return None
-                if resp.status != 200:
-                    text = await resp.text()
-                    logger.error(f"ZhipuAI API error {resp.status}: {text}")
-                    return None
-                data = await resp.json()
-                content = data["choices"][0]["message"]["content"]
-                return content.strip() if content else None
+        async with session.post(ZHIPU_API_URL, json=payload, headers=headers) as resp:
+            if resp.status == 400:
+                error_data = await resp.json()
+                error_code = error_data.get("error", {}).get("code", "")
+                logger.warning(f"ZhipuAI 400 error_code={error_code} | attempting fallback")
+                if error_code == "1301":
+                    return await _call_zhipu_fallback(history, user_message)
+                logger.error(f"ZhipuAI 400 unhandled: {error_data}")
+                return None
+
+            if resp.status == 429:
+                logger.warning("ZhipuAI rate limited (429)")
+                return None
+
+            if resp.status != 200:
+                text = await resp.text()
+                logger.error(f"ZhipuAI API error {resp.status}: {text}")
+                return None
+
+            data = await resp.json()
+            content = data["choices"][0]["message"]["content"]
+            return content.strip() if content else None
+
     except asyncio.TimeoutError:
-        logger.error("ZhipuAI API timeout")
+        logger.error("ZhipuAI API timeout (25s exceeded)")
+        return None
+    except aiohttp.ClientConnectorError as e:
+        logger.error(f"ZhipuAI connection error: {e}")
         return None
     except Exception as e:
-        logger.error(f"ZhipuAI API exception: {e}")
+        logger.error(f"ZhipuAI unexpected exception: {e}")
         return None
 
 
 async def _call_zhipu_fallback(history: list[dict], user_message: str) -> Optional[str]:
-    """Fallback: translate Burmese/non-latin to English context for ZhipuAI, then reply naturally."""
     if not ZHIPU_API_KEY:
         return None
 
     safe_history = []
-    for msg in history[-6:]:
+    for msg in history[-4:]:
         safe_history.append({
-            "role": msg["role"],
-            "content": f"[previous message in conversation]" if len(msg["content"]) > 100 else msg["content"]
+            "role":    msg["role"],
+            "content": msg["content"] if len(msg["content"]) <= 80 else "[prev msg]"
         })
 
-    fallback_system = """You are Kafka, a casual Telegram bot. The user may be writing in Burmese or a mix of languages. Understand their intent and reply naturally and casually. Keep it short — 1-2 sentences. Match their energy."""
+    fallback_system = "သင်သည် Kafka ဆိုတဲ့ casual Telegram bot တစ်ယောက်ဖြစ်တယ်။ မြန်မာဘာသာနဲ့ တိုတိုလေး meaningful ဖြေပေး။ User ပြောတာကို နားလည်ပြီး သဘာဝကျကျ ဆက်ပြော။"
 
     messages = [{"role": "system", "content": fallback_system}]
     messages.extend(safe_history)
-    messages.append({"role": "user", "content": f"User message (may contain Burmese or mixed language): {user_message}"})
+    messages.append({"role": "user", "content": user_message})
 
     payload = {
         "model":       ZHIPU_MODEL,
         "messages":    messages,
-        "max_tokens":  150,
+        "max_tokens":  100,
         "temperature": 0.9,
         "stream":      False,
     }
@@ -197,19 +214,17 @@ async def _call_zhipu_fallback(history: list[dict], user_message: str) -> Option
         "Content-Type":  "application/json",
     }
 
+    session = _get_http_session()
+
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                ZHIPU_API_URL,
-                json=payload,
-                headers=headers,
-                timeout=aiohttp.ClientTimeout(total=20)
-            ) as resp:
-                if resp.status != 200:
-                    return None
-                data = await resp.json()
-                content = data["choices"][0]["message"]["content"]
-                return content.strip() if content else None
+        async with session.post(ZHIPU_API_URL, json=payload, headers=headers) as resp:
+            if resp.status != 200:
+                text = await resp.text()
+                logger.error(f"ZhipuAI fallback error {resp.status}: {text}")
+                return None
+            data = await resp.json()
+            content = data["choices"][0]["message"]["content"]
+            return content.strip() if content else None
     except Exception as e:
         logger.error(f"ZhipuAI fallback exception: {e}")
         return None
@@ -325,7 +340,7 @@ async def setup_chatbot_handlers(client: Client):
         reply_text = await _call_zhipu(history, text)
 
         if not reply_text:
-            logger.warning(f"[Chatbot] ZhipuAI returned None for chat {chat_id}")
+            logger.warning(f"[Chatbot] ZhipuAI returned None for chat {chat_id} | msg={text[:50]!r}")
             return
 
         try:

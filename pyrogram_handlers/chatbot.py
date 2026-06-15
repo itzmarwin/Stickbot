@@ -17,9 +17,9 @@ logger = logging.getLogger(__name__)
 
 # ─── DeepSeek Config ──────────────────────────────────────────────────────────
 import os
-DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
-DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions"
-DEEPSEEK_MODEL   = "deepseek-chat"
+ZHIPU_API_KEY = os.getenv("ZHIPU_API_KEY")
+ZHIPU_API_URL = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
+ZHIPU_MODEL   = "glm-4.5-flash"
 
 # ─── Thread Storage (RAM only) ────────────────────────────────────────────────
 # Structure:

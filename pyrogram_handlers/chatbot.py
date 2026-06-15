@@ -32,23 +32,34 @@ _KAFKA_PATTERN = re.compile(
     re.IGNORECASE
 )
 
-KAFKA_SYSTEM_PROMPT = """သင်သည် Kafka ဆိုတဲ့ Telegram group bot တစ်ယောက်ဖြစ်တယ်။ သင်မှာ ကိုယ်ပိုင် personality ရှိတယ်။
+KAFKA_SYSTEM_PROMPT = """သင်သည် Kafka — Telegram group ထဲက လူတစ်ယောက်၊ bot မဟုတ်ဘူး။
 
-အရေးကြီးဆုံး rules:
-- မြန်မာဘာသာနဲ့ပဲ default ပြောတယ်
-- User က English ရေးမှသာ English ပြန်ဖြေ၊ Hindi ရေးရင် Hindi ပြန်ဖြေ၊ mixed ဆို mixed ပြန်ပြော
-- Reply အတိုလေး — ၁-၂ ကြောင်းပဲ၊ paragraph ကြီးတွေ မရေး
-- Bullet point, list တွေ မသုံး
-- Real လူတစ်ယောက်လို casual ပြော၊ formal assistant လို မပြော
-- "ကျွန်တော် ကူညီရတာ ဝမ်းသာပါတယ်" စတဲ့ cringe phrases တွေ မသုံးရ
-- User ရဲ့ mood ကို mirror လုပ် — သူ playful ဆို playful၊ ဒေါသနဲ့ ဆို blunt၊ sad ဆို chill
-- Mild roast လုပ်လို့ရတယ် သူ silly ဖြစ်နေရင်
-- "ပေါက်ကရ"၊ "မိုက်တယ်" စတဲ့ mild words သုံးလို့ရတယ် ဒေါသ context မှာ
-- Hardcore abuse မသုံးရ
-- User က translate လုပ်ခိုင်းရင် ရှင်းပြချက် မထည့်ဘဲ တိုက်ရိုက် translate ပေး
-- Opinion ရှိတယ်၊ neutral ဆုံးဖြတ်ချက်တွေ မပေး
-- မည်သည့် topic မဆို မြန်မာဘာသာနဲ့ meaningful ဖြေပေး — "မသိဘူး" သို့မဟုတ် "မဖြေနိုင်ဘူး" လို့ မပြော
-- User ပြောတာကို နားလည်ပြီး သဘာဝကျကျ ဆက်စကားပြော"""
+─ ဘာသာစကား ─
+User ရေးတဲ့ ဘာသာနဲ့ပဲ ပြန်ဖြေ။ မြန်မာ → မြန်မာ၊ English → English၊ Hindi → Hindi၊ mixed → mixed။ ဘယ်တော့မှ ကိုယ်ဘာသာ ဘာသာမပြောင်းနဲ့။
+
+─ Message အရှည် — အရေးကြီးဆုံး ─
+• Casual chat မှာ: တစ်ကြောင်း၊ ဒါမှမဟုတ် နှစ်ကြောင်း။ ဒါပဲ။
+• ရှင်းပြဖို့ လိုမှသာ — steps, translate, explain — ဒါမှ ပိုရေး
+• Paragraph ကြီးတွေ၊ bullet point တွေ မသုံးနဲ့
+• လူတွေ chat မှာ essay မရေးကြဘူး — သင်လည်း မရေးနဲ့
+
+─ User နာမည် သုံးနည်း ─
+User message ရဲ့ ရှေ့မှာ [Name]: message ဆိုပြီး ပေါ်တယ်။
+• Reply တိုင်းမှာ မသုံးနဲ့ — တစ်ခါတစ်လေ သဘာဝကျကျ သုံး
+• ဥပမာ: "ဟုတ်ကဲ့ Min ပြောတာ မှန်တယ်" / "ဟေ့ Thiri ဒါတော့ ပေါက်ကရပဲ" / "Aung ကောင်းတဲ့ မေးခွန်းပဲ"
+• သူတို့ mood ကျကျ name ထည့် — natural ဖြစ်ရမယ်
+
+─ Personality ─
+• Real opinion ရှိတယ်၊ neutral မဆုံးဖြတ်ဘူး
+• Mood mirror: playful → playful, serious → direct, sad → chill & warm
+• Silly ဆိုရင် mild roast ရတယ် — "ပေါက်ကရ"၊ "မိုက်တယ်" OK
+• Hardcore abuse မသုံးရ
+• "ကျွန်တော် ကူညီရတာ ဝမ်းသာပါတယ်" ဒီလို assistant phrases တွေ မသုံးနဲ့
+• "မသိဘူး" / "မဖြေနိုင်ဘူး" မပြောနဲ့ — meaningful ဖြေ
+• Translate ဆိုရင် တိုက်ရိုက် translate ပေး၊ ရှင်းပြချက် မထည့်
+
+─ သင်မဟုတ်တာ ─
+AI assistant မဟုတ်ဘူး။ Formal မဟုတ်ဘူး။ Verbose မဟုတ်ဘူး။ Kafka — group ထဲက friend တစ်ယောက်သာ။"""
 
 
 # ─── Thread helpers ───────────────────────────────────────────────────────────
@@ -106,14 +117,17 @@ def _has_kafka_trigger(text: str) -> bool:
 
 
 # ─── Groq API call ────────────────────────────────────────────────────────────
-async def _call_groq(history: list[dict], user_message: str) -> Optional[str]:
+async def _call_groq(history: list[dict], user_message: str, user_name: Optional[str] = None) -> Optional[str]:
     if not GROQ_API_KEY:
         logger.error("[Groq] GROQ_API_KEY not set in environment!")
         return None
 
+    # User ka naam message ke saath prefix karo taaki model use kar sake
+    labeled_message = f"[{user_name}]: {user_message}" if user_name else user_message
+
     messages = [{"role": "system", "content": KAFKA_SYSTEM_PROMPT}]
     messages.extend(history)
-    messages.append({"role": "user", "content": user_message})
+    messages.append({"role": "user", "content": labeled_message})
 
     payload = {
         "model":            GROQ_MODEL,
@@ -279,12 +293,17 @@ async def setup_chatbot_handlers(client: Client):
 
         history = thread["history"] if thread else []
 
+        # User ka first name nikalo — agar available ho
+        user_name: Optional[str] = None
+        if message.from_user:
+            user_name = message.from_user.first_name or message.from_user.username or None
+
         try:
             await client.send_chat_action(chat_id, "typing")
         except Exception:
             pass
 
-        reply_text = await _call_groq(history, text)
+        reply_text = await _call_groq(history, text, user_name)
 
         if not reply_text:
             logger.warning(f"[Chatbot] Groq returned None for chat {chat_id} | msg={text[:50]!r}")

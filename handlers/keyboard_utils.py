@@ -55,7 +55,7 @@ def get_main_menu_keyboard(lang_dict: dict):
     )
     builder.button(
         text=get_text_from_dict(lang_dict, "B_UPDATES") or "𝖴𝗉𝖽𝖺𝗍𝖾𝗌",
-        url="https://t.me/bot_updates_Smr"
+        url="https://t.me/Kafka_Updates"
     )
 
     builder.adjust(1, 1, 1, 2)

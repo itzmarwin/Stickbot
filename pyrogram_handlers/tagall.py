@@ -237,7 +237,7 @@ async def setup_tagall_handlers(client: Client):
         finally:
             active_tagall[chat_id] = False
             if not stopped_manually:
-                await client.send_message(chat_id, "𝖳𝖺𝗀𝖺𝗅𝗅 𝖤𝗇𝖽𝖾𝖽")
+                await client.send_message(chat_id, "𝖳𝖺𝗀𝖺𝗅𝗅 𝖢𝗈𝗆𝗉𝗅𝖾𝗍𝖾𝖽\n@Kafka_Updates")
 
 
     @client.on_message(cmd(["uall", "utagall", "utag"]) & filters.group)
@@ -355,7 +355,7 @@ async def setup_tagall_handlers(client: Client):
         finally:
             active_tagall[chat_id] = False
             if not stopped_manually:
-                await client.send_message(chat_id, "𝖳𝖺𝗀𝖺𝗅𝗅 𝖤𝗇𝖽𝖾𝖽")
+                await client.send_message(chat_id, "𝖳𝖺𝗀𝖺𝗅𝗅 𝖢𝗈𝗆𝗉𝗅𝖾𝗍𝖾𝖽\n@Kafka_Updates")
 
 
     @client.on_message(cmd("call") & filters.group)
@@ -474,7 +474,7 @@ async def setup_tagall_handlers(client: Client):
         finally:
             active_tagall[chat_id] = False
             if not stopped_manually:
-                await client.send_message(chat_id, "𝖳𝖺𝗀𝖺𝗅𝗅 𝖤𝗇𝖽𝖾𝖽")
+                await client.send_message(chat_id, "𝖳𝖺𝗀𝖺𝗅𝗅 𝖢𝗈𝗆𝗉𝗅𝖾𝗍𝖾𝖽\n@Kafka_Updates")
 
 
     @client.on_message(cmd(["stop", "cancel"]) & filters.group)

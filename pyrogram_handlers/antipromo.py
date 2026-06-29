@@ -1,5 +1,6 @@
 import re
 import logging
+import asyncio  
 from typing import Set, Optional, Dict
 
 from pyrogram import Client, filters
@@ -147,6 +148,7 @@ async def setup_antipromo_handlers(client: Client):
             return
 
         try:
+            await asyncio.sleep(1)  
             await message.delete()
             logger.info(
                 f"[AntiPromo] Deleted | chat={chat_id} "

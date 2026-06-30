@@ -28,7 +28,7 @@ COLOR_MAP = {
 
 
 class QuotlyTelethon:
-    _API = "https://bot.lyo.su/quote/generate"
+    _API = "https://quote.yuri.ly/generate"
     _entities = {
         types.MessageEntityPhone: "phone_number",
         types.MessageEntityMention: "mention",

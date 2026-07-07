@@ -19,6 +19,7 @@ from handlers.keyboard_utils import (
     get_back_to_extra_keyboard,
     get_back_to_main_keyboard,
     get_group_help_keyboard,
+    get_language_selection_keyboard,
     safe_edit_message
 )
 
@@ -26,16 +27,6 @@ logger = logging.getLogger(__name__)
 router = Router()
 
 _started_users: set = set()
-
-
-def get_language_selection_keyboard():
-    from aiogram.utils.keyboard import InlineKeyboardBuilder
-    builder = InlineKeyboardBuilder()
-    builder.button(text="🇬🇧 English", callback_data="set_lang:en")
-    builder.button(text="🇷🇺 Русский", callback_data="set_lang:rus")
-    builder.button(text="🇲🇲 မြန်မာ", callback_data="set_lang:bur")
-    builder.adjust(1)
-    return builder.as_markup()
 
 
 async def _log_new_user(bot, user):

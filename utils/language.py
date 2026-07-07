@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 _template_cache: Dict[str, Dict[str, str]] = {}
 
-SUPPORTED_LANGUAGES = ["en", "rus", "bur"]
+SUPPORTED_LANGUAGES = ["en", "rus", "bur", "kaz"]
 DEFAULT_LANGUAGE    = "en"
 
 

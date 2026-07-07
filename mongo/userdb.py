@@ -114,7 +114,7 @@ async def get_user_language(user_id: int) -> str:
 
 async def set_user_language(user_id: int, language: str) -> bool:
     try:
-        if language not in ["en", "rus", "bur"]:
+        if language not in ["en", "rus", "bur", "kaz"]:
             language = "en"
         await _db.users.update_one(
             {"user_id": user_id},
@@ -155,7 +155,7 @@ async def set_group_language(chat_id: int, language: str) -> bool:
     Updates served_chats collection — same collection, just adds language field.
     """
     try:
-        if language not in ["en", "rus", "bur"]:
+        if language not in ["en", "rus", "bur", "kaz"]:
             language = "en"
         await _db.served_chats.update_one(
             {"chat_id": chat_id},

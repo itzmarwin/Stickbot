@@ -157,6 +157,34 @@ def get_group_help_keyboard(lang_dict: dict):
     return builder.as_markup()
 
 
+# ─────────────────────────────────────────────
+# Language selection keyboards — COMMON
+# Pehle language.py (router) aur start.py dono me
+# alag-alag duplicate the, ab yahi single source hai.
+# In dono ko lang_dict ki zaroorat nahi — buttons
+# khud hi language names hain, translation se nahi aate.
+# ─────────────────────────────────────────────
+
+def get_language_selection_keyboard():
+    builder = InlineKeyboardBuilder()
+    builder.button(text="🇬🇧 English", callback_data="set_lang:en")
+    builder.button(text="🇷🇺 Русский", callback_data="set_lang:rus")
+    builder.button(text="🇲🇲 မြန်မာ",  callback_data="set_lang:bur")
+    builder.button(text="🇰🇿 Қазақша", callback_data="set_lang:kaz")
+    builder.adjust(1)
+    return builder.as_markup()
+
+
+def get_group_language_selection_keyboard():
+    builder = InlineKeyboardBuilder()
+    builder.button(text="🇬🇧 English", callback_data="set_group_lang:en")
+    builder.button(text="🇷🇺 Русский", callback_data="set_group_lang:rus")
+    builder.button(text="🇲🇲 မြန်မာ",  callback_data="set_group_lang:bur")
+    builder.button(text="🇰🇿 Қазақша", callback_data="set_group_lang:kaz")
+    builder.adjust(1)
+    return builder.as_markup()
+
+
 async def safe_edit_message(callback: CallbackQuery, text: str, reply_markup=None):
     if not text:
         await callback.answer("Something went wrong, please try again.", show_alert=True)

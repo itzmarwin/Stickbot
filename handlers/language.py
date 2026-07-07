@@ -2,32 +2,17 @@ import logging
 from aiogram import Router, F
 from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery
-from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from mongo.userdb import set_user_language, set_group_language
 from pyrogram_handlers.caching import get_admin_permissions
 from utils.language import get_lang_dict, get_text_from_dict, get_chat_lang_dict
+from handlers.keyboard_utils import (
+    get_language_selection_keyboard,
+    get_group_language_selection_keyboard
+)
 
 logger = logging.getLogger(__name__)
 router = Router()
-
-
-def get_language_selection_keyboard():
-    builder = InlineKeyboardBuilder()
-    builder.button(text="🇬🇧 English", callback_data="set_lang:en")
-    builder.button(text="🇷🇺 Русский", callback_data="set_lang:rus")
-    builder.button(text="🇲🇲 မြန်မာ",  callback_data="set_lang:bur")
-    builder.adjust(1)
-    return builder.as_markup()
-
-
-def get_group_language_selection_keyboard():
-    builder = InlineKeyboardBuilder()
-    builder.button(text="🇬🇧 English", callback_data="set_group_lang:en")
-    builder.button(text="🇷🇺 Русский", callback_data="set_group_lang:rus")
-    builder.button(text="🇲🇲 မြန်မာ",  callback_data="set_group_lang:bur")
-    builder.adjust(1)
-    return builder.as_markup()
 
 
 # ─── Private /lang ────────────────────────────────────────────────────────────
@@ -45,7 +30,7 @@ async def set_language_callback(callback: CallbackQuery):
     user_id  = callback.from_user.id
     language = callback.data.split(":")[1]
 
-    if language not in ["en", "rus", "bur"]:
+    if language not in ["en", "rus", "bur", "kaz"]:
         await callback.answer("Invalid language!", show_alert=True)
         return
 
@@ -128,7 +113,7 @@ async def set_group_language_callback(callback: CallbackQuery):
             await callback.answer("Only admins can change group language!", show_alert=True)
             return
 
-    if language not in ["en", "rus", "bur"]:
+    if language not in ["en", "rus", "bur", "kaz"]:
         await callback.answer("Invalid language!", show_alert=True)
         return
 
@@ -138,7 +123,12 @@ async def set_group_language_callback(callback: CallbackQuery):
         return
 
     lang      = await get_chat_lang_dict(chat_id)
-    lang_names = {"en": "English 🇬🇧", "rus": "Русский 🇷🇺", "bur": "မြန်မာ 🇲🇲"}
+    lang_names = {
+        "en": "English 🇬🇧",
+        "rus": "Русский 🇷🇺",
+        "bur": "မြန်မာ 🇲🇲",
+        "kaz": "Қазақша 🇰🇿"
+    }
 
     await callback.message.edit_text(
         lang.get("group_lang_changed", "Group language changed to") + f" <b>{lang_names.get(language, language)}</b>"

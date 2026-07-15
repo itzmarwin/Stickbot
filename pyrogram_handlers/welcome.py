@@ -31,7 +31,7 @@ from mongo.managementdb import (
 
 DEFAULT_WELCOME_TEXT = (
     ' Welcome {MENTION}! '
-    'Hope you have a great time here <emoji id="5447432232698389583">👋</emoji> '
+    'Hope you have a great time here <emoji-id="5447432232698389583">👋</emoji> '
 )
 
 FILLING_MAP = {

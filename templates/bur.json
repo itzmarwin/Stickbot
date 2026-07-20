@@ -347,5 +347,7 @@
     "info_status_admin": "𝖠𝖽𝗆𝗂𝗇𝗂𝗌𝗍𝗋𝖺𝗍𝗈𝗋",
     "info_status_member": "𝖬𝖾𝗆𝖻𝖾𝗋",
     "info_status_not_in_chat": "𝖭𝗈𝗍 𝗂𝗇 𝗍𝗁𝗂𝗌 𝖼𝗁𝖺𝗍",
-    "info_deleted_account": "𝖣𝖾𝗅𝖾𝗍𝖾𝖽 𝖠𝖼𝖼𝗈𝗎𝗇𝗍"
+    "info_deleted_account": "𝖣𝖾𝗅𝖾𝗍𝖾𝖽 𝖠𝖼𝖼𝗈𝗎𝗇𝗍",
+
+    "promo_removed": "🚫 {user}၊ ဒီအုပ်စုထဲမှာ ကြော်ငြာခွင့်မပြုပါ။"
 }

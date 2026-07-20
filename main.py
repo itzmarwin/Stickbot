@@ -45,7 +45,7 @@ from pyrogram_handlers.caching import setup_cache_handlers
 from pyrogram_handlers.antipromo import setup_antipromo_handlers
 from pyrogram_handlers.info import setup_info_handlers
 from pyrogram_handlers.chatbot import setup_chatbot_handlers
-
+from pyrogram_handlers.promo import setup_promo_handlers
 
 logging.basicConfig(
     level=logging.INFO,

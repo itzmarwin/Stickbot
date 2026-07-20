@@ -348,5 +348,7 @@
     "info_status_admin": "Администратор",
     "info_status_member": "Участник",
     "info_status_not_in_chat": "Не в этом чате",
-    "info_deleted_account": "Удалённый аккаунт"
+    "info_deleted_account": "Удалённый аккаунт",
+
+    "promo_removed": "🚫 {user}, реклама в этой группе запрещена."
 }

@@ -14,6 +14,7 @@ from mongo.stickerdb import init_stickerdb, create_indexes as create_sticker_ind
 from mongo.managementdb import init_managementdb, create_indexes as create_management_indexes
 from mongo.locksdb import init_locksdb, create_indexes as create_locks_indexes
 from mongo.antipromo_db import init_antipromo_db, create_indexes as create_antipromo_indexes
+from mongo.promo_db import init_promo_db, create_indexes as create_promo_indexes
 from mongo.chatbotdb import init_chatbotdb, create_indexes as create_chatbot_indexes
 
 from handlers import start, misc, logger

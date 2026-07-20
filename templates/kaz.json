@@ -358,5 +358,7 @@
     "info_status_admin": "Әкімші",
     "info_status_member": "Мүше",
     "info_status_not_in_chat": "Бұл чатта жоқ",
-    "info_deleted_account": "Жойылған аккаунт"
+    "info_deleted_account": "Жойылған аккаунт",
+
+    "promo_removed": "🚫 {user}, бұл топта жарнама рұқсат етілмеген."
 }

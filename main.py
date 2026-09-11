@@ -13,8 +13,7 @@ from mongo.userdb import init_userdb, create_indexes as create_user_indexes
 from mongo.stickerdb import init_stickerdb, create_indexes as create_sticker_indexes
 from mongo.managementdb import init_managementdb, create_indexes as create_management_indexes
 from mongo.locksdb import init_locksdb, create_indexes as create_locks_indexes
-from mongo.antipromo_db import init_antipromo_db, create_indexes as create_antipromo_indexes
-from mongo.promo_db import init_promo_db, create_indexes as create_promo_indexes
+from mongo.antipromo_db import init_antipromo_db, init_promo_db, create_indexes as create_antipromo_indexes
 from mongo.chatbotdb import init_chatbotdb, create_indexes as create_chatbot_indexes
 
 from handlers import start, misc, logger
@@ -42,10 +41,9 @@ from pyrogram_handlers.warns import setup_warn_handlers
 from pyrogram_handlers.mute import setup_mute_handlers
 from pyrogram_handlers.locks import setup_locks_handlers
 from pyrogram_handlers.caching import setup_cache_handlers
-from pyrogram_handlers.antipromo import setup_antipromo_handlers
+from pyrogram_handlers.antipromo import setup_antipromo_handlers, setup_promo_handlers
 from pyrogram_handlers.info import setup_info_handlers
 from pyrogram_handlers.chatbot import setup_chatbot_handlers
-from pyrogram_handlers.promo import setup_promo_handlers
 
 logging.basicConfig(
     level=logging.INFO,
@@ -97,11 +95,10 @@ async def init_databases():
     await create_management_indexes()
     await create_locks_indexes()
     await create_antipromo_indexes()
-    await create_promo_indexes()
     await create_chatbot_indexes()
 
-    logging.info("✅ Database initialized successfully")
-    logging.info(f"✅ Connected to: {DATABASE_NAME}")
+    logging.info("Database initialized successfully")
+    logging.info(f"Connected to: {DATABASE_NAME}")
 
 
 async def close_databases():
@@ -109,7 +106,7 @@ async def close_databases():
     if mongo_client:
         logging.info("Closing MongoDB connection...")
         mongo_client.close()
-        logging.info("✅ MongoDB connection closed")
+        logging.info("MongoDB connection closed")
 
 
 async def setup_pyrogram():
@@ -160,7 +157,7 @@ async def stop_pyrogram():
 
 async def send_startup_notification(bot: Bot):
     if not LOG_GROUP_ID or LOG_GROUP_ID == 0:
-        logging.warning("⚠️ LOG_GROUP_ID not configured, skipping startup notification")
+        logging.warning("LOG_GROUP_ID not configured, skipping startup notification")
         return
 
     try:
@@ -180,24 +177,21 @@ async def send_startup_notification(bot: Bot):
             parse_mode=ParseMode.HTML
         )
 
-        logging.info(f"✅ Startup notification sent to LOG_GROUP_ID: {LOG_GROUP_ID}")
+        logging.info(f"Startup notification sent to LOG_GROUP_ID: {LOG_GROUP_ID}")
 
     except Exception as e:
-        logging.error(f"❌ Failed to send startup notification: {e}")
+        logging.error(f"Failed to send startup notification: {e}")
 
 
 async def main():
     try:
         logging.info("Initializing database...")
         await init_databases()
-
-        # Templates ko explicitly load karo — import pe hota hai
-        # lekin yahan force karke confirm karte hain
         from utils.language import load_template, SUPPORTED_LANGUAGES, _template_cache
         for lang_code in SUPPORTED_LANGUAGES:
             load_template(lang_code)
         loaded = list(_template_cache.keys())
-        logging.info(f"✅ Language templates loaded: {loaded}")
+        logging.info(f"Language templates loaded: {loaded}")
 
         global aiogram_bot
         aiogram_bot = Bot(
@@ -226,15 +220,15 @@ async def main():
 
         await telethon_client.start(bot_token=BOT_TOKEN)
         await setup_telethon_handlers(telethon_client)
-        logging.info("✅ Telethon client started")
+        logging.info("Telethon client started")
 
         await setup_pyrogram()
-        logging.info("✅ Pyrogram client started")
+        logging.info("Pyrogram client started")
 
         bot_info = await aiogram_bot.get_me()
         logging.info(f"🤖 Bot started: @{bot_info.username}")
         logging.info("=" * 60)
-        logging.info("✅ ALL SYSTEMS OPERATIONAL")
+        logging.info("ALL SYSTEMS OPERATIONAL")
         logging.info("=" * 60)
 
         await send_startup_notification(aiogram_bot)
@@ -264,7 +258,7 @@ async def main():
         await close_databases()
 
         logging.info("=" * 60)
-        logging.info("✅ SHUTDOWN COMPLETE!")
+        logging.info("SHUTDOWN COMPLETE!")
         logging.info("=" * 60)
 
 
